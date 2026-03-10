@@ -124,6 +124,10 @@ uv sync
 
 ---
 
+## 🚀 Production Deployment (Render/Railway)
+1. Use the **Build Command**: `pip install -r requirements.txt`
+2. Use the **Start Command**: `python agent.py start`
+
 
 ---
 

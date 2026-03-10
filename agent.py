@@ -100,18 +100,24 @@ server = AgentServer()
 async def my_agent(ctx: agents.JobContext):
     await ctx.connect()
     
-    # 1. Get Config (Strictly from metadata passed from frontend localStorage)
+    # 1. Wait for Config (Metadata can take a moment to propagate)
     config = None
-    for p in ctx.room.remote_participants.values():
-        if p.metadata:
-            try:
-                config = json.loads(p.metadata)
-                print(f"[SESSION] ✓ Config from participant metadata")
-                break
-            except: pass
+    print("[SESSION] Waiting for participant metadata...")
+    
+    for _ in range(10): # Try for 10 seconds
+        for p in ctx.room.remote_participants.values():
+            if p.metadata:
+                try:
+                    config = json.loads(p.metadata)
+                    if config.get("openclawUrl"):
+                        print(f"[SESSION] ✓ Config found for participant {p.identity}")
+                        break
+                except: pass
+        if config: break
+        await asyncio.sleep(1)
     
     if not config:
-        print(f"[SESSION] ✗ No config found in participant metadata")
+        print(f"[SESSION] ✗ No config found after timeout. Participants: {[p.identity for p in ctx.room.remote_participants.values()]}")
         return
 
     url    = config.get("openclawUrl", "")
