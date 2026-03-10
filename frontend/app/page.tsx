@@ -25,9 +25,9 @@ import { getUser } from "@/lib/auth";
 
 // ─── Session Config Defaults ────────────────────────────────────────────────
 const DEFAULTS = {
-  openclawUrl:  "https://pertinacious-speechlessly-lidia.ngrok-free.dev",
+  openclawUrl:  "",
   gatewayToken: "",
-  sessionKey:   "agent:main:bot",
+  sessionKey:   "",
 };
 
 // ─── Icons ──────────────────────────────────────────────────────────────────
@@ -293,7 +293,7 @@ function SessionConfigForm({
 
         {/* Form Card */}
         <div className="bg-[#111111] border border-[#1f1f1f] rounded-2xl p-6 flex flex-col gap-5 shadow-2xl">
-          {field("openclawUrl",  "OpenClaw URL",     <LinkIcon />,   "https://your-ngrok-url.ngrok-free.dev")}
+          {field("openclawUrl",  "OpenClaw URL",     <LinkIcon />,   "http://localhost:18789")}
           {field("gatewayToken", "Gateway Token",    <KeyIcon />,    "Enter your gateway token", "password")}
           {field("sessionKey",   "Session Key",      <HashIcon2 />,  "agent:main:your-bot")}
 
