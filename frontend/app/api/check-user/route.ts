@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Email is required." }, { status: 400 });
     }
 
-    const verified = isVerifiedUser(email.toLowerCase());
+    const verified = await isVerifiedUser(email.toLowerCase());
 
     if (!verified) {
       return NextResponse.json(

@@ -3,14 +3,20 @@ import json
 import requests
 import asyncio
 import threading
-import glob
 from flask import Flask, request, Response
 from dotenv import load_dotenv
 from livekit import agents
 from livekit.agents import Agent, AgentServer, AgentSession
 from livekit.plugins import elevenlabs, openai, trugen
+from supabase import create_client, Client
 
 load_dotenv()
+
+# --- SUPABASE CONFIG ---
+SUPABASE_URL = os.getenv("NEXT_PUBLIC_SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- OPENCLAW SESSION PROXY (Stateless / Mega-Token) ---
 app = Flask(__name__)
@@ -90,21 +96,32 @@ class MyAgent(Agent):
 
 server = AgentServer()
 
-def get_latest_config():
-    """Fall back to the latest user configuration file from the data folder."""
-    config_dir = r"c:\Users\homeu\clawdface\frontend\data\user-configs"
-    files = glob.glob(os.path.join(config_dir, "*.json"))
-    if not files:
-        return None
-    latest_file = max(files, key=os.path.getmtime)
-    with open(latest_file, "r") as f:
-        return json.load(f)
+def get_latest_config_from_db():
+    """Fetch the most recently updated user configuration from Supabase."""
+    try:
+        response = supabase.from_("user_configs") \
+            .select("*") \
+            .order("email", desc=True) \
+            .limit(1) \
+            .execute()
+        
+        if response.data:
+            db_config = response.data[0]
+            # Map DB fields to agent expected names
+            return {
+                "openclawUrl": db_config.get("openclaw_url"),
+                "gatewayToken": db_config.get("gateway_token"),
+                "sessionKey": db_config.get("session_key")
+            }
+    except Exception as e:
+        print(f"[DB] Error fetching config: {e}")
+    return None
 
 @server.rtc_session()
 async def my_agent(ctx: agents.JobContext):
     await ctx.connect()
     
-    # 1. Get Config (Try metadata immediately, then fallback to local file)
+    # 1. Get Config (Try metadata immediately, then fallback to DB)
     config = None
     for p in ctx.room.remote_participants.values():
         if p.metadata:
@@ -115,16 +132,20 @@ async def my_agent(ctx: agents.JobContext):
             except: pass
     
     if not config:
-        config = get_latest_config()
+        config = get_latest_config_from_db()
         if config:
-            print(f"[SESSION] ✓ Config from latest local file")
+            print(f"[SESSION] ✓ Config from Supabase DB")
         else:
-            print(f"[SESSION] ✗ No config found (metadata or file)")
+            print(f"[SESSION] ✗ No config found (metadata or DB)")
             return
 
     url    = config.get("openclawUrl", "")
     token  = config.get("gatewayToken", "")
     key    = config.get("sessionKey", "")
+
+    if not url or not token or not key:
+        print(f"[SESSION] ✗ Incomplete config: {config}")
+        return
 
     # 2. MEGA-TOKEN: Pack everything into the api_key for the proxy
     mega_token = f"{url}|{token}|{key}"

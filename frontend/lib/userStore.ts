@@ -1,58 +1,40 @@
+import { supabase } from "./supabase";
+
 /**
- * Persistent verified-users store backed by a JSON file on disk.
- * Survives server restarts. In production, replace with a database.
+ * Persistent verified-users store backed by Supabase.
+ * Survives server restarts and works in serverless environments.
  */
-import fs from "fs";
-import path from "path";
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const USERS_FILE = path.join(DATA_DIR, "verified-users.json");
+export async function isVerifiedUser(email: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from("verified_users")
+      .select("email")
+      .eq("email", email.toLowerCase())
+      .single();
 
-function ensureDir() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+    if (error && error.code !== "PGRST116") { // PGRST116 is "no rows found"
+      console.error("[userStore] Error checking verification:", error);
+      return false;
+    }
+
+    return !!data;
+  } catch (e) {
+    console.error("[userStore] Unexpected error in isVerifiedUser:", e);
+    return false;
   }
 }
 
-function loadUsers(): Set<string> {
+export async function registerVerifiedUser(email: string): Promise<void> {
   try {
-    ensureDir();
-    if (fs.existsSync(USERS_FILE)) {
-      const raw = fs.readFileSync(USERS_FILE, "utf-8");
-      const arr = JSON.parse(raw);
-      if (Array.isArray(arr)) return new Set<string>(arr);
+    const { error } = await supabase
+      .from("verified_users")
+      .upsert({ email: email.toLowerCase() });
+
+    if (error) {
+      console.error("[userStore] Error registering user:", error);
     }
   } catch (e) {
-    console.error("[userStore] Failed to load users file:", e);
+    console.error("[userStore] Unexpected error in registerVerifiedUser:", e);
   }
-  return new Set<string>();
-}
-
-function saveUsers(users: Set<string>) {
-  try {
-    ensureDir();
-    fs.writeFileSync(USERS_FILE, JSON.stringify([...users], null, 2), "utf-8");
-  } catch (e) {
-    console.error("[userStore] Failed to save users file:", e);
-  }
-}
-
-// Keep an in-memory cache too for speed, backed by disk
-let _cache: Set<string> | null = null;
-
-function getStore(): Set<string> {
-  if (!_cache) {
-    _cache = loadUsers();
-  }
-  return _cache;
-}
-
-export function isVerifiedUser(email: string): boolean {
-  return getStore().has(email.toLowerCase());
-}
-
-export function registerVerifiedUser(email: string): void {
-  const store = getStore();
-  store.add(email.toLowerCase());
-  saveUsers(store); // persist immediately
 }

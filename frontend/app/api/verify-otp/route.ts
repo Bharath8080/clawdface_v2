@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
 
     // ✅ Valid — register this email as verified and clean up OTP
     otpStore.delete(key);
-    registerVerifiedUser(key);
+    await registerVerifiedUser(key);
 
     return NextResponse.json({ success: true, email: record.email });
   } catch (error) {
