@@ -50,9 +50,11 @@ def chat_proxy():
         headers = {
             "Authorization": f"Bearer {gate_token}",
             "x-openclaw-session-key": sess_key,
-            "x-openclaw-agent-id": "main"
+            "x-openclaw-agent-id": "main",
+            "ngrok-skip-browser-warning": "true"
         }
 
+        print(f"[PROXY] Sending request to {target_url}/v1/chat/completions")
         resp = requests.post(
             f"{target_url}/v1/chat/completions",
             headers=headers,
@@ -60,6 +62,7 @@ def chat_proxy():
             stream=True,
             timeout=30
         )
+        print(f"[PROXY] Response status: {resp.status_code}")
 
         def generate():
             for chunk in resp.iter_content(chunk_size=1024):
