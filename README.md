@@ -1,6 +1,6 @@
-# ClawdFace: Production-Grade Voice AI Platform
+# ClawdFace: Production-Grade Video AI Platform
 
-ClawdFace is a high-performance, real-time Voice AI platform built with Next.js and LiveKit. It features a unique **Stateless / No-DB Architecture**, making it infinitely scalable and easy to deploy on serverless platforms like Vercel without the overhead of external databases.
+ClawdFace is a high-performance, real-time Video AI platform built with Next.js and LiveKit. It features a unique **Stateless / No-DB Architecture**, making it infinitely scalable and easy to deploy on serverless platforms like Vercel without the overhead of external databases.
 
 ---
 
