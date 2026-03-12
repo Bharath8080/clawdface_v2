@@ -24,6 +24,7 @@ const GearIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="non
 const CardIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>;
 const SunIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>;
 const SignOutIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>;
+const UserIcon = () => <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>;
 
 function Tooltip({ label }: { label: string }) {
   return (
@@ -117,7 +118,7 @@ function ProfileDropdown({ user, initials, onClose }: { user: AuthUser; initials
   );
 }
 
-// ---- Main Sidebar ----
+// ─── Main Sidebar ─────────────────────────────────────────────────────────────
 export function Sidebar({
   activeSession, setActiveSession, isMobileMenuOpen, setIsMobileMenuOpen,
 }: {
@@ -179,6 +180,7 @@ export function Sidebar({
         <NavRow label="Doctor"    icon={<DoctorIcon />}   isActive={activeSession === "Doctor"}    onClick={() => handleNav("Doctor")} />
         <NavRow label="Logs"      icon={<LogsIcon />}     isActive={activeSession === "Logs"}      onClick={() => handleNav("Logs")} />
         <NavRow label="Missions"  icon={<MissionsIcon />} isActive={activeSession === "Missions"}  onClick={() => handleNav("Missions")} />
+        <NavRow label="Stock Avatars" icon={<UserIcon />}     isActive={activeSession === "Avatars"}   onClick={() => handleNav("Avatars")} />
 
         {/* Phone */}
         <button onClick={() => setPhoneOpen(!phoneOpen)}
@@ -253,6 +255,7 @@ export function Sidebar({
         <ColIconBtn label="Doctor"    icon={<DoctorIcon />}   isActive={activeSession === "Doctor"}    onClick={() => handleNav("Doctor")} />
         <ColIconBtn label="Logs"      icon={<LogsIcon />}     isActive={activeSession === "Logs"}      onClick={() => handleNav("Logs")} />
         <ColIconBtn label="Missions"  icon={<MissionsIcon />} isActive={activeSession === "Missions"}  onClick={() => handleNav("Missions")} />
+        <ColIconBtn label="Stock Avatars" icon={<UserIcon />}     isActive={activeSession === "Avatars"}   onClick={() => handleNav("Avatars")} />
         <ColIconBtn label="Phone"     icon={<PhoneIcon />}    isActive={activeSession === "Phone"}     onClick={() => handleNav("Phone")} />
         <ColIconBtn label="Security"  icon={<SecurityIcon />} isActive={activeSession === "Security"}  onClick={() => handleNav("Security")} />
       </nav>

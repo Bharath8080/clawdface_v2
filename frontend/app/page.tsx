@@ -28,7 +28,32 @@ const DEFAULTS = {
   openclawUrl:  "",
   gatewayToken: "",
   sessionKey:   "",
+  avatarId:     "",
 };
+
+// ─── Avatars ────────────────────────────────────────────────────────────────
+const AVATARS = [
+  { id: "182b03e8", name: "Kevin",    image: "/avatars/kevin.jpg" },
+  { id: "21ef04ad", name: "Jessica",  image: "/avatars/jessica.jpeg" },
+  { id: "17de03e4", name: "Cathy",    image: "/avatars/cathy.jpg" },
+  { id: "1928040f", name: "Sofia",    image: "/avatars/sofia.jpeg" },
+  { id: "c5b563de", name: "Lucy",     image: "/avatars/lucy.jpg" },
+  { id: "178303d3", name: "Kiara",    image: "/avatars/kiara.jpg" },
+  { id: "05a001fc", name: "Jason",    image: "/avatars/jason.jpg" },
+  { id: "be5b2ce0", name: "Sameer",   image: "/avatars/sameer.jpeg" },
+  { id: "0de70332", name: "Jennifer", image: "/avatars/jennifer.jpg" },
+  { id: "03ae0187", name: "Mike",     image: "/avatars/mike.jpg" },
+  { id: "1fa504ff", name: "Johnny",   image: "/avatars/johnny.jpg" },
+  { id: "7d881c1b", name: "Priya",    image: "/avatars/priya.jpg" },
+  { id: "178803d6", name: "Chloe",    image: "/avatars/chole.jpeg" },
+  { id: "1a640442", name: "Lisa",     image: "/avatars/lisa.png" },
+  { id: "0f160301", name: "Aman",     image: "/avatars/aman.jpg" },
+  { id: "057501e8", name: "Allie",    image: "/avatars/allie.jpg" },
+  { id: "05b401f3", name: "Misha",    image: "/avatars/misha.jpg" },
+  { id: "13550375", name: "Alex",     image: "/avatars/alex.png" },
+  { id: "48d778c9", name: "Amir",     image: "/avatars/amir.jpg" },
+  { id: "18c4043e", name: "Akbar",    image: "/avatars/akbar.jpg" },
+];
 
 // ─── Icons ──────────────────────────────────────────────────────────────────
 const LinkIcon = () => (
@@ -48,6 +73,16 @@ const HashIcon2 = () => (
     <line x1="10" x2="8" y1="3" y2="21"/><line x1="16" x2="14" y1="3" y2="21"/>
   </svg>
 );
+const UserIcon = ({ size = 15 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+  </svg>
+);
+const SmileIcon = ({ size = 15, className = "" }: { size?: number, className?: string }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>
+  </svg>
+);
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 export default function Page() {
@@ -55,6 +90,7 @@ export default function Page() {
   const [room] = useState(new Room());
   const [activeSession, setActiveSession] = useState("My Bot");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
 
   // Session config state
@@ -188,7 +224,10 @@ export default function Page() {
                 onConnectButtonClicked={onConnectButtonClicked}
                 config={config}
                 setConfig={setConfig}
+                onOpenPicker={() => setIsAvatarPickerOpen(true)}
               />
+            ) : activeSession === "Avatars" ? (
+              <AvatarGallery />
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-neutral-400 bg-[#050505] p-6">
                 <div className="text-center space-y-4 max-w-md p-8 border border-white/5 rounded-2xl bg-[#0A0A0A] shadow-2xl relative overflow-hidden">
@@ -214,6 +253,12 @@ export default function Page() {
           </RoomContext.Provider>
         </div>
       </div>
+      <AvatarPickerModal
+        isOpen={isAvatarPickerOpen}
+        onClose={() => setIsAvatarPickerOpen(false)}
+        currentId={config.avatarId}
+        onSelect={(id) => setConfig({ ...config, avatarId: id })}
+      />
     </main>
   );
 }
@@ -224,13 +269,16 @@ function SessionConfigForm({
   setConfig,
   onConnect,
   isConnecting,
+  onOpenPicker,
 }: {
   config: typeof DEFAULTS;
   setConfig: (c: typeof DEFAULTS) => void;
   onConnect: () => void;
   isConnecting: boolean;
+  onOpenPicker: () => void;
 }) {
   const [showToken, setShowToken] = useState(false);
+  const selectedAvatar = AVATARS.find(a => a.id === config.avatarId);
 
   const field = (
     key: keyof typeof DEFAULTS,
@@ -309,6 +357,43 @@ function SessionConfigForm({
           {field("gatewayToken", "Gateway Token",    <KeyIcon />,    "Enter your gateway token", "password")}
           {field("sessionKey",   "Session Key",      <HashIcon2 />,  "bot-name", "text", "agent:main:")}
 
+          {/* Avatar Selection */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#6b7280] flex items-center gap-1.5">
+              <span className="text-[#9ca3af]"><UserIcon size={14} /></span>
+              Avatar <span className="text-[#00E3AA] ml-0.5">*</span>
+            </label>
+            <button
+              onClick={onOpenPicker}
+              className="group relative w-full aspect-video rounded-xl bg-[#0d0d0d] border-2 border-dashed border-[#242424] hover:border-[#00E3AA]/40 transition-all duration-300 overflow-hidden flex flex-col items-center justify-center gap-3"
+            >
+              {selectedAvatar ? (
+                <>
+                  <Image 
+                    src={selectedAvatar.image} 
+                    alt={selectedAvatar.name} 
+                    fill 
+                    className="object-cover opacity-60 group-hover:opacity-80 transition-opacity"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                  <div className="relative z-10 flex flex-col items-center gap-1">
+                    <span className="text-white font-bold text-sm tracking-tight">{selectedAvatar.name}</span>
+                    <span className="text-[11px] text-[#00E3AA] font-medium uppercase tracking-wider">Change Avatar</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-[#4b5563] group-hover:text-[#00E3AA] group-hover:bg-[#00E3AA]/10 transition-colors">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                  </div>
+                  <span className="text-[13px] font-bold text-[#4b5563] group-hover:text-white transition-colors">Choose From Existing Avatars</span>
+                </>
+              )}
+            </button>
+          </div>
+
           {/* Connect Button */}
           <button
             onClick={onConnect}
@@ -347,15 +432,198 @@ function SessionConfigForm({
   );
 }
 
+// ─── Avatar Picker Modal ─────────────────────────────────────────────────────
+function AvatarPickerModal({
+  currentId,
+  isOpen,
+  onClose,
+  onSelect
+}: {
+  currentId: string;
+  isOpen: boolean;
+  onClose: () => void;
+  onSelect: (id: string) => void;
+}) {
+  const [tempId, setTempId] = useState(currentId);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6">
+      <div 
+        className="absolute inset-0 bg-black/90 backdrop-blur-md" 
+        onClick={onClose} 
+      />
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="w-full max-w-5xl h-[85vh] bg-[#0a0a0a] rounded-3xl border border-white/5 shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col relative"
+      >
+        {/* Header */}
+        <div className="px-6 py-5 border-b border-white/5 flex items-center justify-between bg-[#111111]/50">
+          <div>
+            <h2 className="text-xl font-bold text-white">Add Avatar</h2>
+            <p className="text-[#6b7280] text-xs mt-0.5">Select an identity for your interaction</p>
+          </div>
+          <button 
+            onClick={onClose}
+            className="p-2 hover:bg-white/5 rounded-full text-[#6b7280] hover:text-white transition-colors"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {AVATARS.map((avatar) => (
+              <button
+                key={avatar.id}
+                onClick={() => setTempId(avatar.id)}
+                className={`group relative rounded-2xl transition-all duration-300 overflow-hidden ${
+                  tempId === avatar.id 
+                    ? "ring-2 ring-[#00E3AA] shadow-[0_0_30px_rgba(0,227,170,0.2)]" 
+                    : "border border-white/5 hover:border-white/10"
+                }`}
+              >
+                <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-white/5 shadow-inner">
+                  <Image 
+                    src={avatar.image} 
+                    alt={avatar.name} 
+                    fill 
+                    className={`object-cover transition-transform duration-500 ${
+                      tempId === avatar.id ? "scale-105" : "group-hover:scale-105"
+                    }`} 
+                  />
+                  
+                  {/* Labels as in image overlay */}
+                  <div className="absolute top-2 left-2">
+                    <span className="px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md text-[11px] text-white font-semibold border border-white/10 shadow-lg">
+                      {avatar.name}
+                    </span>
+                  </div>
+                  
+                  <div className="absolute top-2 right-2">
+                    <span className="px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md text-[11px] text-white/80 font-medium border border-white/10 shadow-lg">
+                      Huma-2
+                    </span>
+                  </div>
+                  
+                  <div className="absolute bottom-3 left-3">
+                    <span className="text-[10px] text-white font-bold uppercase tracking-wider">PRO</span>
+                  </div>
+                  
+                  <div className="absolute bottom-3 right-3">
+                    <span className="text-[10px] text-white/70 font-mono">id:{avatar.id}</span>
+                  </div>
+
+                  {tempId === avatar.id && (
+                    <div className="absolute inset-0 bg-[#00E3AA]/10 flex items-center justify-center backdrop-blur-[1px]">
+                      <div className="w-10 h-10 rounded-full bg-[#00E3AA] text-black flex items-center justify-center shadow-xl ring-4 ring-[#00E3AA]/20">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-5 border-t border-white/5 flex items-center justify-between bg-[#111111]/50">
+          <button 
+            onClick={onClose}
+            className="px-6 py-2.5 text-sm font-semibold text-[#9ca3af] hover:text-white transition-colors"
+          >
+            Cancel
+          </button>
+          <button 
+            onClick={() => {
+              onSelect(tempId);
+              onClose();
+            }}
+            className="px-8 py-2.5 rounded-xl bg-[#00E3AA] text-black font-bold text-sm tracking-wide shadow-lg hover:bg-[#00c994] transition-all"
+          >
+            Save Selection
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ─── Avatar Gallery ──────────────────────────────────────────────────────────
+function AvatarGallery() {
+  return (
+    <div className="absolute inset-0 overflow-y-auto p-6 md:p-10 custom-scrollbar bg-[#050505] z-10">
+      <div className="max-w-6xl mx-auto pb-20">
+        <header className="mb-10 text-center md:text-left">
+          <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
+            <SmileIcon size={32} className="text-[#00E3AA]" />
+            Stock Avatars
+          </h1>
+          <p className="text-[#6b7280] mt-2">Design your AI companions with advanced customization</p>
+        </header>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
+          {AVATARS.map((avatar) => (
+            <div
+              key={avatar.id}
+              className="group relative rounded-2xl transition-all duration-300 overflow-hidden border border-white/5 hover:border-white/10"
+            >
+              <div className="relative w-full aspect-video">
+                <Image 
+                  src={avatar.image} 
+                  alt={avatar.name} 
+                  fill 
+                  className="object-cover transition-transform duration-700 group-hover:scale-105" 
+                />
+                
+                {/* Labels as in image overlay */}
+                <div className="absolute top-2 left-2">
+                  <span className="px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md text-[11px] text-white font-semibold border border-white/10 shadow-lg">
+                    {avatar.name}
+                  </span>
+                </div>
+                
+                <div className="absolute top-2 right-2">
+                  <span className="px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md text-[11px] text-white/80 font-medium border border-white/10 shadow-lg">
+                    Huma-2
+                  </span>
+                </div>
+                
+                <div className="absolute bottom-3 left-3">
+                  <span className="text-[10px] text-white font-bold uppercase tracking-wider">PRO</span>
+                </div>
+                
+                <div className="absolute bottom-3 right-3">
+                  <span className="text-[10px] text-white/70 font-mono">id:{avatar.id}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Voice Assistant (manages disconnected/connected states) ─────────────────
 function SimpleVoiceAssistant({
   onConnectButtonClicked,
   config,
   setConfig,
+  onOpenPicker,
 }: {
   onConnectButtonClicked: () => void;
   config: typeof DEFAULTS;
   setConfig: (c: typeof DEFAULTS) => void;
+  onOpenPicker: () => void;
 }) {
   const { state: agentState } = useVoiceAssistant();
   const [isChatVisible, setIsChatVisible] = useState(false);
@@ -401,6 +669,7 @@ function SimpleVoiceAssistant({
             setConfig={setConfig}
             onConnect={handleConnect}
             isConnecting={isConnecting}
+            onOpenPicker={onOpenPicker}
           />
         ) : (
           <motion.div

@@ -27,6 +27,7 @@ async function handleConnection(config: {
   openclawUrl?: string;
   gatewayToken?: string;
   sessionKey?: string;
+  avatarId?: string;
 }) {
   try {
     if (!LIVEKIT_URL) throw new Error("LIVEKIT_URL is not defined");
@@ -41,6 +42,7 @@ async function handleConnection(config: {
       openclawUrl:  config.openclawUrl  || "",
       gatewayToken: config.gatewayToken || "",
       sessionKey:   config.sessionKey   || "",
+      avatarId:     config.avatarId     || "",
     });
 
     console.log(`[connection-details] Room: ${roomName}`);

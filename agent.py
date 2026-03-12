@@ -135,7 +135,13 @@ async def my_agent(ctx: agents.JobContext):
         ),
     )
 
-    avatar_id = os.getenv("TRUGEN_AVATAR_ID") or "1a640442"
+    avatar_id = config.get("avatarId") or os.getenv("TRUGEN_AVATAR_ID")
+    if not avatar_id:
+        # Fallback only if absolutely no ID is provided, using Lisa as a safe system default
+        avatar_id = "1a640442"
+    
+    print(f"[SESSION] Using Avatar ID: {avatar_id}")
+    
     trugen_avatar = trugen.AvatarSession(avatar_id=avatar_id)
     await trugen_avatar.start(session, room=ctx.room)
 
