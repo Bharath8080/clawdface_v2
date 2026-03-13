@@ -1,13 +1,20 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+// During build time on Vercel, these might be missing. 
+// We provide placeholders to prevent createClient from throwing an error.
+export const supabase = createClient(
+  supabaseUrl || 'https://placeholder.supabase.co', 
+  supabaseAnonKey || 'placeholder'
+);
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Supabase credentials missing. Persistent storage will be disabled.');
+  if (typeof window !== 'undefined') {
+    console.warn('Supabase credentials missing. Persistent storage will be disabled.');
+  }
 }
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export interface Bot {
   id: string;
