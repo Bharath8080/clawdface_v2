@@ -12,7 +12,6 @@ import {
   useVoiceAssistant,
   useRoomContext,
   RoomContext,
-  TranscriptionReceivedEvent,
 } from "@livekit/components-react";
 import useCombinedTranscriptions from "@/hooks/useCombinedTranscriptions";
 import { AnimatePresence, motion } from "framer-motion";
