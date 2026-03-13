@@ -10,17 +10,17 @@ ENV PYTHONUNBUFFERED=1
 # Create a non-privileged user
 ARG UID=10001
 RUN adduser \
-    --disabled-password \
-    --gecos "" \
-    --home "/app" \
-    --shell "/sbin/nologin" \
-    --uid "${UID}" \
-    appuser
+  --disabled-password \
+  --gecos "" \
+  --home "/app" \
+  --shell "/sbin/nologin" \
+  --uid "${UID}" \
+  appuser
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
-    gcc \
-    python3-dev \
+  gcc \
+  python3-dev \
   && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
