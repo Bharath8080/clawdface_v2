@@ -1,13 +1,14 @@
 # ClawdFace: Production-Grade Video AI Platform
 
-ClawdFace is a high-performance, real-time Video AI platform built with Next.js and LiveKit. It features a unique **Stateless / No-DB Architecture**, making it infinitely scalable and easy to deploy on serverless platforms without the overhead of external databases.
+ClawdFace is a high-performance, real-time Video AI platform built with Next.js and LiveKit. It features a robust **Hybrid Architecture with Drizzle ORM**, combining real-time scalability with persistent database management on Supabase.
 
 ---
 
 ## 🚀 Key Features
 
-- **Stateless Architecture**: No external database (Supabase/Postgres) required. Uses "Mega-Tokens" for 100% stateless agent configuration.
-- **Hybrid Storage**: Persistent user settings via `localStorage` (browser) with automated sync to local JSON files (`data/user-configs`) for development.
+- **Drizzle ORM Persistence**: Type-safe database management for user profiles, bots, and conversation history.
+- **Dynamic Voice Selection**: Automatically switches ElevenLabs voice IDs based on avatar gender (Male/Female).
+- **Client-Server Separation**: Uses Next.js Server Actions to protect database credentials and resolve environment-specific build issues.
 - **Production AI Stack**: Integrated with Deepgram (STT), OpenAI (LLM), ElevenLabs (TTS), and Trugen (Avatar).
 - **OpenClaw Integration**: First-class support for OpenClaw custom LLM providers with session persistence.
 - **Google Auth**: Secure, verified access using Google OAuth.
@@ -23,7 +24,7 @@ ClawdFace is a high-performance, real-time Video AI platform built with Next.js 
 | **Real-time** | LiveKit Cloud / @livekit/components-react |
 | **Google Auth**| @react-oauth/google (Implicit Flow + Profile Sync) |
 | **AI Agent** | Python 3.12+, livekit-agents framework |
-| **Persistence** | Browser `localStorage` + JSON File Sync (Hybrid) |
+| **Persistence** | Drizzle ORM + Supabase (Shared Pooler) |
 | **Verification** | Environment Variables (`VERIFIED_EMAILS`) |
 | **STT / TTS** | Deepgram Nova-2 / ElevenLabs Flash v2.5 |
 | **Avatar** | Trugen AI |
@@ -38,8 +39,8 @@ ClawdFace utilizes a **"Bridge"** pattern to connect decentralized configuration
 graph TD
     User((User)) -->|Browser| Frontend[Next.js App]
     Frontend -->|Auth| Google[Google OAuth]
-    Frontend -->|Settings| LS[(localStorage)]
-    Frontend -->|Sync| JSON[(JSON Files Archive)]
+    Frontend -->|DB Operations| SA[Server Actions]
+    SA -->|Drizzle| DB[(Supabase Postgres)]
     
     Frontend -->|Mega-Token| LK[LiveKit Cloud]
     LK -->|Metadata| Agent[Python Agent]
@@ -76,10 +77,14 @@ graph TD
 
 ### Frontend (.env.local)
 ```env
-NEXT_PUBLIC_LIVEKIT_URL=wss://your-project.livekit.cloud
+NEXT_PUBLIC_LIVEKIT_URL=wss://...
 LIVEKIT_API_KEY=...
 LIVEKIT_API_SECRET=...
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=...
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+DATABASE_URL=postgresql://...
+TRUGEN_API_KEY=...
 VERIFIED_EMAILS=yourname@gmail.com,other@domain.com
 ```
 

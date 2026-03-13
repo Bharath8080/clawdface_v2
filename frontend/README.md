@@ -4,13 +4,13 @@ This directory contains the production-grade frontend for the ClawdFace platform
 
 ---
 
-## 🏗️ Core Architecture: Hybrid Storage
+## 🏗️ Core Architecture: Drizzle ORM & Server Actions
 
-To achieve a "No-DB" deployment, the frontend implements a **Hybrid Storage System**:
+ClawdFace now uses **Drizzle ORM** for persistent state management, ensuring data integrity for profiles, bots, and conversation history.
 
-1.  **localStorage (Primary)**: Stores user configuration (OpenClaw URL, tokens) directly in the browser. This ensures that when deployed to serverless environments (which may have a read-only filesystem), user settings remain persistent for the user across sessions.
-2.  **API Sync (Secondary)**: Every time a session starts, the frontend calls the `/api/user-config` endpoint. In local development, this endpoint saves the settings to `data/user-configs/[email].json` for visibility and archiving.
-3.  **Bootstrap Logic**: On initial load, if `localStorage` is empty, the app attempts to "bootstrap" by fetching the user's last saved config from the server-side JSON archive.
+1.  **Server Actions (Primary)**: All database operations are encapsulated in `lib/database-actions.ts`. These are Next.js Server Actions (`"use server"`) that execute on the server, keeping your Supabase credentials secure and away from the browser.
+2.  **Browser-Safe Client**: A dedicated Supabase client in `lib/supabase-client.ts` is used for client-side authentication while remaining isolated from server-only logic.
+3.  **Supabase Shared Pooler**: Optimized database connections via the Supabase Shared Pooler, enabling efficient scaling for serverless deployments.
 
 ---
 
@@ -37,10 +37,12 @@ To achieve a "No-DB" deployment, the frontend implements a **Hybrid Storage Syst
 
 | Path | Purpose |
 | :--- | :--- |
-| `app/api/` | Serverless endpoints (Connection details, metadata sync, OTP). |
+| `app/api/` | Serverless endpoints (Connection details, OTP logic). |
+| `drizzle/` | **[NEW]** Drizzle schema and client initialization. |
 | `components/` | Reusable React components (Sidebar, ControlBar, Visualizers). |
-| `lib/` | Core utilities: `auth.ts`, `userStore.ts` (verification logic). |
-| `data/` | Local JSON storage for development. |
+| `lib/database-actions.ts` | **[NEW]** Server-side database operations. |
+| `lib/supabase-client.ts` | **[NEW]** Browser-safe Supabase client. |
+| `lib/auth.ts` | Client-side auth utilities and local storage management. |
 | `public/` | Assets and brand identifiers. |
 
 ---

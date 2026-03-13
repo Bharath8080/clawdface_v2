@@ -44,9 +44,8 @@ ClawdFace includes an internal **Flask Proxy** running inside the agent process 
 
 The agent integrates the following best-in-class providers:
 
-- **STT**: Deepgram Nova-3 (via `deepgram/nova-3`).
-- **LLM**: Custom OpenAI compatible provider (OpenClaw) via the stateless proxy.
-- **TTS**: ElevenLabs (model `eleven_flash_v2_5`) with specific voice tuning.
+- **TTS**: ElevenLabs (model `eleven_flash_v2_5`) with **Dynamic Voice Selection**.
+- **Voice Logic**: The agent identifies the user's selected avatar and switches the ElevenLabs voice ID based on gender (e.g., Male: `CwhRBWXzGAHq8TQ4Fs17`, Female: `FGY2WhTYpPnrIDTdsKH5`).
 - **Avatar**: Trugen AI (real-time video avatar generation).
 
 ---
@@ -61,8 +60,13 @@ In dev mode, the agent joins the room and prints real-time logs of the "Mega-Tok
 
 ### Environment Requirements
 The agent requires the following keys set in your system or `.env` file:
-- `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`
-- `DEEPGRAM_API_KEY`
-- `ELEVEN_API_KEY`
-- `OPENAI_API_KEY` (Used for the OpenAI plugin wrapper)
-- `TRUGEN_API_KEY` & `TRUGEN_AVATAR_ID`
+- `LIVEKIT_URL=...`
+- `LIVEKIT_API_KEY=...`
+- `LIVEKIT_API_SECRET=...`
+- `DEEPGRAM_API_KEY=...`
+- `ELEVEN_API_KEY=...`
+- `ELEVEN_VOICE_ID_MALE=...`
+- `ELEVEN_VOICE_ID_FEMALE=...`
+- `OPENAI_API_KEY=...`
+- `TRUGEN_API_KEY=...`
+- `TRUGEN_AVATAR_ID=...`
