@@ -180,6 +180,7 @@ export default function Page() {
   const [profileId, setProfileId] = useState<string | null>(null);
   const [isLoadingBots, setIsLoadingBots] = useState(false);
   const [editingBotId, setEditingBotId] = useState<string | null>(null);
+  const [dbLastConfig, setDbLastConfig] = useState<any>(null);
 
   // Conversation tracking state
   const [sessionTranscript, setSessionTranscript] = useState<any[]>([]);
@@ -202,6 +203,21 @@ export default function Page() {
 
   useEffect(() => {
     activeSessionRef.current = activeSession;
+    // Clear editing state when switching to Add Bot, but retain config data for pre-fill
+    if (activeSession === "AddBot") {
+      setEditingBotId(null);
+      
+      // Always pre-fill with the database's last configuration, or defaults if none
+      if (dbLastConfig) {
+        const lastCfg = { ...DEFAULTS, ...dbLastConfig };
+        if (lastCfg.sessionKey) {
+          lastCfg.sessionKey = stripSessionKey(lastCfg.sessionKey);
+        }
+        setConfig(lastCfg);
+      } else {
+        setConfig(DEFAULTS);
+      }
+    }
   }, [activeSession]);
 
   // Robust Transcription Tracking via Hook
@@ -237,14 +253,19 @@ export default function Page() {
             setBots(userBots);
             setIsLoadingBots(false);
             
-            // Fetch last config if nothing in localStorage
-            if (!saved && profile.last_config) {
-              const lastCfg = { ...DEFAULTS, ...profile.last_config };
-              if (lastCfg.sessionKey) {
-                lastCfg.sessionKey = stripSessionKey(lastCfg.sessionKey);
+            // Sync last config from DB
+            if (profile.last_config) {
+              setDbLastConfig(profile.last_config);
+              
+              // If nothing in localStorage, initialize form from DB config
+              if (!saved) {
+                const lastCfg = { ...DEFAULTS, ...profile.last_config };
+                if (lastCfg.sessionKey) {
+                  lastCfg.sessionKey = stripSessionKey(lastCfg.sessionKey);
+                }
+                setConfig(lastCfg);
+                localStorage.setItem("openclaw_config", JSON.stringify(lastCfg));
               }
-              setConfig(lastCfg);
-              localStorage.setItem("openclaw_config", JSON.stringify(lastCfg));
             }
           }
         } catch (err) {
@@ -541,12 +562,14 @@ export default function Page() {
 
   return (
     <main data-lk-theme="default" className="h-[100dvh] w-screen bg-[#050505] flex overflow-hidden font-[Inter] text-white">
-      <Sidebar
-        activeSession={activeSession}
-        setActiveSession={setActiveSession}
-        isMobileMenuOpen={isMobileMenuOpen}
-        setIsMobileMenuOpen={setIsMobileMenuOpen}
-      />
+        <Sidebar
+          activeSession={activeSession}
+          setActiveSession={(session) => {
+            setActiveSession(session);
+          }}
+          isMobileMenuOpen={isMobileMenuOpen}
+          setIsMobileMenuOpen={setIsMobileMenuOpen}
+        />
 
       <div className="flex-1 h-full w-full overflow-hidden flex flex-col relative z-0">
         {/* Mobile Header */}
@@ -569,7 +592,7 @@ export default function Page() {
           <RoomContext.Provider value={room}>
             <RoomAudioRenderer />
             <TranscriptSynchronizer transcriptRef={transcriptRef} startTimeRef={startTimeRef} />
-            {activeSession === "My Bot" ? (
+            {activeSession === "My Bot" || activeSession === "AddBot" ? (
               <SimpleVoiceAssistant
                 onConnectButtonClicked={onConnectButtonClicked}
                 config={config}
@@ -582,6 +605,10 @@ export default function Page() {
                   setEditingBotId(null);
                   setConfig(DEFAULTS);
                 }}
+                bots={activeSession === "My Bot" ? bots : []}
+                showHeader={true}
+                titleOverride={activeSession === "AddBot" ? "Add Bot" : "Quick Call"}
+                onlyLauncher={activeSession === "My Bot"}
               />
             ) : activeSession === "DirectCall" ? (
               <DirectCallDashboard
@@ -629,7 +656,7 @@ export default function Page() {
                     avatarId: bot.avatar_id,
                     botName: bot.name,
                   });
-                  setActiveSession("My Bot");
+                  setActiveSession("AddBot");
                 }}
               />
             ) : activeSession === "Conversations" ? (
@@ -689,7 +716,6 @@ export default function Page() {
   );
 }
 
-// ─── Session Config Form ─────────────────────────────────────────────────────
 function SessionConfigForm({
   config,
   setConfig,
@@ -698,8 +724,12 @@ function SessionConfigForm({
   onOpenPicker,
   onSaveAsBot,
   isSavingBot,
-  isEditing,
+  isEditing = false,
   onCancelEdit,
+  bots = [],
+  showHeader = false,
+  titleOverride,
+  onlyLauncher = false,
 }: {
   config: typeof DEFAULTS;
   setConfig: (c: typeof DEFAULTS) => void;
@@ -710,6 +740,10 @@ function SessionConfigForm({
   isSavingBot?: boolean;
   isEditing?: boolean;
   onCancelEdit?: () => void;
+  bots?: Bot[];
+  showHeader?: boolean;
+  titleOverride?: string;
+  onlyLauncher?: boolean;
 }) {
   const [showToken, setShowToken] = useState(false);
   const selectedAvatar = AVATARS.find(a => a.id === config.avatarId);
@@ -779,108 +813,256 @@ function SessionConfigForm({
           <div className="w-14 h-14 rounded-2xl bg-[#1c2e28] flex items-center justify-center mx-auto mb-4 shadow-[0_0_32px_rgba(0,227,170,0.12)]">
             <Image src="/openclaw.png" alt="ClawdFace" width={34} height={34} className="object-contain" />
           </div>
-          <h2 className="text-[22px] font-bold text-white tracking-tight">
-            {isEditing ? "Edit Bot Configuration" : "Configure Session"}
+          <h2 className="text-[26px] font-bold text-white tracking-tight">
+            {titleOverride || (isEditing ? "Edit Bot Configuration" : "Quick Call")}
           </h2>
-          <p className="text-[#6b7280] text-[13px] mt-1">
-            {isEditing ? "Update your bot settings below" : "Connect to your OpenClaw backend to start the conversation"}
+          <p className="text-[#6b7280] text-[14px] mt-2">
+            {isEditing 
+              ? "Update your bot settings below" 
+              : (titleOverride === "Add Bot" 
+                ? "Configure a new bot session key and details" 
+                : (onlyLauncher ? "Select a saved bot to start call immediately" : "Select a saved bot or configure a new connection"))}
           </p>
         </div>
 
-        <div className="bg-[#111111] border border-[#1f1f1f] rounded-2xl p-6 flex flex-col gap-5 shadow-2xl">
-          {field("openclawUrl",  "OpenClaw URL",     <LinkIcon />,   "http://localhost:18789")}
-          {field("gatewayToken", "Gateway Token",    <KeyIcon />,    "Enter your gateway token")}
-          {field("sessionKey",   "Session Key",      <HashIcon2 />,  "bot-name", "agent:main:")}
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#6b7280] flex items-center gap-1.5">
-              <span className="text-[#9ca3af]"><UserIcon size={14} /></span>
-              Avatar <span className="text-[#00E3AA] ml-0.5">*</span>
-            </label>
-            <button
-              onClick={onOpenPicker}
-              className="group relative w-full aspect-video rounded-xl bg-[#0d0d0d] border-2 border-dashed border-[#242424] hover:border-[#00E3AA]/40 transition-all duration-300 overflow-hidden flex flex-col items-center justify-center gap-3"
-            >
-              {selectedAvatar ? (
-                <>
-                  <Image 
-                    src={selectedAvatar.image} 
-                    alt={selectedAvatar.name} 
-                    fill 
-                    className="object-cover opacity-60 group-hover:opacity-80 transition-opacity"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                  <div className="relative z-10 flex flex-col items-center gap-1">
-                    <span className="text-white font-bold text-sm tracking-tight">{selectedAvatar.name}</span>
-                    <span className="text-[11px] text-[#00E3AA] font-medium uppercase tracking-wider">Change Avatar</span>
+        <div className={`bg-[#111111] border border-[#1f1f1f] rounded-2xl p-6 flex flex-col gap-5 shadow-2xl ${onlyLauncher ? 'max-w-sm mx-auto' : ''}`}>
+          {/* Quick Launch Dropdown */}
+          {!isEditing && bots.length > 0 && (
+            onlyLauncher ? (
+              <div className="flex flex-col gap-4">
+                <label className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#00E3AA] flex items-center gap-1.5">
+                  <LibraryIcon size={14} className="text-[#00E3AA]" />
+                  Select a Companion
+                </label>
+                
+                <div className="relative group">
+                  <div className="absolute -inset-0.5 bg-gradient-to-r from-[#00E3AA]/20 to-[#00E3AA]/0 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
+                  <select
+                    onChange={async (e) => {
+                      const botId = e.target.value;
+                      if (!botId) return;
+                      const selected = bots.find(b => b.id === botId);
+                      if (selected) {
+                        const newConfig = {
+                          openclawUrl: selected.openclaw_url,
+                          gatewayToken: selected.gateway_token,
+                          sessionKey: stripSessionKey(selected.session_key),
+                          avatarId: selected.avatar_id,
+                          botName: selected.name,
+                        };
+                        setConfig(newConfig);
+                      }
+                    }}
+                    className="relative w-full bg-[#111111] border-2 border-[#1f1f1f] hover:border-[#00E3AA]/40 rounded-xl py-3.5 pl-4 pr-10 text-[14px] text-white focus:outline-none focus:border-[#00E3AA] transition-all cursor-pointer font-medium appearance-none shadow-inner"
+                    defaultValue=""
+                  >
+                    <option value="" disabled>Choose a bot to begin...</option>
+                    {bots.map(bot => (
+                      <option key={bot.id} value={bot.id}>
+                        {bot.name} ({stripSessionKey(bot.session_key)})
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#00E3AA]">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
                   </div>
-                </>
-              ) : (
-                <>
-                  <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-[#4b5563] group-hover:text-[#00E3AA] group-hover:bg-[#00E3AA]/10 transition-colors">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </div>
+
+                {config.openclawUrl && (
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    className="mt-2 p-5 rounded-2xl bg-gradient-to-b from-[#1a1a1a] to-[#0d0d0d] border border-[#2a2a2a] relative overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
+                  >
+                    <div className="absolute top-0 right-0 w-40 h-40 bg-[#00E3AA]/5 blur-3xl rounded-full pointer-events-none transform translate-x-1/3 -translate-y-1/3" />
+                    
+                    <div className="flex items-center gap-4 relative z-10 mb-6">
+                      <div className="w-16 h-16 rounded-full overflow-hidden border-[3px] border-[#00E3AA]/30 shrink-0 bg-[#0d0d0d] shadow-[0_0_20px_rgba(0,227,170,0.15)] flex items-center justify-center">
+                        {(() => {
+                          const avatar = AVATARS.find(a => a.id === config.avatarId);
+                          return avatar ? (
+                            <img src={avatar.image} alt="Avatar" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="text-[#00E3AA]/50">
+                              <UserIcon size={24} />
+                            </div>
+                          );
+                        })()}
+                      </div>
+                      <div className="flex flex-col">
+                         <h3 className="font-bold text-white text-[18px] tracking-tight">{config.botName || "Unknown Bot"}</h3>
+                         <div className="flex items-center gap-1.5 mt-1">
+                           <div className="w-2 h-2 rounded-full bg-[#00E3AA] animate-pulse"></div>
+                           <span className="text-[#00E3AA] font-mono text-[11px] truncate max-w-[140px] tracking-wider uppercase">{config.sessionKey}</span>
+                         </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={onConnect}
+                      disabled={isConnecting}
+                      className="relative z-10 w-full py-3.5 rounded-xl font-bold text-[15px] tracking-wider transition-all duration-300
+                        bg-[#00E3AA] text-black hover:bg-[#00c994] active:scale-[0.98]
+                        disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100
+                        shadow-[0_0_20px_rgba(0,227,170,0.2)] hover:shadow-[0_0_30px_rgba(0,227,170,0.4)]
+                        flex items-center justify-center gap-2 uppercase overflow-hidden group border border-[#00E3AA]/50"
+                    >
+                      <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
+                      {isConnecting ? (
+                        <>
+                          <svg className="relative z-10 animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <circle cx="12" cy="12" r="10" opacity="0.25"/>
+                            <path d="M22 12a10 10 0 0 1-10 10" opacity="0.9"/>
+                          </svg>
+                          <span className="relative z-10">Connecting…</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="relative z-10 transition-transform duration-300 group-hover:-translate-x-1">Launch Session</span>
+                          <svg className="relative z-10 transition-transform duration-300 group-hover:translate-x-1" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                          </svg>
+                        </>
+                      )}
+                    </button>
+                  </motion.div>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1.5 pb-4 border-b border-[#1f1f1f]">
+                <label className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#00E3AA] flex items-center gap-1.5">
+                  <LibraryIcon size={14} className="text-[#00E3AA]" />
+                  Quick Fill from Library
+                </label>
+                <select
+                  onChange={async (e) => {
+                    const botId = e.target.value;
+                    if (!botId) return;
+                    const selected = bots.find(b => b.id === botId);
+                    if (selected) {
+                      const newConfig = {
+                        openclawUrl: selected.openclaw_url,
+                        gatewayToken: selected.gateway_token,
+                        sessionKey: stripSessionKey(selected.session_key),
+                        avatarId: selected.avatar_id,
+                        botName: selected.name,
+                      };
+                      setConfig(newConfig);
+                    }
+                  }}
+                  className="w-full bg-[#0d0d0d] border border-[#00E3AA]/30 rounded-xl py-3 px-4 text-[14px] text-white focus:outline-none focus:border-[#00E3AA] transition-all cursor-pointer font-medium"
+                  defaultValue=""
+                >
+                  <option value="" disabled>Select a bot to fill fields...</option>
+                  {bots.map(bot => (
+                    <option key={bot.id} value={bot.id}>
+                      {bot.name} ({stripSessionKey(bot.session_key)})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )
+          )}
+
+          {!onlyLauncher && (
+            <>
+              {field("openclawUrl",  "OpenClaw URL",     <LinkIcon />,   "http://localhost:18789")}
+              {field("gatewayToken", "Gateway Token",    <KeyIcon />,    "Enter your gateway token")}
+              {field("sessionKey",   "Session Key",      <HashIcon2 />,  "bot-name", "agent:main:")}
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#6b7280] flex items-center gap-1.5">
+                  <span className="text-[#9ca3af]"><UserIcon size={14} /></span>
+                  Avatar <span className="text-[#00E3AA] ml-0.5">*</span>
+                </label>
+                <button
+                  onClick={onOpenPicker}
+                  className="group relative w-full aspect-video rounded-xl bg-[#0d0d0d] border-2 border-dashed border-[#242424] hover:border-[#00E3AA]/40 transition-all duration-300 overflow-hidden flex flex-col items-center justify-center gap-3"
+                >
+                  {selectedAvatar ? (
+                    <>
+                      <Image 
+                        src={selectedAvatar.image} 
+                        alt={selectedAvatar.name} 
+                        fill 
+                        className="object-cover opacity-60 group-hover:opacity-80 transition-opacity"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                      <div className="relative z-10 flex flex-col items-center gap-1">
+                        <span className="text-white font-bold text-sm tracking-tight">{selectedAvatar.name}</span>
+                        <span className="text-[11px] text-[#00E3AA] font-medium uppercase tracking-wider">Change Avatar</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-[#4b5563] group-hover:text-[#00E3AA] group-hover:bg-[#00E3AA]/10 transition-colors">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                      </div>
+                      <span className="text-[13px] font-bold text-[#4b5563] group-hover:text-white transition-colors">Choose From Existing Avatars</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-3 mt-4">
+                {titleOverride !== "Add Bot" && (
+                  <button
+                    onClick={onConnect}
+                    disabled={isConnecting || !config.openclawUrl || !config.gatewayToken || !config.sessionKey}
+                    className="w-full py-3.5 rounded-xl font-bold text-[15px] tracking-wide transition-all duration-200
+                      bg-[#00E3AA] text-black hover:bg-[#00c994] active:scale-[0.98]
+                      disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100
+                      shadow-[0_0_24px_rgba(0,227,170,0.25)] hover:shadow-[0_0_32px_rgba(0,227,170,0.35)]
+                      flex items-center justify-center gap-2"
+                  >
+                    {isConnecting ? (
+                      <>
+                        <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <circle cx="12" cy="12" r="10" opacity="0.25"/>
+                          <path d="M22 12a10 10 0 0 1-10 10" opacity="0.9"/>
+                        </svg>
+                        Connecting…
+                      </>
+                    ) : (
+                      <>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polygon points="5 3 19 12 5 21 5 3"/>
+                        </svg>
+                        Start Session
+                      </>
+                    )}
+                  </button>
+                )}
+
+                <button
+                  onClick={onSaveAsBot}
+                  disabled={isSavingBot || !config.openclawUrl}
+                  className="w-full py-3 bg-white/[0.03] hover:bg-white/[0.08] disabled:opacity-40 text-white/90 font-semibold rounded-xl transition-all border border-white/5 hover:border-white/10 text-[14px] flex items-center justify-center gap-2 shadow-sm"
+                >
+                  {isSavingBot ? (
+                    <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                      <circle cx="12" cy="12" r="10" opacity="0.25"/><path d="M22 12a10 10 0 0 1-10 10" opacity="0.9"/>
                     </svg>
-                  </div>
-                  <span className="text-[13px] font-bold text-[#4b5563] group-hover:text-white transition-colors">Choose From Existing Avatars</span>
-                </>
-              )}
-            </button>
-          </div>
-
-          <div className="flex flex-col gap-3 mt-4">
-            <button
-              onClick={onConnect}
-              disabled={isConnecting || !config.openclawUrl || !config.gatewayToken || !config.sessionKey}
-              className="w-full py-3.5 rounded-xl font-bold text-[15px] tracking-wide transition-all duration-200
-                bg-[#00E3AA] text-black hover:bg-[#00c994] active:scale-[0.98]
-                disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100
-                shadow-[0_0_24px_rgba(0,227,170,0.25)] hover:shadow-[0_0_32px_rgba(0,227,170,0.35)]
-                flex items-center justify-center gap-2"
-            >
-              {isConnecting ? (
-                <>
-                  <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <circle cx="12" cy="12" r="10" opacity="0.25"/>
-                    <path d="M22 12a10 10 0 0 1-10 10" opacity="0.9"/>
-                  </svg>
-                  Connecting…
-                </>
-              ) : (
-                <>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polygon points="5 3 19 12 5 21 5 3"/>
-                  </svg>
-                  Start Session
-                </>
-              )}
-            </button>
-
-            <button
-              onClick={onSaveAsBot}
-              disabled={isSavingBot || !config.openclawUrl}
-              className="w-full py-3 bg-white/[0.03] hover:bg-white/[0.08] disabled:opacity-40 text-white/90 font-semibold rounded-xl transition-all border border-white/5 hover:border-white/10 text-[14px] flex items-center justify-center gap-2 shadow-sm"
-            >
-              {isSavingBot ? (
-                <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                  <circle cx="12" cy="12" r="10" opacity="0.25"/><path d="M22 12a10 10 0 0 1-10 10" opacity="0.9"/>
-                </svg>
-              ) : (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>
-                </svg>
-              )}
-              {isEditing ? "Update Bot" : "Save as new Bot"}
-            </button>
-            {isEditing && (
-              <button
-                onClick={onCancelEdit}
-                className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 font-semibold rounded-xl transition-all border border-red-500/10 text-[14px]"
-              >
-                Cancel Edit
-              </button>
-            )}
-          </div>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>
+                    </svg>
+                  )}
+                  {isEditing ? "Update Bot" : "Save as new Bot"}
+                </button>
+                {isEditing && (
+                  <button
+                    onClick={onCancelEdit}
+                    className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 font-semibold rounded-xl transition-all border border-red-500/10 text-[14px]"
+                  >
+                    Cancel Edit
+                  </button>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         <p className="text-center text-[11px] text-[#3a3a3a] mt-4">
@@ -1096,6 +1278,10 @@ function SimpleVoiceAssistant({
   isSavingBot,
   isEditing,
   onCancelEdit,
+  bots = [],
+  showHeader = false,
+  titleOverride,
+  onlyLauncher = false,
 }: {
   onConnectButtonClicked: () => void;
   config: typeof DEFAULTS;
@@ -1105,6 +1291,10 @@ function SimpleVoiceAssistant({
   isSavingBot?: boolean;
   isEditing?: boolean;
   onCancelEdit?: () => void;
+  bots?: Bot[];
+  showHeader?: boolean;
+  titleOverride?: string;
+  onlyLauncher?: boolean;
 }) {
   const { state: agentState } = useVoiceAssistant();
   const [isConnecting, setIsConnecting] = useState(false);
@@ -1130,10 +1320,14 @@ function SimpleVoiceAssistant({
             isConnecting={isConnecting}
             onOpenPicker={onOpenPicker}
             onSaveAsBot={onSaveAsBot}
-            isSavingBot={isSavingBot}
-            isEditing={isEditing}
-            onCancelEdit={onCancelEdit}
-          />
+             isSavingBot={isSavingBot}
+             isEditing={isEditing}
+             onCancelEdit={onCancelEdit}
+             bots={bots}
+             showHeader={showHeader}
+             titleOverride={titleOverride}
+             onlyLauncher={onlyLauncher}
+           />
         ) : (
           <ActiveVoiceAssistantView 
             key="active" 
@@ -1268,7 +1462,7 @@ function BotLibraryView({
                   <div className="p-5 relative">
                     <div className="flex flex-col mb-3">
                       <h3 className="text-lg font-bold text-[#00E3AA] tracking-tight truncate pr-4 font-mono">
-                        {(bot.session_key || "").replace(/^agent:main:/, "") || "bot"}
+                        {stripSessionKey(bot.session_key || "") || "bot"}
                       </h3>
                       <span className="text-[12px] text-neutral-400 font-medium">{bot.name}</span>
                     </div>
