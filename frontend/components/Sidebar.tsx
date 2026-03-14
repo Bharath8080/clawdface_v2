@@ -173,6 +173,7 @@ export function Sidebar({
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 pb-2 flex flex-col gap-0.5 custom-scrollbar">
         <NavRow label="Bot Library" icon={<LibraryIcon />} isActive={activeSession === "Library" || activeSession === "DirectCall"} onClick={() => handleNav("Library")} />
+        <NavRow label="Add Bot" icon={<BotIcon />} isActive={activeSession === "AddBot"} onClick={() => handleNav("AddBot")} />
         <NavRow label="Stock Avatars" icon={<UserIcon />}     isActive={activeSession === "Avatars"}   onClick={() => handleNav("Avatars")} />
 
         {/* Monitor */}
@@ -190,17 +191,7 @@ export function Sidebar({
       {/* Footer / Configuration */}
       <div className="px-3 pb-4 flex flex-col gap-0.5 shrink-0">
         <div className="border-t border-[#232323] mb-2 mx-1" />
-        
-        <div className="mb-2">
-            <span className="px-3 text-[10px] font-bold text-[#5a5a5a] uppercase tracking-widest mb-1.5 block">Configuration</span>
-            <NavRow 
-              label="Quick Call" 
-              icon={<BotIcon />} 
-              isActive={activeSession === "My Bot"} 
-              onClick={() => handleNav("My Bot")} 
-            />
-        </div>
-
+        <NavRow label="Quick Call" icon={<MonitorIcon />} isActive={activeSession === "My Bot"} onClick={() => handleNav("My Bot")} />
         <div className="border-t border-[#232323] mb-2 mx-1" />
 
         {/* Profile + dropdown */}
@@ -240,12 +231,13 @@ export function Sidebar({
       <div className="border-t border-[#232323] mx-2 mb-2" />
       <nav className="flex-1 overflow-y-auto flex flex-col items-center gap-1 px-2 custom-scrollbar">
         <ColIconBtn label="Bot Library" icon={<LibraryIcon />} isActive={activeSession === "Library" || activeSession === "DirectCall"} onClick={() => handleNav("Library")} />
+        <ColIconBtn label="Add Bot" icon={<BotIcon />} isActive={activeSession === "AddBot"} onClick={() => handleNav("AddBot")} />
         <ColIconBtn label="Stock Avatars" icon={<UserIcon />}     isActive={activeSession === "Avatars"}   onClick={() => handleNav("Avatars")} />
         <ColIconBtn label="Conversations" icon={<HistoryIcon />} isActive={activeSession === "Conversations"} onClick={() => handleNav("Conversations")} />
       </nav>
       <div className="flex flex-col items-center px-2 pb-4 shrink-0 gap-2">
         <div className="border-t border-[#232323] w-full mb-1" />
-        <ColIconBtn label="Quick Call" icon={<BotIcon />} isActive={activeSession === "My Bot"} onClick={() => handleNav("My Bot")} />
+        <ColIconBtn label="Quick Call" icon={<MonitorIcon />} isActive={activeSession === "My Bot"} onClick={() => handleNav("My Bot")} />
         <div className="border-t border-[#232323] w-full mb-1" />
         <div ref={dropdownRef} className="relative group">
           {dropdownOpen && user && (
