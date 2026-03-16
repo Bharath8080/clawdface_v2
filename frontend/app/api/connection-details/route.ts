@@ -28,6 +28,7 @@ async function handleConnection(config: {
   gatewayToken?: string;
   sessionKey?: string;
   avatarId?: string;
+  roomName?: string;
 }) {
   try {
     if (!LIVEKIT_URL) throw new Error("LIVEKIT_URL is not defined");
@@ -35,7 +36,7 @@ async function handleConnection(config: {
     if (!API_SECRET)  throw new Error("LIVEKIT_API_SECRET is not defined");
 
     const participantIdentity = `user_${Math.floor(Math.random() * 10_000)}`;
-    const roomName = `clawdface_room_${Math.floor(Math.random() * 10_000)}`;
+    const roomName = config.roomName || `clawdface_room_${Math.floor(Math.random() * 10_000)}`;
 
     // Embed session config in participant token metadata so the agent can read it
     const metadata = JSON.stringify({

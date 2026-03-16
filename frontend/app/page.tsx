@@ -163,6 +163,90 @@ const CrossIcon = ({ size = 24 }: { size?: number }) => (
 );
 // Removed duplicate icons at bottom
 
+const RecallUrlModal = ({
+  isOpen,
+  onClose,
+  config,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  config: any;
+}) => {
+  const [copied, setCopied] = useState(false);
+  const [roomName, setRoomName] = useState("");
+
+  useEffect(() => {
+    if (isOpen) {
+      setRoomName(`recall-${Math.floor(Math.random() * 10000)}`);
+      setCopied(false);
+    }
+  }, [isOpen]);
+
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+  const recallUrl = `${baseUrl}/avatar?room=${roomName}&avatarId=${config.avatarId}&openclawUrl=${encodeURIComponent(config.openclawUrl)}&gatewayToken=${encodeURIComponent(config.gatewayToken)}&sessionKey=${encodeURIComponent(config.sessionKey)}`;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(recallUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="w-full max-w-lg bg-[#0A0A0A] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+          >
+            <div className="p-6 border-b border-white/5 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <LinkIcon size={20} />
+                Recall.ai Integration
+              </h3>
+              <button onClick={onClose} className="text-neutral-500 hover:text-white transition-colors">
+                <CloseIcon />
+              </button>
+            </div>
+            <div className="p-6 space-y-6">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Room Name</label>
+                <input
+                  type="text"
+                  value={roomName}
+                  onChange={(e) => setRoomName(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-mono text-white focus:outline-none focus:border-[#00E3AA]/50 transition-colors"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Public Video URL</label>
+                <div className="relative group">
+                  <textarea
+                    readOnly
+                    value={recallUrl}
+                    className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-mono text-neutral-400 h-32 resize-none break-all"
+                  />
+                  <button
+                    onClick={handleCopy}
+                    className="absolute bottom-3 right-3 px-4 py-2 bg-[#00E3AA] hover:bg-[#00c996] text-black text-xs font-bold rounded-lg transition-all shadow-lg active:scale-95"
+                  >
+                    {copied ? "Copied!" : "Copy URL"}
+                  </button>
+                </div>
+              </div>
+              <p className="text-xs text-neutral-500 leading-relaxed italic">
+                Use this URL when creating a Recall bot. The bot will join this room and display the avatar.
+              </p>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+};
+
 // ─── Main Page ───────────────────────────────────────────────────────────────
 export default function Page() {
   const router = useRouter();
@@ -170,6 +254,15 @@ export default function Page() {
   const [activeSession, setActiveSession] = useState("Library");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
+  const [isRecallModalOpen, setIsRecallModalOpen] = useState(false);
+  
+  useEffect(() => {
+    (window as any).setIsRecallModalOpen = setIsRecallModalOpen;
+    (window as any).openRecallWithConfig = (newConfig: any) => {
+      setConfig(newConfig);
+      setIsRecallModalOpen(true);
+    };
+  }, []);
   const [authChecked, setAuthChecked] = useState(false);
 
   // Session config state
@@ -695,24 +788,28 @@ export default function Page() {
           </RoomContext.Provider>
         </div>
       </div>
-      <AvatarPickerModal
-        isOpen={isAvatarPickerOpen}
-        onClose={() => setIsAvatarPickerOpen(false)}
-        currentId={config.avatarId}
-        onSelect={(id) => {
-          const avatar = AVATARS.find(a => a.id === id);
-          setConfig({ 
-            ...config, 
-            avatarId: id,
-            botName: (!config.botName || config.botName === "Bot" || config.botName === "My Bot") 
-              ? (avatar?.name || "") 
-              : config.botName
-          });
-        }}
-      />
-    </main>
-  );
-}
+        <AvatarPickerModal
+          isOpen={isAvatarPickerOpen}
+          onClose={() => setIsAvatarPickerOpen(false)}
+          currentId={config.avatarId}
+          onSelect={(id) => {
+            setConfig({ 
+              ...config, 
+              avatarId: id,
+              botName: (!config.botName || config.botName === "Bot" || config.botName === "My Bot") 
+                ? (AVATARS.find(a => a.id === id)?.name || "") 
+                : config.botName
+            });
+          }}
+        />
+        <RecallUrlModal
+          isOpen={isRecallModalOpen}
+          onClose={() => setIsRecallModalOpen(false)}
+          config={config}
+        />
+      </main>
+    );
+  }
 
 function SessionConfigForm({
   config,
@@ -753,7 +850,7 @@ function SessionConfigForm({
     placeholder: string,
     prefix?: string
   ) => (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1.5" key={key}>
       <label className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#6b7280] flex items-center gap-1.5">
         <span className="text-[#9ca3af]">{icon}</span>
         {label}
@@ -896,33 +993,34 @@ function SessionConfigForm({
                       </div>
                     </div>
 
-                    <button
-                      onClick={onConnect}
-                      disabled={isConnecting}
-                      className="relative z-10 w-full py-3.5 rounded-xl font-bold text-[15px] tracking-wider transition-all duration-300
-                        bg-[#00E3AA] text-black hover:bg-[#00c994] active:scale-[0.98]
-                        disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100
-                        shadow-[0_0_20px_rgba(0,227,170,0.2)] hover:shadow-[0_0_30px_rgba(0,227,170,0.4)]
-                        flex items-center justify-center gap-2 uppercase overflow-hidden group border border-[#00E3AA]/50"
-                    >
-                      <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
-                      {isConnecting ? (
-                        <>
-                          <svg className="relative z-10 animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                            <circle cx="12" cy="12" r="10" opacity="0.25"/>
-                            <path d="M22 12a10 10 0 0 1-10 10" opacity="0.9"/>
-                          </svg>
-                          <span className="relative z-10">Connecting…</span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="relative z-10 transition-transform duration-300 group-hover:-translate-x-1">Launch Session</span>
-                          <svg className="relative z-10 transition-transform duration-300 group-hover:translate-x-1" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M5 12h14M12 5l7 7-7 7"/>
-                          </svg>
-                        </>
-                      )}
-                    </button>
+                    <div className="flex flex-col gap-3">
+                      <button
+                        onClick={onConnect}
+                        disabled={isConnecting}
+                        className="relative z-10 w-full py-3.5 rounded-xl font-bold text-[15px] tracking-wider transition-all duration-300
+                          bg-[#00E3AA] text-black hover:bg-[#00c994] active:scale-[0.98]
+                          disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100
+                          shadow-[0_0_20px_rgba(0,227,170,0.2)] hover:shadow-[0_0_30px_rgba(0,227,170,0.4)]
+                          flex items-center justify-center gap-2 uppercase overflow-hidden group border border-[#00E3AA]/50"
+                      >
+                        <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
+                        {isConnecting ? (
+                          <div className="w-5 h-5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+                        ) : (
+                          "Join Meeting"
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => (window as any).setIsRecallModalOpen?.(true)}
+                        className="w-full py-2.5 rounded-xl font-bold text-[12px] tracking-widest transition-all duration-300
+                          bg-white/5 text-white/60 hover:bg-white/10 hover:text-white border border-white/10
+                          flex items-center justify-center gap-2 uppercase"
+                      >
+                        <LinkIcon size={14} />
+                        Get Recall URL
+                      </button>
+                    </div>
                   </motion.div>
                 )}
               </div>
@@ -1470,12 +1568,36 @@ function BotLibraryView({
                     </div>
                     <div className="mt-6 flex items-center justify-between pt-4 border-t border-white/5">
                       <div className="flex items-center gap-1.5 text-[11px] text-[#6b7280]"><ClockIcon size={12} /><span>Saved {new Date(bot.created_at).toLocaleDateString()}</span></div>
-                      <button className="px-4 py-1.5 rounded-lg bg-[#00E3AA] hover:bg-[#00c994] text-black text-[12px] font-bold uppercase tracking-wider transition-all transform hover:scale-105 active:scale-95 shadow-[0_4px_12px_rgba(0,227,170,0.2)] flex items-center gap-1.5">
-                        Connect 
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                          <polygon points="5 3 19 12 5 21 5 3"/>
-                        </svg>
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const avatar = AVATARS.find(a => a.id === bot.avatar_id);
+                            const newConfig = {
+                              openclawUrl: bot.openclaw_url,
+                              gatewayToken: bot.gateway_token,
+                              sessionKey: stripSessionKey(bot.session_key || ""),
+                              avatarId: bot.avatar_id,
+                              botName: bot.name,
+                            };
+                            // We need to update the configuration state so the modal sees the correct bot info
+                            // Since BotLibraryView doesn't have setConfig, it uses the global window object trick or props
+                            // But here we can just pass it directly if we had a way to trigger it.
+                            // I'll add a temporary global trigger that sets config AND opens modal.
+                            (window as any).openRecallWithConfig?.(newConfig);
+                          }}
+                          className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/50 hover:text-white border border-white/5 transition-all"
+                          title="Generate Recall URL"
+                        >
+                          <LinkIcon size={14} />
+                        </button>
+                        <button className="px-4 py-1.5 rounded-lg bg-[#00E3AA] hover:bg-[#00c994] text-black text-[12px] font-bold uppercase tracking-wider transition-all transform hover:scale-105 active:scale-95 shadow-[0_4px_12px_rgba(0,227,170,0.2)] flex items-center gap-1.5">
+                          Connect 
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <polygon points="5 3 19 12 5 21 5 3"/>
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
