@@ -33,7 +33,7 @@ function AvatarContent() {
       console.log("[Avatar] Remote participant(s) in room:", remotes.map(p => ({
         identity: p.identity,
         numTracks: p.trackPublications.size,
-        tracks: Array.from(p.trackPublications.values()).map(t => ({
+        tracks: Array.from(p.trackPublications.values() as any).map((t: any) => ({
           source: t.source,
           subscribed: t.isSubscribed,
           muted: t.isMuted,
