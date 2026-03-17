@@ -7,7 +7,7 @@ from flask import Flask, request, Response
 from dotenv import load_dotenv
 from livekit import agents
 from livekit.agents import Agent, AgentServer, AgentSession
-from livekit.plugins import elevenlabs, openai, trugen
+from livekit.plugins import elevenlabs, openai, trugen, groq, silero, deepgram
  
 load_dotenv()
  
@@ -72,10 +72,136 @@ def chat_proxy():
         print(f"[PROXY] Error: {e}")
         return {"error": str(e)}, 500
  
+import traceback
+from livekit import api as lk_api
+
+# ... (chat_proxy and run_proxy same as before) ...
+
+@app.route('/join-meeting', methods=['POST'])
+def join_meeting():
+    try:
+        data = request.get_json()
+
+        meeting_url   = data.get("meetingUrl")
+        openclaw_url  = data.get("openclawUrl")
+        gateway_token = data.get("gatewayToken")
+        session_key   = data.get("sessionKey")
+        avatar_id     = data.get("avatarId", "1a640442")
+        room_id       = data.get("roomId", f"recall-{os.urandom(4).hex()}")
+
+        if not meeting_url:
+            return {"error": "meetingUrl is required"}, 400
+        if not openclaw_url:
+            return {"error": "openclawUrl is required"}, 400
+        if not gateway_token:
+            return {"error": "gatewayToken is required"}, 400
+        if not session_key:
+            return {"error": "sessionKey is required"}, 400
+
+        print(f"[JOIN] room={room_id} meeting={meeting_url}")
+
+        # Step 1 — Create Recall bot
+        recall_payload = {
+            "meeting_url": meeting_url,
+            "bot_name": "Lisa",
+            "output_media": {
+                "camera": {
+                    "kind": "webpage",
+                    "config": {
+                        "url": (
+                            f"{os.getenv('AVATAR_VIDEO_STREAM')}"
+                            f"?room={room_id}"
+                            f"&avatarId={avatar_id}"
+                            f"&openclawUrl={openclaw_url}"
+                            f"&gatewayToken={gateway_token}"
+                            f"&sessionKey={session_key}"
+                        )
+                    }
+                }
+            },
+            "recording_config": {
+                "transcript": {
+                    "provider": {
+                        "assembly_ai": {}
+                    }
+                }
+            },
+            "real_time_endpoints": [
+                {
+                    "type": "webhook",
+                    "url": f"{os.getenv('RECALL_WEBHOOK_URL')}/{room_id}"
+                }
+            ]
+        }
+
+        recall_resp = requests.post(
+            f"{os.getenv('RECALL_API_URL')}",
+            headers={
+                "Authorization": f"Token {os.getenv('RECALL_API_TOKEN')}",
+                "Content-Type": "application/json"
+            },
+            json=recall_payload,
+            timeout=15
+        )
+
+        if recall_resp.status_code not in (200, 201):
+            print(f"[JOIN] Recall failed: {recall_resp.status_code} {recall_resp.text}")
+            return {"error": "Recall bot creation failed", "detail": recall_resp.text}, 500
+
+        recall_bot_id = recall_resp.json().get("id", "unknown")
+        print(f"[JOIN] Recall bot created: {recall_bot_id}")
+
+        # Step 2 — Create LiveKit room + dispatch agent
+        room_metadata = json.dumps({
+            "openclawUrl":  openclaw_url,
+            "gatewayToken": gateway_token,
+            "sessionKey":   session_key,
+            "avatarId":     avatar_id,
+            "meetingUrl":   meeting_url,
+        })
+
+        async def setup_livekit():
+            client = lk_api.LiveKitAPI(
+                url=os.getenv("LIVEKIT_URL"),
+                api_key=os.getenv("LIVEKIT_API_KEY"),
+                api_secret=os.getenv("LIVEKIT_API_SECRET"),
+            )
+            await client.room.create_room(
+                lk_api.CreateRoomRequest(
+                    name=room_id,
+                    metadata=room_metadata,
+                )
+            )
+            print(f"[JOIN] LiveKit room created: {room_id}")
+
+            await client.agent.create_job(
+                lk_api.CreateJobRequest(
+                    agent_name="my_agent",
+                    room=lk_api.JobRoom(name=room_id),
+                )
+            )
+            print(f"[JOIN] Agent dispatched: {room_id}")
+            await client.aclose()
+
+        asyncio.run(setup_livekit())
+
+        return {
+            "status": "ok",
+            "roomId": room_id,
+            "recallBotId": recall_bot_id,
+            "avatarId": avatar_id,
+            "meetingUrl": meeting_url
+        }, 200
+
+    except Exception as e:
+        print(f"[JOIN] Error: {e}")
+        traceback.print_exc()
+        return {"error": str(e)}, 500
+
 def run_proxy():
     print("--- OpenClaw Proxy Active (port 8080) ---")
     app.run(host='0.0.0.0', port=8080, debug=False, use_reloader=False)
- 
+
 threading.Thread(target=run_proxy, daemon=True).start()
  
 # --- LIVEKIT AGENT ---
@@ -106,6 +232,16 @@ async def my_agent(ctx: agents.JobContext):
    
     if not config:
         print(f"[SESSION] ✗ No config found in participant metadata")
+        
+    if not config and ctx.room.metadata:
+        try:
+            config = json.loads(ctx.room.metadata)
+            print(f"[SESSION] ✓ Config from room metadata")
+        except:
+            pass
+            
+    if not config:
+        print(f"[SESSION] ✗ No config found in participant or room metadata")
         return
  
     url    = config.get("openclawUrl", "")
@@ -128,8 +264,8 @@ async def my_agent(ctx: agents.JobContext):
         "1fa504ff", "0f160301", "13550375", "48d778c9", "18c4043e"
     }
     
-    # Female: FGY2WhTYpPnrIDTdsKH5, Male: CwhRBWXzGAHq8TQ4Fs17
-    voice_id = "CwhRBWXzGAHq8TQ4Fs17" if avatar_id in male_ids else "FGY2WhTYpPnrIDTdsKH5"
+    # Female: aura-2-andromeda-en, Male: aura-2-aries-en
+    voice_id = "aura-2-aries-en" if avatar_id in male_ids else "aura-2-andromeda-en"
     print(f"[SESSION] Using Avatar ID: {avatar_id}, Voice ID: {voice_id}")
 
     # 3. MEGA-TOKEN: Pack everything into the api_key for the proxy
@@ -143,11 +279,11 @@ async def my_agent(ctx: agents.JobContext):
 
     # 4. Simple AgentSession setup
     session = AgentSession(
-        stt="deepgram/nova-3",
+        stt=groq.STT(model="whisper-large-v3-turbo"),
+        vad=silero.VAD.load(),
         llm=openclaw_llm,
-        tts=elevenlabs.TTS(
-            voice_id=voice_id,
-            model="eleven_flash_v2_5",
+        tts=deepgram.TTS(
+            model=voice_id,
         ),
     )
    
@@ -162,5 +298,6 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "download-files":
         # This is used by the Dockerfile to pre-download models (e.g. Silero)
         print("Pre-downloading models...")
+        silero.VAD.load()
         sys.exit(0)
     agents.cli.run_app(server)

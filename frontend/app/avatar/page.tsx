@@ -153,7 +153,7 @@ function AvatarPageInner() {
       token={connectionDetails.participantToken}
       serverUrl={connectionDetails.serverUrl}
       connect={true}
-      audio={false}
+      audio={true}
       video={false}
       className="h-screen w-screen"
     >
