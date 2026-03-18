@@ -7,7 +7,7 @@ from flask import Flask, request, Response
 from dotenv import load_dotenv
 from livekit import agents
 from livekit.agents import Agent, AgentServer, AgentSession
-from livekit.plugins import elevenlabs, openai, trugen
+from livekit.plugins import elevenlabs, openai, trugen, groq, silero
  
 load_dotenv()
  
@@ -73,8 +73,8 @@ def chat_proxy():
         return {"error": str(e)}, 500
  
 def run_proxy():
-    print("--- OpenClaw Proxy Active (port 8080) ---")
-    app.run(host='0.0.0.0', port=8080, debug=False, use_reloader=False)
+    print("--- OpenClaw Proxy Active (port 4041) ---")
+    app.run(host='0.0.0.0', port=4041, debug=False, use_reloader=False)
  
 threading.Thread(target=run_proxy, daemon=True).start()
  
@@ -137,13 +137,14 @@ async def my_agent(ctx: agents.JobContext):
 
     openclaw_llm = openai.LLM(
         model="main",
-        base_url="http://localhost:8080/v1",
+        base_url="http://localhost:4041/v1",
         api_key=mega_token,
     )
 
     # 4. Simple AgentSession setup
     session = AgentSession(
-        stt="deepgram/nova-3",
+        stt=groq.STT(model="whisper-large-v3-turbo"),
+        vad=silero.VAD.load(),
         llm=openclaw_llm,
         tts=elevenlabs.TTS(
             voice_id=voice_id,
@@ -162,5 +163,6 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "download-files":
         # This is used by the Dockerfile to pre-download models (e.g. Silero)
         print("Pre-downloading models...")
+        silero.VAD.load()
         sys.exit(0)
     agents.cli.run_app(server)

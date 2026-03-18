@@ -1,10 +1,10 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useGoogleLogin } from "@react-oauth/google";
-import { saveUserToLocalStorage as saveUser } from "@/lib/auth";
+import { isAuthenticated, saveUserToLocalStorage as saveUser } from "@/lib/auth";
 
 const GoogleIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24">
@@ -26,6 +26,13 @@ export default function SignUpPage() {
   const [error, setError] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // --- Redirect if already authenticated ---
+  useEffect(() => {
+    if (isAuthenticated()) {
+      router.replace("/");
+    }
+  }, [router]);
 
   const googleLogin = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
@@ -50,6 +57,20 @@ export default function SignUpPage() {
     if (!email || !email.includes("@")) { setError("Please enter a valid email address."); return; }
     setLoading(true);
     try {
+      // 1. Check if user already exists
+      const checkRes = await fetch("/api/check-user", { 
+        method: "POST", 
+        headers: { "Content-Type": "application/json" }, 
+        body: JSON.stringify({ email }) 
+      });
+      
+      if (checkRes.ok) {
+        setError("An account already exists with this email. Please sign in instead.");
+        setLoading(false);
+        return;
+      }
+
+      // 2. Not signed up? Send OTP
       const res = await fetch("/api/send-otp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
       const data = await res.json();
       if (!res.ok) { setError(data.error || "Failed to send OTP."); return; }
