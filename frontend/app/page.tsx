@@ -174,16 +174,31 @@ const RecallUrlModal = ({
 }) => {
   const [copied, setCopied] = useState(false);
   const [roomName, setRoomName] = useState("");
+  const [recallSessionKey, setRecallSessionKey] = useState("");
 
   useEffect(() => {
     if (isOpen) {
-      setRoomName(`recall-${Math.floor(Math.random() * 10000)}`);
+      const generateId = () => {
+        const now = new Date();
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        const year = now.getFullYear();
+        const month = pad(now.getMonth() + 1);
+        const day = pad(now.getDate());
+        const hours = pad(now.getHours());
+        const minutes = pad(now.getMinutes());
+        const seconds = pad(now.getSeconds());
+        return `${year}-${month}-${day}T${hours}-${minutes}-${seconds}`;
+      };
+      
+      const uniqueId = generateId();
+      setRoomName(`room-${uniqueId}`);
+      setRecallSessionKey(`session-${uniqueId}`);
       setCopied(false);
     }
   }, [isOpen]);
 
   const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
-  const recallUrl = `${baseUrl}/avatar?room=${roomName}&avatarId=${config.avatarId}&openclawUrl=${encodeURIComponent(config.openclawUrl)}&gatewayToken=${encodeURIComponent(config.gatewayToken)}&sessionKey=${encodeURIComponent(config.sessionKey)}`;
+  const recallUrl = `${baseUrl}/avatar?room=${roomName}&avatarId=${config.avatarId}&openclawUrl=${encodeURIComponent(config.openclawUrl)}&gatewayToken=${encodeURIComponent(config.gatewayToken)}&sessionKey=${encodeURIComponent(recallSessionKey)}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(recallUrl);
@@ -396,19 +411,18 @@ export default function Page() {
     }
   }, [activeSession, authChecked]);
 
-  const generateSessionId = (prefix: string) => {
-    // Generate a fixed-length timestamp for consistency (e.g., 20260314203015)
+  const generateSessionId = () => {
     const now = new Date();
-    const timestamp = now.getFullYear().toString() +
-      (now.getMonth() + 1).toString().padStart(2, '0') +
-      now.getDate().toString().padStart(2, '0') +
-      now.getHours().toString().padStart(2, '0') +
-      now.getMinutes().toString().padStart(2, '0') +
-      now.getSeconds().toString().padStart(2, '0');
+    const pad = (n: number) => n.toString().padStart(2, '0');
     
-    // Sanitize: allow alphanumeric and hyphens, lowercase
-    const cleanPrefix = prefix.toLowerCase().replace(/[^a-z0-9-]/g, '') || "bot";
-    return `${cleanPrefix}-${timestamp}`;
+    const year = now.getFullYear();
+    const month = pad(now.getMonth() + 1);
+    const day = pad(now.getDate());
+    const hours = pad(now.getHours());
+    const minutes = pad(now.getMinutes());
+    const seconds = pad(now.getSeconds());
+    
+    return `session-${year}-${month}-${day}T${hours}-${minutes}-${seconds}`;
   };
 
   const onConnectButtonClicked = useCallback(async (forcedSessionKey?: string, forcedConfig?: typeof DEFAULTS) => {
@@ -441,18 +455,7 @@ export default function Page() {
       }
     }
 
-    // Final validation and enrichment
-    // Check if the session key is already timestamped (ends with 14 digits)
-    let sessionKeyToUse = forcedSessionKey || activeConfig.sessionKey;
-    
-    if (!sessionKeyToUse || !/-\d{14}$/.test(sessionKeyToUse)) {
-      const baseName = sessionKeyToUse || activeConfig.botName || "bot";
-      sessionKeyToUse = generateSessionId(baseName);
-    }
-
-    const finalSessionKey = sessionKeyToUse.startsWith("agent:main:")
-      ? sessionKeyToUse
-      : `agent:main:${sessionKeyToUse}`;
+    const finalSessionKey = `agent:main:${generateSessionId()}`;
 
     const finalConfig = {
       ...activeConfig,
@@ -706,10 +709,9 @@ export default function Page() {
                 config={config}
                 autoStart={true}
                 onStartCall={() => {
-                  const autoId = generateSessionId(config.sessionKey || config.botName || "bot");
-                  onConnectButtonClicked(autoId);
+                  onConnectButtonClicked();
                 }}
-                onBack={() => setActiveSession("Library")}
+           onBack={() => setActiveSession("Library")}
               />
             ) : activeSession === "Avatars" ? (
               <AvatarGallery />
@@ -734,8 +736,7 @@ export default function Page() {
                     botName: bot.name,
                   };
                   setConfig(newConfig); // ensure state is updated for dashboard
-                  const autoId = generateSessionId(newConfig.sessionKey || newConfig.botName || "bot");
-                  onConnectButtonClicked(autoId, newConfig);
+                  onConnectButtonClicked();
                   setActiveSession("DirectCall");
                 }}
                 onEditBot={(bot) => {
@@ -952,11 +953,15 @@ function SessionConfigForm({
                     defaultValue=""
                   >
                     <option value="" disabled>Choose a bot to begin...</option>
-                    {bots.map(bot => (
-                      <option key={bot.id} value={bot.id}>
-                        {bot.name} ({stripSessionKey(bot.session_key)})
-                      </option>
-                    ))}
+                    {bots.map(bot => {
+                      const date = new Date(bot.created_at);
+                      const timestamp = `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear().toString().slice(-2)} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+                      return (
+                        <option key={bot.id} value={bot.id}>
+                          {bot.name} ({timestamp})
+                        </option>
+                      );
+                    })}
                   </select>
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#00E3AA]">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
@@ -988,7 +993,7 @@ function SessionConfigForm({
                          <h3 className="font-bold text-white text-[18px] tracking-tight">{config.botName || "Unknown Bot"}</h3>
                          <div className="flex items-center gap-1.5 mt-1">
                            <div className="w-2 h-2 rounded-full bg-[#00E3AA] animate-pulse"></div>
-                           <span className="text-[#00E3AA] font-mono text-[11px] truncate max-w-[140px] tracking-wider uppercase">{config.sessionKey}</span>
+                           <span className="text-[#00E3AA] font-mono text-[11px] tracking-wider uppercase">Video Companion</span>
                          </div>
                       </div>
                     </div>
@@ -1050,11 +1055,15 @@ function SessionConfigForm({
                   defaultValue=""
                 >
                   <option value="" disabled>Select a bot to fill fields...</option>
-                  {bots.map(bot => (
-                    <option key={bot.id} value={bot.id}>
-                      {bot.name} ({stripSessionKey(bot.session_key)})
-                    </option>
-                  ))}
+                  {bots.map(bot => {
+                    const date = new Date(bot.created_at);
+                    const timestamp = `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear().toString().slice(-2)} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+                    return (
+                      <option key={bot.id} value={bot.id}>
+                        {bot.name} ({timestamp})
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
             )
@@ -1064,7 +1073,6 @@ function SessionConfigForm({
             <>
               {field("openclawUrl",  "OpenClaw URL",     <LinkIcon />,   "http://localhost:18789")}
               {field("gatewayToken", "Gateway Token",    <KeyIcon />,    "Enter your gateway token")}
-              {field("sessionKey",   "Session Key",      <HashIcon2 />,  "bot-name", "agent:main:")}
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#6b7280] flex items-center gap-1.5">
@@ -1106,7 +1114,7 @@ function SessionConfigForm({
                 {titleOverride !== "Add Bot" && (
                   <button
                     onClick={onConnect}
-                    disabled={isConnecting || !config.openclawUrl || !config.gatewayToken || !config.sessionKey}
+                    disabled={isConnecting || !config.openclawUrl || !config.gatewayToken}
                     className="w-full py-3.5 rounded-xl font-bold text-[15px] tracking-wide transition-all duration-200
                       bg-[#00E3AA] text-black hover:bg-[#00c994] active:scale-[0.98]
                       disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100
@@ -1557,33 +1565,28 @@ function BotLibraryView({
                   </div>
                   <div className="p-5 relative">
                     <div className="flex flex-col mb-3">
-                      <h3 className="text-lg font-bold text-[#00E3AA] tracking-tight truncate pr-4 font-mono">
-                        {stripSessionKey(bot.session_key || "") || "bot"}
+                      <h3 className="text-lg font-bold text-[#00E3AA] tracking-tight truncate pr-4">
+                        {bot.name || "My Bot"}
                       </h3>
-                      <span className="text-[12px] text-neutral-400 font-medium">{bot.name}</span>
+                      <span className="text-[11px] text-neutral-500 font-mono uppercase tracking-wider">Video Companion</span>
                     </div>
                     <div className="space-y-2.5">
                       <div className="flex items-center gap-2.5 text-[12px] text-[#9ca3af]"><div className="w-5 h-5 rounded-md bg-white/5 flex items-center justify-center text-[#4b5563]"><LinkIcon size={12} /></div><span className="truncate max-w-[180px]">{bot.openclaw_url}</span></div>
                       <div className="flex items-center gap-2.5 text-[12px] text-[#9ca3af]"><div className="w-5 h-5 rounded-md bg-white/5 flex items-center justify-center text-[#4b5563]"><UserIcon size={12} /></div><span className="truncate">Avatar: {bot.avatar_id}</span></div>
                     </div>
                     <div className="mt-6 flex items-center justify-between pt-4 border-t border-white/5">
-                      <div className="flex items-center gap-1.5 text-[11px] text-[#6b7280]"><ClockIcon size={12} /><span>Saved {new Date(bot.created_at).toLocaleDateString()}</span></div>
+                      <div className="flex items-center gap-1.5 text-[11px] text-[#00E3AA]/80 font-semibold uppercase tracking-wider"><ClockIcon size={12} /><span>Saved {new Date(bot.created_at).toLocaleDateString()}</span></div>
                       <div className="flex items-center gap-2">
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
-                            const avatar = AVATARS.find(a => a.id === bot.avatar_id);
                             const newConfig = {
                               openclawUrl: bot.openclaw_url,
                               gatewayToken: bot.gateway_token,
-                              sessionKey: stripSessionKey(bot.session_key || ""),
+                              sessionKey: "", // Automatically generated on connect
                               avatarId: bot.avatar_id,
                               botName: bot.name,
                             };
-                            // We need to update the configuration state so the modal sees the correct bot info
-                            // Since BotLibraryView doesn't have setConfig, it uses the global window object trick or props
-                            // But here we can just pass it directly if we had a way to trigger it.
-                            // I'll add a temporary global trigger that sets config AND opens modal.
                             (window as any).openRecallWithConfig?.(newConfig);
                           }}
                           className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/50 hover:text-white border border-white/5 transition-all"
@@ -1681,9 +1684,12 @@ function ConversationsListView({
                           })()}
                         </div>
                         <div className="flex flex-col min-w-0">
-                          <span className="text-[#00E3AA] text-[10px] font-bold uppercase tracking-widest mb-0.5 opacity-80">Session Key</span>
+                          <span className="text-[#6b7280] text-[10px] font-bold uppercase tracking-widest mb-0.5 opacity-60">Video Companion</span>
                           <span className="text-white text-[14px] font-bold truncate leading-tight">
                             {conv.bot_name || "Unknown"}
+                          </span>
+                          <span className="text-[#3a3a3a] text-[9px] font-mono truncate mt-0.5">
+                            ID: {conv.session_key}
                           </span>
                         </div>
                       </div>
