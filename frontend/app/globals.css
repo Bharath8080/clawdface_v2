@@ -3,6 +3,10 @@
 @tailwind utilities;
 
 /* ─── Root Variables ─────────────────────────────────────── */
+html {
+  scroll-behavior: smooth;
+}
+
 :root {
   --lk-va-bar-width: 72px;
   --lk-control-bar-height: unset;

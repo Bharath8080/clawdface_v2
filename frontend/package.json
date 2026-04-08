@@ -17,6 +17,7 @@
     "@react-oauth/google": "^0.13.4",
     "@stackframe/stack": "^2.8.80",
     "@supabase/supabase-js": "^2.99.1",
+    "@tailwindcss/typography": "^0.5.19",
     "drizzle-orm": "^0.45.1",
     "framer-motion": "^11.18.0",
     "livekit-client": "^2.8.0",

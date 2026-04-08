@@ -46,8 +46,7 @@ graph TD
     LK -->|Metadata| Agent[Python Agent]
     
     subgraph "Agent Logic"
-        Agent -->|Unpack| Proxy[Flask Mega-Proxy]
-        Proxy -->|Stateless Request| OC[OpenClaw LLM]
+        Agent -->|Stateless Request| OC[OpenClaw LLM]
     end
     
     Agent -->|Audio/Video| User

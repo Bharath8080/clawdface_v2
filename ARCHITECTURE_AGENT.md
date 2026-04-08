@@ -26,17 +26,17 @@ Since most LLM plugins (like OpenAI) only expect a single `api_key` string, we p
 
 ---
 
-## 🛠️ The OpenClaw Flask Proxy
+## 🛠️ Logic Flow
 
-ClawdFace includes an internal **Flask Proxy** running inside the agent process (Port 8080). This proxy solves the "Stateless Bridge" problem:
+ClawdFace is designed to be a direct bridge between decentralized configurations and stateless agents:
 
-1.  **Unpacking**: It receives the "Mega-Token" from the Agent's LLM plugin as a Bearer token.
-2.  **Stateless Routing**: It splits the token back into the three required parts.
-3.  **Forwarding**: It authenticates and forwards the request to the user's specific OpenClaw backend.
+1.  **Unpacking**: The agent receives the "Mega-Token" from the Participant Metadata.
+2.  **Stateless Routing**: The agent splits the token back into the three required parts (URL, Token, Key).
+3.  **Forwarding**: The agent's LLM plugin authenticates and forwards the request directly to the user's specific OpenClaw backend.
 
-### Why a Proxy?
-- **Compatibility**: Standard LLM plugins don't support custom headers like `x-openclaw-session-key`.
-- **Statelessness**: The proxy doesn't save anything; it just acts as a real-time translator for the session.
+### Key Benefits
+- **Compatibility**: The "Mega-Token" strategy allows standard LLM plugins to support custom headers like `x-openclaw-session-key` by unpacking them just-in-time.
+- **Statelessness**: No user data is saved on the server; the agent just acts as a real-time translator for the session.
 
 ---
 
@@ -56,7 +56,7 @@ The agent integrates the following best-in-class providers:
 ```bash
 python agent.py dev
 ```
-In dev mode, the agent joins the room and prints real-time logs of the "Mega-Token" unpacking and proxy activity.
+In dev mode, the agent joins the room and prints real-time logs of the "Mega-Token" unpacking activity.
 
 ### Environment Requirements
 The agent requires the following keys set in your system or `.env` file:

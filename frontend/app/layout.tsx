@@ -1,5 +1,6 @@
 import "@livekit/components-styles";
 import { Metadata } from "next";
+import { Suspense, ReactNode } from "react";
 import { Inter, Outfit, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
@@ -34,14 +35,18 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: ReactNode;
 }>) {
   return (
     <html lang="en" className={`dark h-full ${inter.variable} ${outfit.variable} ${jetbrainsMono.variable} ${inter.className}`}>
       <body className="h-full">
         <StackProvider app={stackServerApp}>
           <StackTheme>
-            <Providers>{children}</Providers>
+            <Providers>
+              <Suspense fallback={null}>
+                {children}
+              </Suspense>
+            </Providers>
           </StackTheme>
         </StackProvider>
       </body>
