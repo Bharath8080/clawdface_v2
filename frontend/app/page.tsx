@@ -14,10 +14,10 @@ import { RoomContext, useVoiceAssistant, useRoomContext } from "@livekit/compone
 import useCombinedTranscriptions from "@/hooks/useCombinedTranscriptions";
 import { AnimatePresence, motion } from "framer-motion";
 import { Room, RoomEvent, DisconnectReason } from "livekit-client";
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef, Suspense } from "react";
 import type { ConnectionDetails } from "./api/connection-details/route";
 import { useRouter } from "next/navigation";
-import { isAuthenticated, getUser, saveUserToLocalStorage } from "@/lib/auth";
+import { useUser } from "@stackframe/stack";
 import { Sidebar } from "@/components/Sidebar";
 import Image from "next/image";
 import { 
@@ -273,21 +273,14 @@ const RecallUrlModal = ({
 };
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
-export default function Page() {
+function ClientPage() {
   const router = useRouter();
   const [room] = useState(new Room());
   const [activeSession, setActiveSession] = useState("Library");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
   const [isRecallModalOpen, setIsRecallModalOpen] = useState(false);
-  
-  useEffect(() => {
-    (window as any).setIsRecallModalOpen = setIsRecallModalOpen;
-    (window as any).openRecallWithConfig = (newConfig: any) => {
-      setConfig(newConfig);
-      setIsRecallModalOpen(true);
-    };
-  }, []);
+  const user = useUser();
   const [authChecked, setAuthChecked] = useState(false);
 
   // Session config state
@@ -355,12 +348,12 @@ export default function Page() {
 
   // 2. Fetch profile and bots once authenticated
   useEffect(() => {
-    if (authChecked) {
+    if (authChecked && user) {
       const initData = async () => {
-        const user = getUser();
-        if (user?.email) {
+        const email = user.primaryEmail || user.displayName;
+        if (email) {
           try {
-            const profile = await syncUserAction(user.email);
+            const profile = await syncUserAction(email);
             if (profile) {
               setProfileId(profile.id);
               setIsLoadingBots(true);
@@ -389,15 +382,15 @@ export default function Page() {
       };
       initData();
     }
-  }, [authChecked]);
+  }, [authChecked, user]);
 
   useEffect(() => {
-    if (!isAuthenticated()) {
-      router.replace("/login");
-    } else {
+    if (user === null) {
+      router.replace("/handler/sign-in");
+    } else if (user) {
       setAuthChecked(true);
     }
-  }, [router]);
+  }, [user, router]);
   
   // Fetch conversations when switching to the Monitor section
   useEffect(() => {
@@ -405,9 +398,9 @@ export default function Page() {
       const loadConversations = async () => {
         setIsLoadingConversations(true);
         try {
-          const user = getUser();
-          if (user?.email) {
-            const data = await fetchConversations(user.email);
+          const email = user?.primaryEmail || user?.displayName;
+          if (email) {
+            const data = await fetchConversations(email);
             setConversations(data);
           }
         } catch (err) {
@@ -450,14 +443,14 @@ export default function Page() {
     localStorage.setItem("openclaw_config", JSON.stringify(activeConfig));
 
     // 2. Sync to Supabase & local files
-    const user = getUser();
-    if (user?.email) {
-      await updateLastConfig(user.email, activeConfig);
+    const email = user?.primaryEmail || user?.displayName;
+    if (email) {
+      await updateLastConfig(email, activeConfig);
       try {
         await fetch("/api/user-config", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: user.email, config: activeConfig }),
+          body: JSON.stringify({ email: email, config: activeConfig }),
         });
       } catch (err) {
         console.warn("Local sync skipped (expected on production)");
@@ -521,7 +514,6 @@ export default function Page() {
       const duration = startTime ? Math.round((endTime - startTime) / 1000) : 0;
       
       const currentTranscript = transcriptRef.current;
-      const user = getUser();
       const currentConfig = configRef.current;
       const currentSessionType = activeSessionRef.current;
       
@@ -537,9 +529,11 @@ export default function Page() {
         }
       }
 
+      const email = user?.primaryEmail || user?.displayName;
+
       console.log("📊 Session Summary:", {
         transcriptCount: currentTranscript.length,
-        userEmail: user?.email,
+        userEmail: email,
         duration: duration + "s",
         sessionType: currentSessionType,
         status
@@ -555,7 +549,7 @@ export default function Page() {
           participant: s.participant
         }));
 
-      if (filteredTranscript.length > 0 && user?.email) {
+      if (filteredTranscript.length > 0 && email) {
         try {
           const selectedAvatar = AVATARS.find(a => a.id === currentConfig.avatarId) || AVATARS[0];
           console.log("💾 Persisting conversation to Supabase via Server Action...");
@@ -564,7 +558,7 @@ export default function Page() {
           const fullKey = technicalSessionKeyRef.current || currentConfig.sessionKey;
           const cleanHistoryName = fullKey.replace(/^agent:main:/, "");
           const data = await createConversationAction({
-            user_email: user.email,
+            user_email: email,
             bot_name: cleanHistoryName || currentConfig.botName || selectedAvatar.name || "Unknown Session",
             bot_avatar: selectedAvatar.id,
             status: status, // Dynamic status
@@ -575,7 +569,7 @@ export default function Page() {
           console.log("✅ Conversation saved successfully:", data);
           
           // Refresh the conversations list
-          const conversationsData = await fetchConversations(user.email);
+          const conversationsData = await fetchConversations(email);
           setConversations(conversationsData);
           
         } catch (err) {
@@ -2108,5 +2102,20 @@ function DirectCallDashboard({
         )}
       </div>
     </motion.div>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={
+      <div className="h-screen w-screen bg-[#0A0A0A] flex items-center justify-center">
+        <svg className="animate-spin" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00E3AA" strokeWidth="2">
+          <circle cx="12" cy="12" r="10" opacity="0.25"/>
+          <path d="M22 12a10 10 0 0 1-10 10" opacity="0.9"/>
+        </svg>
+      </div>
+    }>
+      <ClientPage />
+    </Suspense>
   );
 }

@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { getUser, getInitials, logout, AuthUser } from '@/lib/auth';
+import { getInitials } from '@/lib/auth';
+import { useUser, useStackApp } from '@stackframe/stack';
 
 // ---- Icons ----
 const BotIcon = () => <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="10" x="3" y="11" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" x2="8" y1="16" y2="16"/><line x1="16" x2="16" y1="16" y2="16"/></svg>;
@@ -66,36 +67,37 @@ function ColIconBtn({ label, icon, isActive, onClick }: NavItemProps) {
 }
 
 // ---- Profile Dropdown ----
-function ProfileDropdown({ user, initials, onClose }: { user: AuthUser; initials: string; onClose: () => void }) {
+function ProfileDropdown({ user, initials, onClose, className = "bottom-full left-0 mb-2 w-full" }: { user: any; initials: string; onClose: () => void; className?: string }) {
   const router = useRouter();
+  const app = useStackApp();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await app.signOut();
     onClose();
-    router.push("/login");
+    router.push("/handler/sign-in");
   };
 
-  const menuItem = (icon: React.ReactNode, label: string, onClick: () => void, className = "") => (
+  const menuItem = (icon: React.ReactNode, label: string, onClick: () => void, additionalClasses = "") => (
     <button onClick={onClick}
-      className={`w-full flex items-center gap-3 px-4 py-2.5 text-[14px] text-[#d1d5db] hover:bg-[#1c1c1c] hover:text-white transition-all duration-150 ${className}`}>
+      className={`w-full flex items-center gap-3 px-4 py-2.5 text-[14px] text-[#d1d5db] hover:bg-[#1c1c1c] hover:text-white transition-all duration-150 ${additionalClasses}`}>
       <span className="text-[#9ca3af] shrink-0">{icon}</span>
       {label}
     </button>
   );
 
   return (
-    <div className="absolute bottom-full left-0 mb-2 w-[260px] bg-[#161616] border border-[#242424] rounded-2xl shadow-2xl overflow-hidden z-[200]">
+    <div className={`absolute ${className} bg-[#161616] border border-[#242424] rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.5)] overflow-hidden z-[200]`}>
       {/* User header */}
       <div className="flex items-center gap-3 px-4 py-3.5 border-b border-[#242424]">
-        {user.picture ? (
-          <Image src={user.picture} alt={initials} width={36} height={36} className="rounded-xl shrink-0" />
+        {user.profileImageUrl ? (
+          <Image src={user.profileImageUrl} alt={initials} width={36} height={36} className="rounded-xl shrink-0" />
         ) : (
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#00E3AA] to-[#00b589] flex items-center justify-center text-black font-bold text-[13px] shrink-0">
             {initials}
           </div>
         )}
         <div className="flex flex-col min-w-0">
-          <span className="text-white text-[13px] font-semibold truncate">{user.email}</span>
+          <span className="text-white text-[13px] font-semibold truncate">{user.primaryEmail || user.displayName}</span>
           <span className="text-[#6b7280] text-[11px]">Free Plan</span>
         </div>
       </div>
@@ -127,10 +129,8 @@ export function Sidebar({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [monitorOpen, setMonitorOpen] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const user = useUser();
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => { setUser(getUser()); }, []);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -142,12 +142,12 @@ export function Sidebar({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const initials = getInitials(user);
+  const initials = getInitials(user?.primaryEmail, user?.displayName);
   const handleNav = (session: string) => { setActiveSession(session); setIsMobileMenuOpen(false); };
 
   const UserAvatar = ({ size = "w-9 h-9" }: { size?: string }) => (
-    user?.picture
-      ? <Image src={user.picture} alt={initials} width={36} height={36} className={`${size} rounded-xl object-cover shrink-0`} />
+    user?.profileImageUrl
+      ? <Image src={user.profileImageUrl} alt={initials} width={36} height={36} className={`${size} rounded-xl object-cover shrink-0`} />
       : <div className={`${size} rounded-xl bg-gradient-to-br from-[#00E3AA] to-[#00b589] flex items-center justify-center text-black font-bold text-[13px] shrink-0`}>{initials}</div>
   );
 
@@ -199,16 +199,18 @@ export function Sidebar({
           {dropdownOpen && user && (
             <ProfileDropdown user={user} initials={initials} onClose={() => setDropdownOpen(false)} />
           )}
-          <div className="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-[#1c1c1c] cursor-pointer transition-all duration-150">
+          <div 
+            onClick={() => setDropdownOpen(!dropdownOpen)}
+            className="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-[#1c1c1c] cursor-pointer transition-all duration-150"
+          >
             <UserAvatar />
             <div className="flex flex-col flex-1 min-w-0">
               <span className="text-white text-[14px] font-semibold leading-tight truncate">
-                {user?.email || "Loading..."}
+                {user ? (user.primaryEmail || user.displayName) : "Loading..."}
               </span>
               <span className="text-[#5a5a5a] text-[12px] leading-tight font-medium">Free Plan</span>
             </div>
-            <button onClick={() => setDropdownOpen(!dropdownOpen)}
-              className="text-[#5a5a5a] hover:text-[#9ca3af] transition-colors p-1 shrink-0">
+            <button className="text-[#5a5a5a] hover:text-[#9ca3af] transition-colors p-1 shrink-0">
               <DotsIcon />
             </button>
           </div>
@@ -239,13 +241,18 @@ export function Sidebar({
         <div className="border-t border-[#232323] w-full mb-1" />
         <ColIconBtn label="Quick Call" icon={<MonitorIcon />} isActive={activeSession === "My Bot"} onClick={() => handleNav("My Bot")} />
         <div className="border-t border-[#232323] w-full mb-1" />
-        <div ref={dropdownRef} className="relative group">
+        <div ref={dropdownRef} className="relative group w-full flex justify-center">
           {dropdownOpen && user && (
-            <ProfileDropdown user={user} initials={initials} onClose={() => setDropdownOpen(false)} />
+            <ProfileDropdown 
+              user={user} 
+              initials={initials} 
+              onClose={() => setDropdownOpen(false)} 
+              className="bottom-0 left-full ml-4 w-[260px]" 
+            />
           )}
-          <button onClick={() => setDropdownOpen(!dropdownOpen)} className="relative">
+          <button onClick={() => setDropdownOpen(!dropdownOpen)} className="relative p-1">
             <UserAvatar />
-            <Tooltip label={user?.email || "Profile"} />
+            <Tooltip label={user ? (user.primaryEmail || user.displayName || "Profile") : "Profile"} />
           </button>
         </div>
       </div>
