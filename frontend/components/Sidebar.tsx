@@ -30,6 +30,13 @@ function Tooltip({ label }: { label: string }) {
   );
 }
 
+interface NavItemProps {
+  label: string;
+  icon: React.ReactNode;
+  isActive: boolean;
+  onClick: () => void;
+}
+
 interface NavRowProps extends NavItemProps {
   badge?: string;
   badgeCls?: string;
