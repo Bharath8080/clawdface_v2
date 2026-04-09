@@ -20,6 +20,7 @@ const GearIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="non
 const CardIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>;
 const SunIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>;
 const SignOutIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>;
+const ActivityIcon = () => <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>;
 
 function Tooltip({ label }: { label: string }) {
   return (
@@ -29,24 +30,29 @@ function Tooltip({ label }: { label: string }) {
   );
 }
 
-interface NavItemProps { label: string; icon: React.ReactNode; isActive: boolean; onClick: () => void }
+interface NavRowProps extends NavItemProps {
+  badge?: string;
+  badgeCls?: string;
+}
 
-function NavRow({ label, icon, isActive, onClick }: NavItemProps) {
+function NavRow({ label, icon, isActive, onClick, badge, badgeCls }: NavRowProps) {
   return (
     <button onClick={onClick}
       className={`w-full flex items-center gap-3 px-3 py-[11px] rounded-lg text-left transition-all duration-150
         ${isActive ? 'bg-[#252525] text-white' : 'text-[#9ca3af] hover:bg-[#1c1c1c] hover:text-white'}`}>
       <span className="shrink-0">{icon}</span>
       <span className="flex-1 text-[15px] font-medium leading-none">{label}</span>
+      {badge && <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full border ${badgeCls}`}>{badge}</span>}
     </button>
   );
 }
 
-function SubRow({ label, icon, badge, badgeCls, onClick }: { label: string; icon: React.ReactNode; badge?: string; badgeCls?: string; onClick?: () => void }) {
+function SubRow({ label, icon, badge, badgeCls, onClick, isActive }: { label: string; icon: React.ReactNode; badge?: string; badgeCls?: string; onClick?: () => void; isActive?: boolean }) {
   return (
     <div 
       onClick={onClick}
-      className="flex items-center gap-3 pl-[42px] pr-3 py-[9px] text-[#9ca3af] hover:text-white hover:bg-[#1c1c1c] rounded-lg cursor-pointer transition-all duration-150"
+      className={`flex items-center gap-3 pl-[42px] pr-3 py-[9px] rounded-lg cursor-pointer transition-all duration-150
+        ${isActive ? 'bg-[#252525]/50 text-white' : 'text-[#9ca3af] hover:text-white hover:bg-[#1c1c1c]'}`}
     >
       <span className="shrink-0">{icon}</span>
       <span className="flex-1 text-[14px] font-medium">{label}</span>
@@ -174,6 +180,7 @@ export function Sidebar({
       <nav className="flex-1 overflow-y-auto px-3 pb-2 flex flex-col gap-0.5 custom-scrollbar">
         <NavRow label="Bot Library" icon={<LibraryIcon />} isActive={activeSession === "Library" || activeSession === "DirectCall"} onClick={() => handleNav("Library")} />
         <NavRow label="Add Bot" icon={<BotIcon />} isActive={activeSession === "AddBot"} onClick={() => handleNav("AddBot")} />
+        <NavRow label="Gateway Doctor" icon={<ActivityIcon />} onClick={() => handleNav("Doctor")} isActive={activeSession === "Doctor"} badge="Health" badgeCls="border-[#00E3AA]/20 text-[#00E3AA]" />
         <NavRow label="Stock Avatars" icon={<UserIcon />}     isActive={activeSession === "Avatars"}   onClick={() => handleNav("Avatars")} />
 
         {/* Monitor */}
@@ -184,7 +191,7 @@ export function Sidebar({
           <span className={`transition-transform duration-200 ${monitorOpen ? '' : '-rotate-90'}`}><ChevronDown /></span>
         </button>
         {monitorOpen && <div className="flex flex-col gap-0.5">
-          <SubRow label="Conversations" icon={<HistoryIcon />} onClick={() => handleNav("Conversations")} />
+          <SubRow label="Conversations" icon={<HistoryIcon />} onClick={() => handleNav("Conversations")} isActive={activeSession === "Conversations"} />
         </div>}
       </nav>
 
@@ -234,6 +241,7 @@ export function Sidebar({
       <nav className="flex-1 overflow-y-auto flex flex-col items-center gap-1 px-2 custom-scrollbar">
         <ColIconBtn label="Bot Library" icon={<LibraryIcon />} isActive={activeSession === "Library" || activeSession === "DirectCall"} onClick={() => handleNav("Library")} />
         <ColIconBtn label="Add Bot" icon={<BotIcon />} isActive={activeSession === "AddBot"} onClick={() => handleNav("AddBot")} />
+        <ColIconBtn label="Doctor" icon={<ActivityIcon />} isActive={activeSession === "Doctor"} onClick={() => handleNav("Doctor")} />
         <ColIconBtn label="Stock Avatars" icon={<UserIcon />}     isActive={activeSession === "Avatars"}   onClick={() => handleNav("Avatars")} />
         <ColIconBtn label="Conversations" icon={<HistoryIcon />} isActive={activeSession === "Conversations"} onClick={() => handleNav("Conversations")} />
       </nav>

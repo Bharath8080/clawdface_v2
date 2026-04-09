@@ -171,7 +171,36 @@ const CrossIcon = ({ size = 24 }: { size?: number }) => (
     <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
   </svg>
 );
-// Removed duplicate icons at bottom
+const ActivityIcon = ({ size = 20, className = "" }: { size?: number, className?: string }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 12h-4l-3 9L9 3 l-3 9H2"/>
+  </svg>
+);
+const AlertCircleIcon = ({ size = 20, className = "" }: { size?: number, className?: string }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+  </svg>
+);
+const CopyIcon = ({ size = 16, className = "" }: { size?: number, className?: string }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+  </svg>
+);
+const ShieldIcon = ({ size = 20, className = "" }: { size?: number, className?: string }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/>
+  </svg>
+);
+const TerminalIcon = ({ size = 20, className = "" }: { size?: number, className?: string }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y1="19"/>
+  </svg>
+);
+const ShieldCheckIcon = ({ size = 20, className = "" }: { size?: number, className?: string }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/>
+  </svg>
+);
 
 const RecallUrlModal = ({
   isOpen,
@@ -272,7 +301,324 @@ const RecallUrlModal = ({
   );
 };
 
+// ─── Doctor View ─────────────────────────────────────────────────────────────
+function DoctorView({ bots, onHealthUpdate }: { bots: Bot[], onHealthUpdate?: (key: string, status: 'healthy' | 'unhealthy') => void }) {
+  const [url, setUrl] = useState("");
+  const [status, setStatus] = useState<"idle" | "checking" | "healthy" | "error_404" | "error_connection">( "idle" );
+  const [lastCheck, setLastCheck] = useState<Date | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (bots.length > 0 && !url) {
+      setUrl(bots[0].openclaw_url);
+    }
+  }, [bots, url]);
+
+  const runDiagnostics = async () => {
+    if (!url) return;
+    setStatus("checking");
+    setApiError(null);
+
+    const activeBot = bots.find(b => b.openclaw_url.replace(/\/$/, "") === url.replace(/\/$/, "")) || (bots.length > 0 ? bots[0] : null);
+    const token = activeBot?.gateway_token || "";
+    const sessionKey = activeBot?.session_key || "";
+    
+    try {
+      // Use the server-side API route to avoid CORS
+      const response = await fetch('/api/doctor/check', {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          url,
+          token,
+          sessionKey
+        })
+      });
+
+      const data = await response.json();
+      setLastCheck(new Date());
+
+      if (data.status === 200) {
+        setStatus("healthy");
+      } else if (data.status === 404) {
+        setStatus("error_404");
+      } else if (data.error) {
+        setApiError(data.error);
+        setStatus("error_connection");
+      } else {
+        setStatus("error_connection");
+      }
+    } catch (error: any) {
+      console.error("DIAGNOSTICS_ERROR:", error);
+      setLastCheck(new Date());
+      setApiError(error.message || "Unknown error");
+      setStatus("error_connection");
+    }
+  };
+
+  return (
+    <div className="absolute inset-0 overflow-y-auto p-6 md:p-10 custom-scrollbar bg-[#050505] z-10">
+      <div className="max-w-4xl mx-auto pb-20">
+        <header className="mb-10">
+          <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
+            <ActivityIcon size={32} className="text-[#00E3AA]" />
+            Gateway Doctor
+          </h1>
+          <p className="text-[#6b7280] mt-2 text-sm">Diagnose and fix connectivity between ClawdFace and your OpenClaw Gateway.</p>
+        </header>
+
+        <div className="space-y-6">
+          {/* URL Input Card */}
+          <div className="bg-[#0A0A0A] border border-white/5 rounded-3xl p-8 shadow-2xl overflow-hidden relative">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-[#00E3AA]/5 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2" />
+            
+            <label className="text-xs font-bold text-neutral-500 uppercase tracking-widest block mb-4 relative z-10">Target Gateway URL</label>
+            <div className="flex flex-col md:flex-row gap-4 relative z-10">
+              <div className="relative flex-1 group">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-600 group-focus-within:text-[#00E3AA] transition-colors">
+                  <LinkIcon size={18} />
+                </div>
+                <input
+                  type="text"
+                  placeholder="https://your-ngrok-id.ngrok-free.app"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-white font-medium focus:outline-none focus:border-[#00E3AA]/40 transition-all placeholder:text-neutral-700"
+                />
+              </div>
+              <button
+                onClick={runDiagnostics}
+                disabled={status === "checking"}
+                className="px-8 py-4 bg-[#00E3AA] hover:bg-[#00ffd0] disabled:bg-neutral-800 disabled:text-neutral-500 text-black font-bold rounded-2xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 min-w-[200px]"
+              >
+                {status === "checking" ? (
+                  <>
+                    <RefreshCwIcon size={20} className="animate-spin" />
+                    Checking...
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheckIcon size={20} />
+                    Run Diagnostics
+                  </>
+                )}
+              </button>
+            </div>
+            {lastCheck && (
+              <p className="mt-4 text-[11px] text-neutral-600 font-medium relative z-10 flex items-center gap-1.5">
+                <ClockIcon size={12} className="opacity-50" />
+                Last check: {lastCheck.toLocaleTimeString()}
+              </p>
+            )}
+          </div>
+
+          {/* Status Display */}
+          <AnimatePresence mode="wait">
+            {status === "healthy" && (
+              <motion.div
+                key="healthy"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="bg-green-500/10 border border-green-500/20 rounded-3xl p-8 flex items-start gap-6 shadow-[0_0_40px_rgba(34,197,94,0.05)]"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-green-500/20 flex items-center justify-center text-green-500 shrink-0 shadow-[0_0_20px_rgba(34,197,94,0.2)]">
+                  <CheckIcon size={24} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-green-400 mb-2 font-outfit">Gateway Operational</h3>
+                  <p className="text-[15px] text-green-400/70 font-medium leading-relaxed">
+                    Diagnostics passed! Your OpenClaw gateway is active and the Chat Completions endpoint is correctly enabled.
+                  </p>
+                </div>
+              </motion.div>
+            )}
+
+            {status === "error_404" && (
+              <motion.div
+                key="error_404"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-6"
+              >
+                <div className="bg-red-500/10 border border-red-500/20 rounded-3xl p-8 flex items-start gap-6 shadow-[0_0_40px_rgba(239,68,68,0.05)]">
+                  <div className="w-12 h-12 rounded-2xl bg-red-500/20 flex items-center justify-center text-red-500 shrink-0 shadow-[0_0_20px_rgba(239,68,68,0.2)]">
+                    <AlertCircleIcon size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-red-400 mb-2 font-outfit">Endpoint Disabled (404)</h3>
+                    <p className="text-[15px] text-red-400/70 font-medium leading-relaxed">
+                      The gateway is reachable, but the <code className="text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded font-mono">chat/completions</code> endpoint is toggled OFF.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-[#111] border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
+                  <div className="p-6 border-b border-white/5 bg-white/[0.02]">
+                    <h4 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
+                      <TerminalIcon size={16} className="text-[#00E3AA]" />
+                      Resolution Steps
+                    </h4>
+                  </div>
+                   <div className="p-8 space-y-8">
+                    <div className="space-y-4">
+                      <p className="text-[14px] text-neutral-400 font-medium">1. Run this command to enable the endpoint:</p>
+                      <CopyableCommand command="openclaw config set gateway.http.endpoints.chatCompletions.enabled true" />
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <p className="text-[14px] text-neutral-400 font-medium">2. Restart your gateway:</p>
+                      <CopyableCommand command="openclaw gateway restart" />
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {status === "error_connection" && (
+              <motion.div
+                key="error_connection"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="bg-red-500/10 border border-red-500/20 rounded-3xl p-8 flex items-start gap-6 shadow-[0_0_40px_rgba(239,68,68,0.05)]"
+              >
+                 <div className="w-12 h-12 rounded-2xl bg-red-500/20 flex items-center justify-center text-red-500 shrink-0 shadow-[0_0_20px_rgba(239,68,68,0.2)]">
+                  <CrossIcon size={24} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-red-400 mb-2 font-outfit">Gateway Unreachable</h3>
+                  <p className="text-[15px] text-red-400/70 font-medium leading-relaxed mb-4">
+                    {apiError || "Could not reach the gateway. Please verify your connection settings."}
+                  </p>
+                  
+                  <div className="bg-black/40 rounded-2xl p-6 border border-white/5 space-y-4">
+                    <h4 className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-2 mb-2">
+                       Verification Checklist
+                    </h4>
+                    <ul className="text-[14px] text-neutral-400 space-y-3 list-none font-medium">
+                      <li className="flex items-center gap-3">
+                        <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center text-[10px] text-neutral-500 shrink-0">1</div>
+                        Is your Ngrok tunnel running?
+                      </li>
+                      <li className="flex items-center gap-3">
+                        <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center text-[10px] text-neutral-500 shrink-0">2</div>
+                        Is the OpenClaw Gateway service started?
+                      </li>
+                      <li className="flex items-center gap-3">
+                        <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center text-[10px] text-neutral-500 shrink-0">3</div>
+                        Check your Target Gateway URL for typos.
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
+// ─── Copyable Command Component ──────────────────────────────────────────────
+const CopyableCommand = ({ command }: { command: string }) => {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(command);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <div className="group relative flex items-center justify-between bg-black/40 border border-white/5 rounded-xl p-3.5 transition-all hover:bg-black/60 shadow-inner">
+      <code className="text-[15px] font-mono text-[#00E3AA] break-all pr-10 font-medium leading-tight">{command}</code>
+      <button 
+        onClick={handleCopy}
+        className="absolute right-3 p-2 rounded-lg hover:bg-white/5 text-neutral-500 hover:text-white transition-all active:scale-90 border border-transparent hover:border-white/10"
+        title="Copy to clipboard"
+      >
+        {copied ? (
+          <motion.div initial={{ scale: 0.5 }} animate={{ scale: 1 }}>
+            <CheckIcon size={16} className="text-[#00E3AA]" />
+          </motion.div>
+        ) : (
+          <CopyIcon size={16} />
+        )}
+      </button>
+    </div>
+  );
+};
+
+// ─── Health Alert Notification ──────────────────────────────────────────────
+function HealthAlertNotification({ 
+  onClose, 
+  onFix 
+}: { 
+  onClose: () => void, 
+  onFix: () => void 
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 100, scale: 0.9 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
+      exit={{ opacity: 0, x: 100, scale: 0.9 }}
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      className="fixed bottom-8 right-8 z-[100] max-w-md w-full"
+    >
+      <div className="bg-[#0A0A0A]/80 backdrop-blur-xl border border-red-500/20 rounded-2xl p-5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden relative group">
+        <div className="absolute top-0 left-0 w-1 h-full bg-red-500/60" />
+        
+        <div className="flex gap-4">
+          <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 shrink-0 border border-red-500/20">
+            <AlertCircleIcon size={20} className="animate-pulse" />
+          </div>
+          
+          <div className="flex-1 space-y-4">
+            <div>
+              <h4 className="text-[16px] font-bold text-white tracking-tight">Gateway Connection Issue</h4>
+            </div>
+
+            <div className="pt-2">
+              <p className="text-[13px] text-neutral-400 leading-relaxed font-medium">
+                We detected connectivity issues with your gateway. Please fix them in the Gateway Doctor to resume your session.
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-4 pt-2">
+              <button
+                onClick={onFix}
+                className="px-5 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[12px] font-bold rounded-xl border border-red-500/20 transition-all active:scale-95 shadow-lg shadow-red-500/5"
+              >
+                Fix in Gateway Doctor
+              </button>
+              <button
+                onClick={onClose}
+                className="text-[12px] text-neutral-500 hover:text-white transition-colors font-semibold"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <button 
+          onClick={onClose}
+          className="absolute top-4 right-4 text-neutral-600 hover:text-white transition-colors"
+        >
+          <CloseIcon size={14} />
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
 // ─── Main Page ───────────────────────────────────────────────────────────────
+
 function ClientPage() {
   const router = useRouter();
   const [room] = useState(new Room());
@@ -290,6 +636,8 @@ function ClientPage() {
   const [isLoadingBots, setIsLoadingBots] = useState(false);
   const [editingBotId, setEditingBotId] = useState<string | null>(null);
   const [dbLastConfig, setDbLastConfig] = useState<any>(null);
+  const [botHealth, setBotHealth] = useState<Record<string, 'healthy' | 'unhealthy' | 'checking' | 'unknown'>>({});
+  const [showHealthAlert, setShowHealthAlert] = useState(false);
 
   // Conversation tracking state
   const [sessionTranscript, setSessionTranscript] = useState<any[]>([]);
@@ -331,6 +679,62 @@ function ClientPage() {
 
   // Robust Transcription Tracking via Hook
   // (Moved to TranscriptSynchronizer component to stay within RoomContext)
+
+  // ─── Automated Health Checks ────────────────────────────────────────────────
+  const checkAllBotsHealth = useCallback(async (currentBots: Bot[]) => {
+    if (currentBots.length === 0) return;
+    
+    // Group unique gateways to avoid redundant pings
+    const uniqueConfigs = new Set<string>();
+    const tasks: Promise<any>[] = [];
+
+    currentBots.forEach(bot => {
+      const configKey = `${bot.openclaw_url.replace(/\/$/, "")}|${bot.gateway_token}`;
+      if (!uniqueConfigs.has(configKey)) {
+        uniqueConfigs.add(configKey);
+        
+        // Mark as checking
+        setBotHealth(prev => ({ ...prev, [configKey]: 'checking' }));
+
+        // Fire background check
+        const check = async () => {
+          try {
+            const res = await fetch('/api/doctor/check', {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                url: bot.openclaw_url,
+                token: bot.gateway_token,
+                sessionKey: bot.session_key || ""
+              })
+            });
+            const data = await res.json();
+            const isHealthy = data.status === 200;
+            setBotHealth(prev => ({ 
+              ...prev, 
+              [configKey]: isHealthy ? 'healthy' : 'unhealthy' 
+            }));
+            
+            // Trigger global alert if a bot is unhealthy
+            if (!isHealthy) {
+              setShowHealthAlert(true);
+            }
+          } catch (err) {
+            setBotHealth(prev => ({ ...prev, [configKey]: 'unhealthy' }));
+            setShowHealthAlert(true);
+          }
+        };
+        tasks.push(check());
+      }
+    });
+  }, []);
+
+  // Trigger health check when bots are loaded
+  useEffect(() => {
+    if (bots.length > 0) {
+      checkAllBotsHealth(bots);
+    }
+  }, [bots, checkAllBotsHealth]);
 
   // 1. Initial config from localStorage
   useEffect(() => {
@@ -680,15 +1084,18 @@ function ClientPage() {
 
       <div className="flex-1 h-full w-full overflow-hidden flex flex-col relative z-0">
         {/* Mobile Header */}
-        <div className="md:hidden flex items-center justify-between px-4 h-14 border-b border-white/5 bg-[#0A0A0A] shrink-0 z-10 shadow-sm">
+        <div className="md:hidden flex items-center justify-between px-4 h-14 border-b border-white/5 bg-[#0A0A0A] shrink-0 z-10 shadow-sm transition-all duration-300">
           <div className="flex items-center gap-3">
             <div className="w-7 h-7 shrink-0 relative flex items-center justify-center rounded-lg bg-[#00E3AA]/10 text-[#00E3AA]">
               <Image src="/openclaw.png" alt="Logo" width={18} height={18} className="object-contain drop-shadow-[0_0_4px_rgba(0,227,170,0.5)]" />
             </div>
-            <span className="text-white font-bold text-lg leading-none tracking-tight mt-1">ClawdFace</span>
+            <span className="text-white font-bold text-lg leading-none tracking-tight mt-1 font-outfit">ClawdFace</span>
           </div>
-          <button onClick={() => setIsMobileMenuOpen(true)} className="text-white/70 hover:text-white p-2 rounded-md transition-colors">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <button 
+            onClick={() => setIsMobileMenuOpen(true)} 
+            className="text-white/70 hover:text-white p-2.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] transition-all border border-white/5 active:scale-95"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="3" x2="21" y1="12" y2="12"/><line x1="3" x2="21" y1="6" y2="6"/><line x1="3" x2="21" y1="18" y2="18"/>
             </svg>
           </button>
@@ -724,10 +1131,17 @@ function ClientPage() {
                 onStartCall={() => {
                   onConnectButtonClicked();
                 }}
-           onBack={() => setActiveSession("Library")}
+                onBack={() => setActiveSession("Library")}
               />
             ) : activeSession === "Avatars" ? (
               <AvatarGallery />
+            ) : activeSession === "Doctor" ? (
+              <DoctorView 
+                bots={bots} 
+                onHealthUpdate={(key, status) => {
+                  setBotHealth(prev => ({ ...prev, [key]: status }));
+                }}
+              />
             ) : activeSession === "Library" ? (
               <BotLibraryView 
                 bots={bots} 
@@ -763,6 +1177,7 @@ function ClientPage() {
                   });
                   setActiveSession("AddBot");
                 }}
+                botHealth={botHealth}
               />
             ) : activeSession === "Conversations" ? (
               selectedConversation ? (
@@ -821,29 +1236,40 @@ function ClientPage() {
           onClose={() => setIsRecallModalOpen(false)}
           config={config}
         />
-      </main>
-    );
-  }
+        <AnimatePresence>
+          {showHealthAlert && (
+            <HealthAlertNotification 
+              onClose={() => setShowHealthAlert(false)} 
+              onFix={() => {
+                setActiveSession("Doctor");
+                setShowHealthAlert(false);
+              }} 
+            />
+          )}
+        </AnimatePresence>
+    </main>
+  );
+}
 
+// ─── Launcher / Session Config Form ──────────────────────────────────────────
 function SessionConfigForm({
+  onConnect,
   config,
   setConfig,
-  onConnect,
-  isConnecting,
   onOpenPicker,
   onSaveAsBot,
   isSavingBot,
-  isEditing = false,
+  isEditing,
   onCancelEdit,
   bots = [],
-  showHeader = false,
+  showHeader = true,
   titleOverride,
   onlyLauncher = false,
+  isConnecting = false,
 }: {
-  config: typeof DEFAULTS;
-  setConfig: (c: typeof DEFAULTS) => void;
-  onConnect: () => void;
-  isConnecting: boolean;
+  onConnect: (e: React.FormEvent) => void;
+  config: any;
+  setConfig: (cfg: any) => void;
   onOpenPicker: () => void;
   onSaveAsBot?: () => void;
   isSavingBot?: boolean;
@@ -853,64 +1279,36 @@ function SessionConfigForm({
   showHeader?: boolean;
   titleOverride?: string;
   onlyLauncher?: boolean;
+  isConnecting?: boolean;
 }) {
-  const [showToken, setShowToken] = useState(false);
-  const selectedAvatar = AVATARS.find(a => a.id === config.avatarId);
+  const selectedAvatar = AVATARS.find((a) => a.id === config.avatarId);
 
-  const field = (
-    key: keyof typeof DEFAULTS,
-    label: string,
-    icon: React.ReactNode,
-    placeholder: string,
-    prefix?: string
-  ) => (
-    <div className="flex flex-col gap-1.5" key={key}>
+  const handleConnect = (e: React.MouseEvent | React.FormEvent) => {
+    e.preventDefault();
+    onConnect(e as any);
+  };
+
+  const field = (id: string, label: string, icon: React.ReactNode, placeholder: string, type: string = "text") => (
+    <div className="flex flex-col gap-1.5">
       <label className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#6b7280] flex items-center gap-1.5">
         <span className="text-[#9ca3af]">{icon}</span>
-        {label}
+        {label} <span className="text-[#00E3AA] ml-0.5">*</span>
       </label>
-      <div className="relative flex items-center">
-        {prefix && (
-          <span className="absolute left-4 text-[#4b5563] font-mono text-[14px] pointer-events-none select-none">
-            {prefix}
-          </span>
-        )}
+      <div className="relative group">
         <input
-          type={key === "gatewayToken" && !showToken ? "password" : "text"}
-          value={config[key]}
-          onChange={(e) => setConfig({ ...config, [key]: e.target.value })}
+          type={type}
+          id={id}
+          value={(config as any)[id]}
+          onChange={(e) => setConfig({ ...config, [id]: e.target.value })}
           placeholder={placeholder}
-          className={`w-full bg-[#0d0d0d] border border-[#242424] rounded-xl py-3 text-[14px] text-white placeholder-[#3a3a3a] focus:outline-none focus:border-[#00E3AA]/50 focus:ring-1 focus:ring-[#00E3AA]/20 transition-all duration-200 pr-10 font-mono ${
-            prefix ? "pl-[105px]" : "px-4"
-          }`}
+          className="w-full bg-[#0d0d0d] border border-[#242424] hover:border-[#00E3AA]/40 rounded-xl py-3 px-4 text-[14px] text-white focus:outline-none focus:border-[#00E3AA] transition-all placeholder:text-[#3a3a3a]"
         />
-        {key === "gatewayToken" && (
-          <button
-            type="button"
-            onClick={() => setShowToken(!showToken)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#4b5563] hover:text-[#9ca3af] transition-colors"
-          >
-            {showToken ? (
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
-                <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
-                <line x1="1" x2="23" y1="1" y2="23"/>
-              </svg>
-            ) : (
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M1 12s4-8 11-8 11-8 11 8-4 8-11 8-11-8-11-8z"/>
-                <circle cx="12" cy="12" r="3"/>
-              </svg>
-            )}
-          </button>
-        )}
       </div>
     </div>
   );
 
   return (
     <motion.div
-      key="config-form"
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -24 }}
@@ -1013,7 +1411,7 @@ function SessionConfigForm({
 
                     <div className="flex flex-col gap-3">
                       <button
-                        onClick={onConnect}
+                        onClick={handleConnect}
                         disabled={isConnecting}
                         className="relative z-10 w-full py-3.5 rounded-xl font-bold text-[15px] tracking-wider transition-all duration-300
                           bg-[#00E3AA] text-black hover:bg-[#00c994] active:scale-[0.98]
@@ -1126,7 +1524,7 @@ function SessionConfigForm({
               <div className="flex flex-col gap-3 mt-4">
                 {titleOverride !== "Add Bot" && (
                   <button
-                    onClick={onConnect}
+                    onClick={handleConnect}
                     disabled={isConnecting || !config.openclawUrl || !config.gatewayToken}
                     className="w-full py-3.5 rounded-xl font-bold text-[15px] tracking-wide transition-all duration-200
                       bg-[#00E3AA] text-black hover:bg-[#00c994] active:scale-[0.98]
@@ -1512,13 +1910,15 @@ function BotLibraryView({
   profileId, 
   onRefresh, 
   onSelectBot,
-  onEditBot
+  onEditBot,
+  botHealth
 }: { 
   bots: Bot[], 
   profileId: string | null,
   onRefresh: () => void,
   onSelectBot: (bot: Bot) => void,
-  onEditBot: (bot: Bot) => void
+  onEditBot: (bot: Bot) => void,
+  botHealth: Record<string, 'healthy' | 'unhealthy' | 'checking' | 'unknown'>
 }) {
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
@@ -1632,8 +2032,39 @@ function BotLibraryView({
                         className="w-full h-full object-cover transition-transform duration-500 scale-105 group-hover:scale-110 opacity-100 grayscale-0" 
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-neutral-800"><UserIcon size={56} /></div>
+                      <div className="w-full h-full flex items-center justify-center bg-white/5 text-neutral-700">
+                        <UserIcon size={48} />
+                      </div>
                     )}
+                    
+                    {/* Health Status Indicator Badge */}
+                    <div className="absolute top-4 left-4 z-20">
+                      {(() => {
+                        const healthKey = `${bot.openclaw_url.replace(/\/$/, "")}|${bot.gateway_token}`;
+                        const status = botHealth[healthKey] || 'unknown';
+                        
+                        return (
+                          <div className={`
+                            flex items-center gap-2 px-2.5 py-1 rounded-full backdrop-blur-md border 
+                            ${status === 'healthy' ? 'bg-green-500/20 border-green-500/30 text-green-400' : 
+                              status === 'unhealthy' ? 'bg-red-500/20 border-red-500/30 text-red-400' : 
+                              status === 'checking' ? 'bg-yellow-500/20 border-yellow-500/30 text-yellow-400' : 
+                              'bg-neutral-500/20 border-neutral-500/30 text-neutral-400'}
+                          `}>
+                            {status === 'checking' ? (
+                              <div className="w-2 h-2 rounded-full bg-current animate-pulse shadow-[0_0_8px_rgba(234,179,8,0.5)]" />
+                            ) : (
+                              <div className={`w-2 h-2 rounded-full bg-current ${status === 'healthy' ? 'shadow-[0_0_8px_rgba(34,197,94,0.5)]' : status === 'unhealthy' ? 'shadow-[0_0_8px_rgba(239,68,68,0.5)]' : ''}`} />
+                            )}
+                            <span className="text-[10px] font-bold uppercase tracking-wider">
+                              {status === 'healthy' ? 'Active' : 
+                               status === 'unhealthy' ? 'Offline' : 
+                               status === 'checking' ? 'Pinging' : 'Unknown'}
+                            </span>
+                          </div>
+                        );
+                      })()}
+                    </div>
                     
                     <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/20 to-transparent opacity-90" />
                     
