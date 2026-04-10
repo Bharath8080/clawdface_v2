@@ -1,0 +1,2 @@
+- Updated env to add studio.trugen.ai domain to allowed list.
+- Updated trugen.ai env to include Runpod ID.

@@ -1,0 +1,85 @@
+version: "3.8"
+
+services:
+  backend:
+    image: 605982976738.dkr.ecr.us-east-2.amazonaws.com/trugen:clawdface-be
+    restart: always
+    ports:
+      - "3077:3077"
+    container_name: trugen-clawdface-console-backend
+    networks:
+      - trugen-clawdface-console-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:3077/health",
+          "||",
+          "exit",
+          "1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  webapp:
+    image: 605982976738.dkr.ecr.us-east-2.amazonaws.com/trugen:clawdface-webapp
+    restart: always
+    ports:
+      - "3079:3079"
+    container_name: trugen-clawdface-console-webapp
+    networks:
+      - trugen-clawdface-console-network
+    depends_on:
+      - backend
+    environment:
+      - NODE_ENV=production
+      - PORT=3079
+      - HOSTNAME=0.0.0.0
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:3079",
+          "||",
+          "exit",
+          "1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # documentation:
+  #   image: 605982976738.dkr.ecr.us-east-2.amazonaws.com/trugen:doc
+  #   ports:
+  #     - "3078:3078"
+  #   container_name: trugen-console-docs
+  #   networks:
+  #     - trugen-console-network
+  #   environment:
+  #     - HOST=0.0.0.0
+  #     - PORT=3078
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:3078/", "||", "exit", "1"]
+  #     interval: 30s
+  #     timeout: 3s
+  #     retries: 3
+  #     start_period: 5s
+
+networks:
+  trugen-clawdface-console-network:
+    driver: bridge
+
+volumes:
+  # Add any persistent volumes if needed in the future
+  trugen-clawdface-console-data:

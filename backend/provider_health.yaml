@@ -1,0 +1,82 @@
+server:
+  port: 8080
+
+check_interval: 900s
+
+ranking:
+  latency_weight: 0.3
+  availability_weight: 0.7
+  window_size: 100
+
+providers:
+  stt:
+    - name: deepgram-nova-2
+      provider_type: deepgram
+      model: nova-2
+      enabled: true
+      api_key: ${DEEPGRAM_API_KEY}
+    - name: deepgram-nova-3
+      provider_type: deepgram
+      model: nova-3
+      enabled: true
+      api_key: ${DEEPGRAM_API_KEY}
+    - name: elevenlabs-scribe
+      provider_type: elevenlabs
+      model: scribe_v2
+      enabled: true
+      api_key: ${ELEVEN_API_KEY}
+
+  llm:
+    - name: openai
+      provider_type: openai_compat
+      base_url: https://api.openai.com
+      model: gpt-4o-mini
+      enabled: true
+      api_key: ${OPENAI_API_KEY}
+    - name: anthropic
+      provider_type: anthropic
+      model: claude-haiku-4-5-20251001
+      enabled: true
+      api_key: ${ANTHROPIC_API_KEY}
+    - name: groq
+      provider_type: openai_compat
+      base_url: https://api.groq.com/openai
+      model: openai/gpt-oss-120b
+      enabled: true
+      api_key: ${GROQ_API_KEY}
+    - name: google
+      provider_type: google
+      model: gemini-3.1-flash-lite-preview
+      enabled: true
+      api_key: ${GOOGLE_API_KEY}
+    - name: bedrock
+      provider_type: bedrock
+      model: openai.gpt-oss-120b-1:0
+      region: us-east-1
+      enabled: true
+      api_key: ${AWS_BEDROCK_KEY}
+      secret_key: ${AWS_BEDROCK_SECRET}
+
+  tts:
+    - name: elevenlabs-turbo
+      provider_type: elevenlabs
+      model: eleven_turbo_v2_5
+      voice_id: FGY2WhTYpPnrIDTdsKH5
+      enabled: true
+      api_key: ${ELEVEN_API_KEY}
+
+  infra:
+    - name: cerebrium-streaming-avatar
+      provider_type: cerebrium
+      base_url: https://api.aws.us-east-1.cerebrium.ai/v4/p-6fef6fdc/streaming-avatar/ready
+      enabled: true
+      max_concurrent: 100 # max simultaneous requests; 0 = unlimited
+      project_id: p-6fef6fdc
+      app_id: p-6fef6fdc-streaming-avatar
+      api_key: ${API_TOKEN}
+    - name: runpod-streaming-avatar
+      provider_type: runpod
+      base_url: https://api.runpod.ai/v2/63xez98ipzalbs/health
+      enabled: true
+      max_concurrent: 50 # max workers
+      api_key: ${RUNPOD_API_KEY}

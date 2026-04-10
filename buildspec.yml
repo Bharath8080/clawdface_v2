@@ -1,0 +1,45 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      docker: 20
+    commands:
+      - nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --storage-driver=overlay2 &
+      - timeout 15 sh -c "until docker info; do echo .; sleep 1; done"
+      - docker image prune -a --force
+  pre_build:
+    commands:
+      - echo Logging in to Docker AWS ECR ...
+      - aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 605982976738.dkr.ecr.us-east-2.amazonaws.com
+      - currentTime=$(date +%s)
+      - echo $currentTime
+      - TRUGEN=605982976738.dkr.ecr.us-east-2.amazonaws.com/trugen
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Building the Docker image...
+      - aws s3 cp s3://powerops-env/clawdface/clawdface-be.env ./backend/.env
+      - docker build -t $TRUGEN ./backend
+      - docker tag $TRUGEN $TRUGEN:clawdface-be-$currentTime
+      - docker tag $TRUGEN $TRUGEN:clawdface-be
+#      - docker build -t $TRUGEN ./Documentation
+#      - docker tag $TRUGEN $TRUGEN:clawdface-be-$currentTime
+#      - docker tag $TRUGEN $TRUGEN:clawdface-doc
+      - aws s3 cp s3://powerops-env/clawdface/clawdface-webapp.env ./webapp/.env
+      - docker build -t $TRUGEN ./webapp
+      - docker tag $TRUGEN $TRUGEN:clawdface-webapp-$currentTime
+      - docker tag $TRUGEN $TRUGEN:clawdface-webapp
+      - echo "Docker images built successfully"
+      
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing the Docker image...
+      - docker push $TRUGEN:clawdface-be-$currentTime
+      - docker push $TRUGEN:clawdface-be
+#      - docker push $TRUGEN:clawdface-doc-$currentTime
+#      - docker push $TRUGEN:clawdface-doc
+      - docker push $TRUGEN:clawdface-webapp-$currentTime
+      - docker push $TRUGEN:clawdface-webapp
+      - echo "Docker images pushed successfully"
