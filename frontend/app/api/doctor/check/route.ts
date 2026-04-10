@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
         model: "openclaw",
         messages: [{ role: "user", content: "ping" }],
         max_tokens: 1,
-        stream: false // Ensure we get a single JSON response
+        stream: true 
       }),
       cache: 'no-store',
       // @ts-ignore
