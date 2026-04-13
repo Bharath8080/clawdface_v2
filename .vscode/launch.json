@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Go Server",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/backend", 
+            "env": {
+                "ENV": "development"
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}/backend",
+            "buildFlags": "",
+            "showLog": true
+        }
+    ]
+}
