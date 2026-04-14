@@ -1346,15 +1346,15 @@ function SessionConfigForm({
       transition={{ duration: 0.35, ease: [0.09, 1.04, 0.245, 1.055] }}
       className="flex items-center justify-center h-full p-6"
     >
-      <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-[#1c2e28] flex items-center justify-center mx-auto mb-4 shadow-[0_0_32px_rgba(0,227,170,0.12)]">
-            <Image src="/openclaw.png" alt="ClawdFace" width={34} height={34} className="object-contain" />
+      <div className="w-full max-w-[620px]">
+        <div className="mb-6 text-center">
+          <div className="w-10 h-10 rounded-2xl bg-[#1c2e28] flex items-center justify-center mx-auto mb-3 shadow-[0_0_32px_rgba(0,227,170,0.12)]">
+            <Image src="/openclaw.png" alt="ClawdFace" width={24} height={24} className="object-contain" />
           </div>
-          <h2 className="text-[26px] font-bold text-white tracking-tight">
+          <h2 className="text-[22px] font-bold text-white tracking-tight">
             {titleOverride || (isEditing ? "Edit Bot Configuration" : "Quick Call")}
           </h2>
-          <p className="text-[#6b7280] text-[14px] mt-2">
+          <p className="text-[#6b7280] text-[13px] mt-1">
             {isEditing 
               ? "Update your bot settings below" 
               : (titleOverride === "Add Bot" 
@@ -1363,7 +1363,7 @@ function SessionConfigForm({
           </p>
         </div>
 
-        <div className={`bg-[#111111] border border-[#1f1f1f] rounded-2xl p-6 flex flex-col gap-5 shadow-2xl ${onlyLauncher ? 'max-w-sm mx-auto' : ''}`}>
+        <div className={`bg-[#111111] border border-[#1f1f1f] rounded-2xl p-5 flex flex-col gap-4 shadow-2xl ${onlyLauncher ? 'max-w-sm mx-auto' : ''}`}>
           {/* Quick Launch Dropdown */}
           {!isEditing && bots.length > 0 && (
             onlyLauncher ? (
@@ -1515,8 +1515,10 @@ function SessionConfigForm({
 
           {!onlyLauncher && (
             <>
-              {field("openclawUrl",  "OpenClaw URL",     <LinkIcon />,   "http://localhost:18789")}
-              {field("gatewayToken", "Gateway Token",    <KeyIcon />,    "Enter your gateway token")}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {field("openclawUrl",  "URL",     <LinkIcon />,   "http://localhost:18789")}
+                {field("gatewayToken", "Token",    <KeyIcon />,    "Enter token")}
+              </div>
               {field("botName",      "Bot Name",         <UserIcon />,   "Enter a custom name for this bot")}
 
               <div className="flex flex-col gap-1.5">
@@ -1526,7 +1528,7 @@ function SessionConfigForm({
                 </label>
                 <button
                   onClick={onOpenPicker}
-                  className="group relative w-full aspect-video rounded-xl bg-[#0d0d0d] border-2 border-dashed border-[#242424] hover:border-[#00E3AA]/40 transition-all duration-300 overflow-hidden flex flex-col items-center justify-center gap-3"
+                  className="group relative w-full h-80 rounded-xl bg-[#0d0d0d] border-2 border-dashed border-[#242424] hover:border-[#00E3AA]/40 transition-all duration-300 overflow-hidden flex flex-col items-center justify-center gap-2"
                 >
                   {selectedAvatar ? (
                     <>
@@ -1555,7 +1557,7 @@ function SessionConfigForm({
                 </button>
               </div>
 
-              <div className="flex flex-col gap-4 p-5 rounded-2xl bg-white/[0.02] border border-white/5 mt-2 transition-all hover:bg-white/[0.04] shadow-inner">
+              <div className="flex flex-col gap-3 p-4 rounded-2xl bg-white/[0.02] border border-white/5 mt-0 transition-all hover:bg-white/[0.04] shadow-inner">
                 <div className="flex items-center justify-between">
                   <div className="flex flex-col gap-0.5">
                     <label className="text-[12px] font-bold uppercase tracking-[0.1em] text-neutral-400 flex items-center gap-2">
