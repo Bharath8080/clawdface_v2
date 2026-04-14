@@ -35,11 +35,13 @@ import { supabase } from "@/lib/supabase-client";
 
 // ─── Session Config Defaults ────────────────────────────────────────────────
 const DEFAULTS = {
-  openclawUrl:  "",
-  gatewayToken: "",
-  sessionKey:   "",
-  avatarId:     "",
-  botName:      "",
+  openclawUrl:     "",
+  gatewayToken:    "",
+  sessionKey:      "",
+  avatarId:        "",
+  botName:         "",
+  thinkingEnabled: "true",
+  thinkingDelay:   "5.0",
 };
 
 const stripSessionKey = (key: string) => {
@@ -72,7 +74,6 @@ const AVATARS = [
   { id: "05b401f3", name: "Misha",    image: "/avatars/misha.jpg" },
   { id: "13550375", name: "Alex",     image: "/avatars/alex.png" },
   { id: "48d778c9", name: "Amir",     image: "/avatars/amir.jpg" },
-  { id: "55d889d0", name: "Akbar",    image: "/avatars/akbar.jpg" },
 ];
 
 // ─── Icons ──────────────────────────────────────────────────────────────────
@@ -867,7 +868,9 @@ function ClientPage() {
       ...activeConfig,
       avatarId: activeConfig.avatarId || AVATARS[0].id,
       sessionKey: finalSessionKey,
-      botName: activeConfig.botName || (AVATARS.find(a => a.id === activeConfig.avatarId)?.name) || "Bot"
+      botName: activeConfig.botName || (AVATARS.find(a => a.id === activeConfig.avatarId)?.name) || "Bot",
+      enable_thinking: activeConfig.thinkingEnabled,
+      thinking_delay: activeConfig.thinkingDelay,
     };
 
     // Update config state but keep sessionKey clean for UI
@@ -1033,7 +1036,10 @@ function ClientPage() {
     setIsLoadingBots(true);
     try {
       if (editingBotId) {
-        // Update existing bot
+        // Find the bot to get its agent_email for syncing
+        const botToUpdate = bots.find(b => b.id === editingBotId);
+        
+        // Update existing bot library record
         const { error } = await supabase
           .from('bots')
           .update({
@@ -1041,11 +1047,29 @@ function ClientPage() {
             openclaw_url: config.openclawUrl,
             gateway_token: config.gatewayToken,
             session_key: config.sessionKey,
+            thinking_enabled: config.thinkingEnabled,
+            thinking_delay: config.thinkingDelay,
             updated_at: new Date().toISOString()
           })
           .eq('id', editingBotId);
           
         if (error) throw error;
+
+        // Sync to agents table if an email is assigned
+        if (botToUpdate?.agent_email) {
+          await supabase
+            .from('agents')
+            .update({
+              avatar_id: config.avatarId,
+              openclaw_url: config.openclawUrl,
+              gateway_token: config.gatewayToken,
+              thinking_enabled: config.thinkingEnabled,
+              thinking_delay: config.thinkingDelay,
+              updated_at: new Date().toISOString()
+            })
+            .eq('email', botToUpdate.agent_email);
+        }
+
         setEditingBotId(null);
       } else {
         // Create new bot
@@ -1058,6 +1082,8 @@ function ClientPage() {
           gateway_token: config.gatewayToken,
           session_key: config.sessionKey,
           voice_id: "default",
+          thinking_enabled: config.thinkingEnabled,
+          thinking_delay: config.thinkingDelay,
         });
       }
       // Refresh bots list
@@ -1161,6 +1187,8 @@ function ClientPage() {
                     sessionKey: stripSessionKey(bot.session_key || ""),
                     avatarId: bot.avatar_id,
                     botName: bot.name,
+                    thinkingEnabled: bot.thinking_enabled || "true",
+                    thinkingDelay: bot.thinking_delay || "5.0",
                   };
                   setConfig(newConfig); // ensure state is updated for dashboard
                   onConnectButtonClicked(undefined, newConfig);
@@ -1174,6 +1202,8 @@ function ClientPage() {
                     sessionKey: stripSessionKey(bot.session_key || ""),
                     avatarId: bot.avatar_id,
                     botName: bot.name,
+                    thinkingEnabled: bot.thinking_enabled || "true",
+                    thinkingDelay: bot.thinking_delay || "5.0",
                   });
                   setActiveSession("AddBot");
                 }}
@@ -1356,6 +1386,8 @@ function SessionConfigForm({
                           sessionKey: stripSessionKey(selected.session_key),
                           avatarId: selected.avatar_id,
                           botName: selected.name,
+                          thinkingEnabled: selected.thinking_enabled || "true",
+                          thinkingDelay: selected.thinking_delay || "5.0",
                         };
                         setConfig(newConfig);
                       }
@@ -1519,6 +1551,88 @@ function SessionConfigForm({
                     </>
                   )}
                 </button>
+              </div>
+
+              <div className="flex flex-col gap-4 p-5 rounded-2xl bg-white/[0.02] border border-white/5 mt-2 transition-all hover:bg-white/[0.04] shadow-inner">
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-0.5">
+                    <label className="text-[12px] font-bold uppercase tracking-[0.1em] text-neutral-400 flex items-center gap-2">
+                      <SmileIcon size={14} className="text-[#00E3AA]" />
+                      Dynamic Thinking
+                    </label>
+                    <p className="text-[10px] text-neutral-600 font-medium">Auto-trigger filler phrases</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer"
+                      checked={config.thinkingEnabled === "true"}
+                      onChange={(e) => setConfig({ ...config, thinkingEnabled: e.target.checked ? "true" : "false" })}
+                    />
+                    <div className="w-11 h-5 bg-neutral-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-5 after:transition-all peer-checked:bg-[#00E3AA]"></div>
+                  </label>
+                </div>
+
+                <AnimatePresence mode="wait">
+                  {config.thinkingEnabled === "true" && (
+                    <motion.div 
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2, ease: "easeInOut" }}
+                      className="overflow-hidden"
+                    >
+                      <div className="pt-2 flex flex-col gap-4 border-t border-white/5">
+                        <div className="flex flex-col gap-3">
+                          <div className="flex justify-between items-center text-[11px] font-bold text-neutral-500 uppercase tracking-widest pl-1">
+                            <span>Thinking Delay</span>
+                          </div>
+                          
+                          <div className="flex items-center gap-2 bg-black/40 p-1.5 rounded-lg border border-white/5">
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                const current = parseFloat(config.thinkingDelay || "5.0");
+                                if (current > 0.5) {
+                                  setConfig({ ...config, thinkingDelay: (current - 0.5).toFixed(1) });
+                                }
+                              }}
+                              className="w-8 h-8 flex items-center justify-center rounded-md bg-white/5 hover:bg-white/10 active:scale-95 transition-all text-[#00E3AA] border border-white/5"
+                            >
+                              <span className="text-lg font-bold">−</span>
+                            </button>
+                            
+                            <div className="flex-1 flex items-center justify-center gap-1">
+                              <input
+                                type="number"
+                                step="0.5"
+                                min="0.5"
+                                max="15"
+                                value={config.thinkingDelay}
+                                onChange={(e) => setConfig({ ...config, thinkingDelay: e.target.value })}
+                                className="w-12 bg-transparent text-center text-[15px] font-bold text-white focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              />
+                              <span className="text-[11px] font-bold text-neutral-500 uppercase tracking-tight">sec</span>
+                            </div>
+
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                const current = parseFloat(config.thinkingDelay || "5.0");
+                                if (current < 15) {
+                                  setConfig({ ...config, thinkingDelay: (current + 0.5).toFixed(1) });
+                                }
+                              }}
+                              className="w-8 h-8 flex items-center justify-center rounded-md bg-white/5 hover:bg-white/10 active:scale-95 transition-all text-[#00E3AA] border border-white/5"
+                            >
+                              <span className="text-lg font-bold">+</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               <div className="flex flex-col gap-3 mt-4">

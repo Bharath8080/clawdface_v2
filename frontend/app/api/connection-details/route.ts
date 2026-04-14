@@ -25,6 +25,8 @@ export async function GET(req: Request) {
     roomName:     searchParams.get("room") || undefined,
     meetingUrl:   searchParams.get("meetingUrl") || undefined,
     connection_type: searchParams.get("connection_type") || undefined,
+    enable_thinking: searchParams.get("enable_thinking") || searchParams.get("thinkingEnabled") || undefined,
+    thinking_delay:  searchParams.get("thinking_delay") || searchParams.get("thinkingDelay") || undefined,
   };
   return handleConnection(config);
 }
@@ -43,6 +45,8 @@ async function handleConnection(config: {
   roomName?: string;
   meetingUrl?: string;
   connection_type?: string;
+  enable_thinking?: string;
+  thinking_delay?: string;
 }) {
   try {
     if (!LIVEKIT_URL) throw new Error("LIVEKIT_URL is not defined");
@@ -60,6 +64,8 @@ async function handleConnection(config: {
       avatarId:     config.avatarId     || "",
       meetingUrl:   config.meetingUrl   || "",
       connection_type: config.connection_type || "website",
+      enable_thinking: config.enable_thinking || (config as any).thinkingEnabled || "true",
+      thinking_delay:  config.thinking_delay  || (config as any).thinkingDelay || "5.0",
     });
 
     console.log(`[connection-details] Room: ${roomName}`);

@@ -21,6 +21,8 @@ export async function GET(request: Request) {
         gatewayToken: agents.gateway_token,
         avatarId: agents.avatar_id,
         name: agents.name,
+        enable_thinking: agents.thinking_enabled,
+        thinking_delay: agents.thinking_delay,
       })
       .from(agents)
       .where(eq(agents.email, email))
