@@ -4,6 +4,8 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { getInitials } from '@/lib/auth';
 import { useUser, useStackApp } from '@stackframe/stack';
+import { Bot } from '@/lib/database-actions';
+import { AVATARS } from '@/lib/constants';
 
 // ---- Icons ----
 const BotIcon = () => <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="10" x="3" y="11" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" x2="8" y1="16" y2="16"/><line x1="16" x2="16" y1="16" y2="16"/></svg>;
@@ -40,9 +42,10 @@ interface NavItemProps {
 interface NavRowProps extends NavItemProps {
   badge?: string;
   badgeCls?: string;
+  showChevron?: boolean;
 }
 
-function NavRow({ label, icon, isActive, onClick, badge, badgeCls }: NavRowProps) {
+function NavRow({ label, icon, isActive, onClick, badge, badgeCls, showChevron }: NavRowProps) {
   return (
     <button onClick={onClick}
       className={`w-full flex items-center gap-3 px-3 py-[11px] rounded-lg text-left transition-all duration-150
@@ -50,6 +53,7 @@ function NavRow({ label, icon, isActive, onClick, badge, badgeCls }: NavRowProps
       <span className="shrink-0">{icon}</span>
       <span className="flex-1 text-[15px] font-medium leading-none">{label}</span>
       {badge && <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full border ${badgeCls}`}>{badge}</span>}
+      {showChevron && <span className="text-[#5a5a5a]"><ChevronDown /></span>}
     </button>
   );
 }
@@ -130,24 +134,77 @@ function ProfileDropdown({ user, initials, onClose, className = "bottom-full lef
   );
 }
 
+// ---- Quick Call Dropdown ----
+function QuickCallDropdown({ bots, onSelect, onClose, className = "bottom-full left-0 mb-2 w-full" }: { bots: Bot[]; onSelect: (bot: Bot) => void; onClose: () => void; className?: string }) {
+  return (
+    <div className={`absolute ${className} bg-[#161616] border border-[#242424] rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.5)] overflow-hidden z-[200]`}>
+      <div className="px-4 py-3 border-b border-[#242424]">
+        <span className="text-white text-[12px] font-bold uppercase tracking-wider text-[#9ca3af]">Select a Companion</span>
+      </div>
+      <div className="py-1 max-h-[280px] overflow-y-auto custom-scrollbar">
+        {bots.length === 0 ? (
+          <div className="px-4 py-6 text-center text-[#5a5a5a] text-[13px]">
+            No bots found. Add a bot library first.
+          </div>
+        ) : (
+          bots.map((bot) => {
+            const avatar = AVATARS.find(a => a.id === bot.avatar_id);
+            return (
+              <button
+                key={bot.id}
+                onClick={() => {
+                  onSelect(bot);
+                  onClose();
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 text-[14px] text-[#d1d5db] hover:bg-[#1c1c1c] hover:text-white transition-all duration-150 group"
+              >
+                <div className="w-8 h-8 rounded-full overflow-hidden border border-white/10 shrink-0 group-hover:border-[#00E3AA]/40 transition-colors">
+                  {avatar ? (
+                    <Image src={avatar.image} alt={bot.name} width={32} height={32} className="object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-[#1c2e28] flex items-center justify-center text-[10px] font-bold text-[#00E3AA]">
+                      {bot.name.charAt(0)}
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-col items-start min-w-0">
+                  <span className="font-semibold truncate w-full">{bot.name}</span>
+                  <span className="text-[10px] text-[#5a5a5a] uppercase tracking-tight">Saved Bot</span>
+                </div>
+              </button>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Sidebar ─────────────────────────────────────────────────────────────
 export function Sidebar({
-  activeSession, setActiveSession, isMobileMenuOpen, setIsMobileMenuOpen,
+  activeSession, setActiveSession, isMobileMenuOpen, setIsMobileMenuOpen, bots, onQuickCall
 }: {
   activeSession: string;
   setActiveSession: (s: string) => void;
   isMobileMenuOpen: boolean;
   setIsMobileMenuOpen: (o: boolean) => void;
+  bots: Bot[];
+  onQuickCall: (bot: Bot) => void;
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [quickCallOpen, setQuickCallOpen] = useState(false);
   const user = useUser();
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const quickCallRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDropdownOpen(false);
+      }
+      if (quickCallRef.current && !quickCallRef.current.contains(e.target as Node)) {
+        setQuickCallOpen(false);
       }
     };
     document.addEventListener("mousedown", handler);
@@ -155,7 +212,11 @@ export function Sidebar({
   }, []);
 
   const initials = getInitials(user?.primaryEmail, user?.displayName);
-  const handleNav = (session: string) => { setActiveSession(session); setIsMobileMenuOpen(false); };
+  const handleNav = (session: string) => { 
+    setActiveSession(session); 
+    setIsMobileMenuOpen(false); 
+    setQuickCallOpen(false);
+  };
 
   const UserAvatar = ({ size = "w-9 h-9" }: { size?: string }) => (
     user?.profileImageUrl
@@ -195,7 +256,20 @@ export function Sidebar({
       {/* Footer / Configuration */}
       <div className="px-3 pb-4 flex flex-col gap-0.5 shrink-0">
         <div className="border-t border-[#232323] mb-2 mx-1" />
-        <NavRow label="Quick Call" icon={<MonitorIcon />} isActive={activeSession === "My Bot"} onClick={() => handleNav("My Bot")} />
+        
+        <div ref={quickCallRef} className="relative">
+          {quickCallOpen && (
+            <QuickCallDropdown bots={bots} onSelect={onQuickCall} onClose={() => setQuickCallOpen(false)} />
+          )}
+          <NavRow 
+            label="Quick Call" 
+            icon={<MonitorIcon />} 
+            isActive={activeSession === "My Bot"} 
+            onClick={() => setQuickCallOpen(!quickCallOpen)} 
+            showChevron={true}
+          />
+        </div>
+
         <div className="border-t border-[#232323] mb-2 mx-1" />
 
         {/* Profile + dropdown */}
@@ -244,7 +318,22 @@ export function Sidebar({
       </nav>
       <div className="flex flex-col items-center px-2 pb-4 shrink-0 gap-2">
         <div className="border-t border-[#232323] w-full mb-1" />
-        <ColIconBtn label="Quick Call" icon={<MonitorIcon />} isActive={activeSession === "My Bot"} onClick={() => handleNav("My Bot")} />
+        
+        <div ref={quickCallRef} className="relative w-full flex justify-center group">
+          {quickCallOpen && (
+            <QuickCallDropdown 
+              bots={bots} 
+              onSelect={onQuickCall} 
+              onClose={() => setQuickCallOpen(false)} 
+              className="bottom-0 left-full ml-4 w-[260px]"
+            />
+          )}
+          <button onClick={() => setQuickCallOpen(!quickCallOpen)} className={`group relative w-full flex items-center justify-center p-2.5 rounded-lg transition-all duration-150 ${activeSession === 'My Bot' ? 'bg-[#252525] text-white' : 'text-[#9ca3af] hover:bg-[#1c1c1c] hover:text-white'}`}>
+             <MonitorIcon />
+             <Tooltip label="Quick Call" />
+          </button>
+        </div>
+
         <div className="border-t border-[#232323] w-full mb-1" />
         <div ref={dropdownRef} className="relative group w-full flex justify-center">
           {dropdownOpen && user && (
@@ -283,3 +372,4 @@ export function Sidebar({
     </>
   );
 }
+
