@@ -1707,7 +1707,7 @@ function TranscriptSynchronizer({
 
 // ─── Active Voice Assistant View ─────────────────────────────────────────────
 function ActiveVoiceAssistantView({ onConnectButtonClicked }: { onConnectButtonClicked: () => void }) {
-  const { state: agentState } = useVoiceAssistant();
+  const { state: agentState, videoTrack } = useVoiceAssistant();
   const [isChatVisible, setIsChatVisible] = useState(false);
   const [chatWidth, setChatWidth] = useState(450);
   const [isDragging, setIsDragging] = useState(false);
@@ -1733,7 +1733,7 @@ function ActiveVoiceAssistantView({ onConnectButtonClicked }: { onConnectButtonC
 
   if (agentState === "disconnected") return null;
 
-  const isAgentInteractive = ["listening", "thinking", "speaking", "idle"].includes(agentState);
+  const isAgentInteractive = ["listening", "thinking", "speaking", "idle"].includes(agentState) && !!videoTrack;
 
   return (
     <motion.div 
@@ -2403,7 +2403,7 @@ function DirectCallDashboard({
 
   // Keep track of if we've successfully connected so we can detect a disconnection
   const hasConnectedRef = useRef(false);
-  const isAgentInteractive = ["listening", "thinking", "speaking", "idle"].includes(agentState);
+  const isAgentInteractive = ["listening", "thinking", "speaking", "idle"].includes(agentState) && !!videoTrack;
 
   useEffect(() => {
     if (isAgentInteractive) {
