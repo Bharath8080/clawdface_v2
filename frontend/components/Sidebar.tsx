@@ -140,7 +140,6 @@ export function Sidebar({
   setIsMobileMenuOpen: (o: boolean) => void;
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [monitorOpen, setMonitorOpen] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const user = useUser();
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -190,16 +189,7 @@ export function Sidebar({
         <NavRow label="Gateway Doctor" icon={<ActivityIcon />} onClick={() => handleNav("Doctor")} isActive={activeSession === "Doctor"} badge="Health" badgeCls="border-[#00E3AA]/20 text-[#00E3AA]" />
         <NavRow label="Stock Avatars" icon={<UserIcon />}     isActive={activeSession === "Avatars"}   onClick={() => handleNav("Avatars")} />
 
-        {/* Monitor */}
-        <button onClick={() => setMonitorOpen(!monitorOpen)}
-          className="w-full flex items-center gap-3 px-3 py-[11px] rounded-lg text-left text-[#9ca3af] hover:bg-[#1c1c1c] hover:text-white transition-all duration-150">
-          <span className="shrink-0"><MonitorIcon /></span>
-          <span className="flex-1 text-[15px] font-medium leading-none">Monitor</span>
-          <span className={`transition-transform duration-200 ${monitorOpen ? '' : '-rotate-90'}`}><ChevronDown /></span>
-        </button>
-        {monitorOpen && <div className="flex flex-col gap-0.5">
-          <SubRow label="Conversations" icon={<HistoryIcon />} onClick={() => handleNav("Conversations")} isActive={activeSession === "Conversations"} />
-        </div>}
+        <NavRow label="Conversations" icon={<HistoryIcon />} onClick={() => handleNav("Conversations")} isActive={activeSession === "Conversations"} />
       </nav>
 
       {/* Footer / Configuration */}

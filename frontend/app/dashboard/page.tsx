@@ -1043,6 +1043,7 @@ function ClientPage() {
         const { error } = await supabase
           .from('bots')
           .update({
+            name: config.botName || "Unnamed Bot",
             avatar_id: config.avatarId,
             openclaw_url: config.openclawUrl,
             gateway_token: config.gatewayToken,
@@ -1076,7 +1077,7 @@ function ClientPage() {
         const selectedAvatar = AVATARS.find(a => a.id === config.avatarId);
         await createBot({
           user_id: profileId,
-          name: selectedAvatar ? `${selectedAvatar.name}'s Bot` : "My New Bot",
+          name: config.botName || (selectedAvatar ? `${selectedAvatar.name}'s Bot` : "My New Bot"),
           avatar_id: config.avatarId,
           openclaw_url: config.openclawUrl,
           gateway_token: config.gatewayToken,
@@ -1516,6 +1517,7 @@ function SessionConfigForm({
             <>
               {field("openclawUrl",  "OpenClaw URL",     <LinkIcon />,   "http://localhost:18789")}
               {field("gatewayToken", "Gateway Token",    <KeyIcon />,    "Enter your gateway token")}
+              {field("botName",      "Bot Name",         <UserIcon />,   "Enter a custom name for this bot")}
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#6b7280] flex items-center gap-1.5">

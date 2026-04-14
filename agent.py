@@ -52,7 +52,7 @@ logging.getLogger("livekit.agents").addFilter(SilencePaddingFilter())
 EMAIL_BOT_AVATAR_MAP = {
     "amansbot": "0f160301", "jasonbot": "182b03e8", "sameerbot": "05a001fc",
     "mikebot": "be5b2ce0", "johnnybot": "03ae0187", "amanbot": "0f160301",
-    "alexbot": "13550375", "amirbot": "18c4043e",
+    "alexbot": "13550375", "amirbot": "48d778c9",
     "jessicabot": "1a640442", "lisasbot": "1a640442",
     "lisabot": "1a640442", "cathybot": "1a640442", "sofiabot": "1a640442",
     "lucybot": "1a640442", "kiarabot": "1a640442", "jenniferbot": "1a640442",
@@ -62,7 +62,7 @@ EMAIL_BOT_AVATAR_MAP = {
 
 MALE_AVATAR_IDS = {
     "182b03e8", "05a001fc", "be5b2ce0", "03ae0187",
-    "1fa504ff", "0f160301", "13550375", "18c4043e"
+    "1fa504ff", "0f160301", "13550375", "18c4043e", "48d778c9"
 }
 
 DEFAULT_AVATAR_ID = "1a640442"
