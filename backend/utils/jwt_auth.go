@@ -23,7 +23,7 @@ var (
 )
 
 const (
-	projectID       = "2c70068f-97a0-4b15-ba00-f5c52e2db2e0"
+	projectID       = "ffaea088-baeb-4606-a299-7d0ee52226f0"
 	jwksRefreshTime = 6 * time.Hour
 )
 
