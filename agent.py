@@ -300,10 +300,10 @@ def setup_langfuse(metadata: dict):
 class MyAgent(Agent):
     def __init__(self, *, groq_llm: llm.LLM | None = None, enable_thinking: bool = True, thinking_delay: float = 3.0, **kwargs) -> None:
         super().__init__(
-            instructions=(
-                "You are a helpful AI assistant. Keep responses to 2-4 short spoken sentences. "
-                "Be conversational. Never use markdown, bullet points, or formatting."
-            ),
+        instructions=(
+            "You are a helpful AI assistant. Keep responses to 2-4 short spoken sentences. "
+            "Be conversational. Never use markdown, bullet points, or formatting."
+        ),
             **kwargs
         )
         self._groq_llm = groq_llm  # Groq for instant waiting messages
@@ -486,28 +486,48 @@ class MyAgent(Agent):
             # Create prompt for Groq to generate waiting message
             user_query = self._last_user_message.content or ""
             
+# ── Filler LLM Prompt (the in-between one) ─────────────────────────────────
             waiting_prompt = (
-                "You are a helpful AI assistant. Generate a brief, natural-sounding "
-                "waiting phrase that acknowledges the SPECIFIC TOPIC from the user's question. "
-                "You MUST reference the actual subject they asked about.\n\n"
-                f"User's question: '{user_query}'\n\n"
+                "Generate a brief context-aware filler phrase while the main response is being prepared.\n\n"
+                f"User message: '{user_query}'\n\n"
                 "RULES:\n"
-                "1. MUST mention the specific topic from their question\n"
-                "2. 3-8 words maximum\n"
-                "3. Sound natural and conversational\n"
-                "4. NEVER use generic phrases like 'Let me think about that'\n"
-                "5. NEVER use 'that' - use the actual topic instead\n\n"
-                "GOOD examples (notice how they mention the topic):\n"
-                "- User asks about chess → 'Let me think about chess strategies...'\n"
-                "- User asks about weather → 'Checking the weather forecast...'\n"
-                "- User asks about Python → 'Hmm, let me consider Python approaches...'\n"
-                "- User asks about cooking → 'Thinking about cooking techniques...'\n"
-                "- User asks about history → 'Exploring historical facts...'\n\n"
-                "BAD examples (too generic, don't use):\n"
-                "- 'Let me think about that' ❌\n"
-                "- 'One moment please' ❌\n"
-                "- 'Give me a second' ❌\n\n"
-                "Now generate YOUR context-aware waiting phrase (mention the topic!):"
+                "1. First, identify the TRUE intent behind the message — not the literal words\n"
+                "2. 3-8 words, always ends with '...'\n"
+                "3. NEVER extract filler words as topics — words like 'fine', 'okay', 'yeah', 'good', "
+                "'all', 'now', 'here', 'it', 'things' are NOT topics\n"
+                "4. NEVER say 'that' — name the actual subject\n\n"
+                "INTENT DETECTION LOGIC — pick the right pattern:\n"
+                "- Message expresses a STATUS or FEELING (fine, okay, good, not great, tired, happy) "
+                "→ Acknowledge the emotion, bridge to response: 'Glad to hear, putting a reply together...'\n"
+                "- Message is a GREETING (hi, hello, hey, good morning) "
+                "→ Warm setup phrase: 'Getting things ready for you...'\n"
+                "- Message is APPRECIATION or COMPLIMENT (thanks, you're great, awesome) "
+                "→ Light acknowledgment: 'Happy to help, thinking ahead...'\n"
+                "- Message is AGREEMENT or ACKNOWLEDGMENT (okay cool, makes sense, got it, sure) "
+                "→ Move forward naturally: 'Good, figuring out the next step...'\n"
+                "- Message is UNCERTAINTY or NEGATIVE (not sure, not really, I don't know, not good) "
+                "→ Supportive bridge: 'No worries, thinking it through...'\n"
+                "- Message is a clear TASK or QUESTION (what is X, help me with Y, fix Z) "
+                "→ Reference the specific topic: 'Looking into [topic] for you...'\n\n"
+                "GOOD examples:\n"
+                "   - 'It is all okay now here' → 'Glad things are sorted, thinking ahead...'\n"
+                "   - 'Everything is fine now' → 'Good to know, putting a reply together...'\n"
+                "   - 'Yeah all good' → 'Nice, working on a response...'\n"
+                "   - 'Not really doing great' → 'No worries, thinking it through...'\n"
+                "   - 'Haha yeah makes sense' → 'Glad it clicked, figuring out more...'\n"
+                "   - 'Hi there' → 'Setting things up for you...'\n"
+                "   - 'Thanks a lot!' → 'Happy to help, thinking ahead...'\n"
+                "   - 'Fix my Python code' → 'Scanning your Python code...'\n"
+                "   - 'Plan a trip to Rome' → 'Planning your Rome itinerary...'\n"
+                "   - 'What's the weather?' → 'Checking the weather forecast...'\n\n"
+                "BAD examples (never do this):\n"
+                "   - 'Looking into your fine status...' ❌\n"
+                "   - 'Processing your okay...' ❌\n"
+                "   - 'Checking your yeah...' ❌\n"
+                "   - 'Thinking about your here...' ❌\n"
+                "   - 'One moment please' ❌\n"
+                "   - 'Let me think about that' ❌\n\n"
+                "Respond with ONLY the filler phrase. No labels, no explanation."
             )
             
             # Quick Groq call for instant response
