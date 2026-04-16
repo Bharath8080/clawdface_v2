@@ -144,12 +144,12 @@ function QuickCallDropdown({ bots, onSelect, onClose, className = "bottom-full l
         <span className="text-white text-[12px] font-bold uppercase tracking-wider text-[#9ca3af]">Select a Companion</span>
       </div>
       <div className="py-1 max-h-[280px] overflow-y-auto custom-scrollbar">
-        {bots.length === 0 ? (
+        {bots?.length === 0 ? (
           <div className="px-4 py-6 text-center text-[#5a5a5a] text-[13px]">
             No bots found. Add a bot library first.
           </div>
         ) : (
-          bots.map((bot) => {
+          bots?.map((bot) => {
             const avatar = AVATARS.find(a => a.id === bot.avatar_id);
             return (
               <button
@@ -285,6 +285,26 @@ export function Sidebar({
         <NavRow label="Stock Avatars" icon={<UserIcon />}     isActive={activeSession === "Avatars"}   onClick={() => handleNav("Avatars")} />
 
         <NavRow label="Conversations" icon={<HistoryIcon />} onClick={() => handleNav("Conversations")} isActive={activeSession === "Conversations"} />
+        <button onClick={() => setSettingsOpen(!settingsOpen)}
+          className="w-full flex items-center gap-3 px-3 py-[11px] rounded-lg text-left text-[#9ca3af] hover:bg-[#1c1c1c] hover:text-white transition-all duration-150">
+          <span className="shrink-0"><GearIcon /></span>
+          <span className="flex-1 text-[15px] font-medium leading-none">Settings</span>
+          <span className={`transition-transform duration-200 ${settingsOpen ? '' : '-rotate-90'}`}><ChevronDown /></span>
+        </button>
+        {settingsOpen && <div className="flex flex-col gap-0.5">
+          <SubRow
+            label="Billing & Plans"
+            icon={<CardIcon />}
+            onClick={() => { router.push("/dashboard/settings/billing-and-subscription"); setIsMobileMenuOpen(false); }}
+            isActive={pathname === "/dashboard/settings/billing-and-subscription"}
+          />
+          <SubRow
+            label="Invoices"
+            icon={<FileTextIcon />}
+            onClick={() => { router.push("/dashboard/settings/invoices"); setIsMobileMenuOpen(false); }}
+            isActive={pathname === "/dashboard/settings/invoices"}
+          />
+        </div>}
       </nav>
 
       {/* Footer / Configuration */}
