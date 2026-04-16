@@ -13,7 +13,9 @@ export interface Bot {
   openclaw_url: string;
   gateway_token: string;
   session_key: string;
-  agent_email: string; // New field
+  agent_email: string;
+  thinking_enabled: string;
+  thinking_delay: string;
   created_at: string;
   updated_at: string;
 }
@@ -47,6 +49,8 @@ export async function fetchBotsAction(userId: string): Promise<Bot[]> {
     gateway_token: bot.gateway_token || '',
     session_key: bot.session_key || '',
     agent_email: bot.agent_email || '',
+    thinking_enabled: bot.thinking_enabled || 'true',
+    thinking_delay: bot.thinking_delay || '5.0',
     created_at: bot.created_at?.toISOString() || '',
     updated_at: bot.updated_at?.toISOString() || '',
   })) as Bot[];
@@ -68,6 +72,8 @@ export async function createBotAction(bot: Partial<Bot>) {
       gateway_token: bot.gateway_token,
       session_key: bot.session_key,
       agent_email: agentEmail,
+      thinking_enabled: bot.thinking_enabled || 'true',
+      thinking_delay: bot.thinking_delay || '5.0',
     })
     .returning();
 
@@ -84,6 +90,8 @@ export async function createBotAction(bot: Partial<Bot>) {
         gateway_token: data.gateway_token || '',
         agent_type: 'openclaw',
         bot_id: data.id,
+        thinking_enabled: data.thinking_enabled || 'true',
+        thinking_delay: data.thinking_delay || '5.0',
       });
   } catch (err) {
     console.error('Failed to create agent record:', err);
@@ -121,6 +129,8 @@ export async function updateBotAction(id: string, updates: Partial<Bot>) {
           avatar_id: data.avatar_id || '',
           openclaw_url: data.openclaw_url || '',
           gateway_token: data.gateway_token || '',
+          thinking_enabled: data.thinking_enabled || 'true',
+          thinking_delay: data.thinking_delay || '5.0',
           updated_at: new Date()
         })
         .where(eq(agents.email, data.agent_email));

@@ -26,8 +26,8 @@ phases:
 #      - docker build -t $TRUGEN ./Documentation
 #      - docker tag $TRUGEN $TRUGEN:clawdface-be-$currentTime
 #      - docker tag $TRUGEN $TRUGEN:clawdface-doc
-      - aws s3 cp s3://powerops-env/clawdface/clawdface-webapp.env ./webapp/.env
-      - docker build -t $TRUGEN ./webapp
+      - aws s3 cp s3://powerops-env/clawdface/clawdface-webapp.env ./frontend/.env
+      - docker build -t $TRUGEN ./frontend
       - docker tag $TRUGEN $TRUGEN:clawdface-webapp-$currentTime
       - docker tag $TRUGEN $TRUGEN:clawdface-webapp
       - echo "Docker images built successfully"

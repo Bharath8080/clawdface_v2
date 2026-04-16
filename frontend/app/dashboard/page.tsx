@@ -38,11 +38,13 @@ import { supabase } from "@/lib/supabase-client";
 
 // ─── Session Config Defaults ────────────────────────────────────────────────
 const DEFAULTS = {
-  openclawUrl:  "",
-  gatewayToken: "",
-  sessionKey:   "",
-  avatarId:     "",
-  botName:      "",
+  openclawUrl:     "",
+  gatewayToken:    "",
+  sessionKey:      "",
+  avatarId:        "",
+  botName:         "",
+  thinkingEnabled: "true",
+  thinkingDelay:   "5.0",
 };
 
 const stripSessionKey = (key: string) => {
@@ -54,29 +56,7 @@ const stripSessionKey = (key: string) => {
   return clean;
 };
 
-// ─── Avatars ────────────────────────────────────────────────────────────────
-const AVATARS = [
-  { id: "182b03e8", name: "Kevin",    image: "/avatars/kevin.jpg" },
-  { id: "21ef04ad", name: "Jessica",  image: "/avatars/jessica.jpeg" },
-  { id: "17de03e4", name: "Cathy",    image: "/avatars/cathy.jpg" },
-  { id: "1928040f", name: "Sofia",    image: "/avatars/sofia.jpeg" },
-  { id: "c5b563de", name: "Lucy",     image: "/avatars/lucy.jpg" },
-  { id: "178303d3", name: "Kiara",    image: "/avatars/kiara.jpg" },
-  { id: "05a001fc", name: "Jason",    image: "/avatars/jason.jpg" },
-  { id: "be5b2ce0", name: "Sameer",   image: "/avatars/sameer.jpeg" },
-  { id: "0de70332", name: "Jennifer", image: "/avatars/jennifer.jpg" },
-  { id: "03ae0187", name: "Mike",     image: "/avatars/mike.jpg" },
-  { id: "1fa504ff", name: "Johnny",   image: "/avatars/johnny.jpg" },
-  { id: "7d881c1b", name: "Priya",    image: "/avatars/priya.jpg" },
-  { id: "178803d6", name: "Chloe",    image: "/avatars/chole.jpeg" },
-  { id: "1a640442", name: "Lisa",     image: "/avatars/lisa.png" },
-  { id: "0f160301", name: "Aman",     image: "/avatars/aman.jpg" },
-  { id: "057501e8", name: "Allie",    image: "/avatars/allie.jpg" },
-  { id: "05b401f3", name: "Misha",    image: "/avatars/misha.jpg" },
-  { id: "13550375", name: "Alex",     image: "/avatars/alex.png" },
-  { id: "48d778c9", name: "Amir",     image: "/avatars/amir.jpg" },
-  { id: "55d889d0", name: "Akbar",    image: "/avatars/akbar.jpg" },
-];
+import { AVATARS } from "@/lib/constants";
 
 // ─── Icons ──────────────────────────────────────────────────────────────────
 const UserIcon = ({ size = 15 }: { size?: number }) => (
@@ -902,7 +882,9 @@ function ClientPage() {
       ...activeConfig,
       avatarId: activeConfig.avatarId || AVATARS[0].id,
       sessionKey: finalSessionKey,
-      botName: activeConfig.botName || (AVATARS.find(a => a.id === activeConfig.avatarId)?.name) || "Bot"
+      botName: activeConfig.botName || (AVATARS.find(a => a.id === activeConfig.avatarId)?.name) || "Bot",
+      enable_thinking: activeConfig.thinkingEnabled,
+      thinking_delay: activeConfig.thinkingDelay,
     };
 
     // Update config state but keep sessionKey clean for UI
@@ -929,6 +911,21 @@ function ClientPage() {
     });
     await room.localParticipant.setMicrophoneEnabled(true);
   }, [room, config]);
+
+  const handleQuickCallSelect = (bot: Bot) => {
+    setConfig({
+      ...config,
+      openclawUrl: bot.openclaw_url,
+      gatewayToken: bot.gateway_token,
+      sessionKey: bot.session_key ? stripSessionKey(bot.session_key) : "",
+      avatarId: bot.avatar_id,
+      botName: bot.name,
+      thinkingEnabled: bot.thinking_enabled,
+      thinkingDelay: bot.thinking_delay,
+    });
+    setActiveSession("DirectCall");
+    setIsMobileMenuOpen(false);
+  };
 
   useEffect(() => {
     room.on(RoomEvent.MediaDevicesError, onDeviceFailure);
@@ -1069,31 +1066,55 @@ function ClientPage() {
     setIsLoadingBots(true);
     try {
       if (editingBotId) {
-        // Update existing bot
+        // Find the bot to get its agent_email for syncing
+        const botToUpdate = bots.find(b => b.id === editingBotId);
+        
+        // Update existing bot library record
         const { error } = await supabase
           .from('bots')
           .update({
+            name: config.botName || "Unnamed Bot",
             avatar_id: config.avatarId,
             openclaw_url: config.openclawUrl,
             gateway_token: config.gatewayToken,
             session_key: config.sessionKey,
+            thinking_enabled: config.thinkingEnabled,
+            thinking_delay: config.thinkingDelay,
             updated_at: new Date().toISOString()
           })
           .eq('id', editingBotId);
           
         if (error) throw error;
+
+        // Sync to agents table if an email is assigned
+        if (botToUpdate?.agent_email) {
+          await supabase
+            .from('agents')
+            .update({
+              avatar_id: config.avatarId,
+              openclaw_url: config.openclawUrl,
+              gateway_token: config.gatewayToken,
+              thinking_enabled: config.thinkingEnabled,
+              thinking_delay: config.thinkingDelay,
+              updated_at: new Date().toISOString()
+            })
+            .eq('email', botToUpdate.agent_email);
+        }
+
         setEditingBotId(null);
       } else {
         // Create new bot
         const selectedAvatar = AVATARS.find(a => a.id === config.avatarId);
         await createBot({
           user_id: profileId,
-          name: selectedAvatar ? `${selectedAvatar.name}'s Bot` : "My New Bot",
+          name: config.botName || (selectedAvatar ? `${selectedAvatar.name}'s Bot` : "My New Bot"),
           avatar_id: config.avatarId,
           openclaw_url: config.openclawUrl,
           gateway_token: config.gatewayToken,
           session_key: config.sessionKey,
           voice_id: "default",
+          thinking_enabled: config.thinkingEnabled,
+          thinking_delay: config.thinkingDelay,
         });
       }
       // Refresh bots list
@@ -1116,6 +1137,8 @@ function ClientPage() {
           }}
           isMobileMenuOpen={isMobileMenuOpen}
           setIsMobileMenuOpen={setIsMobileMenuOpen}
+          bots={bots}
+          onQuickCall={handleQuickCallSelect}
         />
 
       <div className="flex-1 h-full w-full overflow-hidden flex flex-col relative z-0">
@@ -1156,9 +1179,7 @@ function ClientPage() {
                   setConfig(DEFAULTS);
                 }}
                 bots={activeSession === "My Bot" ? bots : []}
-                showHeader={true}
-                titleOverride={activeSession === "AddBot" ? "Add Bot" : "Quick Call"}
-                onlyLauncher={activeSession === "My Bot"}
+                showConnectButton={activeSession === "My Bot"}
               />
             ) : activeSession === "DirectCall" ? (
               <DirectCallDashboard
@@ -1197,6 +1218,8 @@ function ClientPage() {
                     sessionKey: stripSessionKey(bot.session_key || ""),
                     avatarId: bot.avatar_id,
                     botName: bot.name,
+                    thinkingEnabled: bot.thinking_enabled || "true",
+                    thinkingDelay: bot.thinking_delay || "5.0",
                   };
                   setConfig(newConfig); // ensure state is updated for dashboard
                   onConnectButtonClicked(undefined, newConfig);
@@ -1210,6 +1233,8 @@ function ClientPage() {
                     sessionKey: stripSessionKey(bot.session_key || ""),
                     avatarId: bot.avatar_id,
                     botName: bot.name,
+                    thinkingEnabled: bot.thinking_enabled || "true",
+                    thinkingDelay: bot.thinking_delay || "5.0",
                   });
                   setActiveSession("AddBot");
                 }}
@@ -1300,10 +1325,8 @@ function SessionConfigForm({
   isEditing,
   onCancelEdit,
   bots = [],
-  showHeader = true,
-  titleOverride,
-  onlyLauncher = false,
   isConnecting = false,
+  showConnectButton = true,
 }: {
   onConnect: (e: React.FormEvent) => void;
   config: any;
@@ -1314,10 +1337,8 @@ function SessionConfigForm({
   isEditing?: boolean;
   onCancelEdit?: () => void;
   bots?: Bot[];
-  showHeader?: boolean;
-  titleOverride?: string;
-  onlyLauncher?: boolean;
   isConnecting?: boolean;
+  showConnectButton?: boolean;
 }) {
   const selectedAvatar = AVATARS.find((a) => a.id === config.avatarId);
 
@@ -1353,137 +1374,25 @@ function SessionConfigForm({
       transition={{ duration: 0.35, ease: [0.09, 1.04, 0.245, 1.055] }}
       className="flex items-center justify-center h-full p-6"
     >
-      <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-[#1c2e28] flex items-center justify-center mx-auto mb-4 shadow-[0_0_32px_rgba(0,227,170,0.12)]">
-            <Image src="/openclaw.png" alt="ClawdFace" width={34} height={34} className="object-contain" />
-          </div>
-          <h2 className="text-[26px] font-bold text-white tracking-tight">
-            {titleOverride || (isEditing ? "Edit Bot Configuration" : "Quick Call")}
+      <div className="w-full max-w-[620px]">
+        <div className="mb-6 text-center">
+          <h2 className="text-[22px] font-bold text-white tracking-tight">
+            {isEditing ? "Edit Bot Configuration" : (isSavingBot ? "Save Bot to Library" : "Quick Call")}
           </h2>
-          <p className="text-[#6b7280] text-[14px] mt-2">
+          <p className="text-[#6b7280] text-[13px] mt-1">
             {isEditing 
               ? "Update your bot settings below" 
-              : (titleOverride === "Add Bot" 
-                ? "Configure a new bot session key and details" 
-                : (onlyLauncher ? "Select a saved bot to start call immediately" : "Select a saved bot or configure a new connection"))}
+              : "Manual configuration for a one-time connection"}
           </p>
         </div>
 
-        <div className={`bg-[#111111] border border-[#1f1f1f] rounded-2xl p-6 flex flex-col gap-5 shadow-2xl ${onlyLauncher ? 'max-w-sm mx-auto' : ''}`}>
-          {/* Quick Launch Dropdown */}
+        <div className={`bg-[#111111] border border-[#1f1f1f] rounded-2xl p-5 flex flex-col gap-4 shadow-2xl mx-auto`}>
           {!isEditing && bots.length > 0 && (
-            onlyLauncher ? (
-              <div className="flex flex-col gap-4">
-                <label className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#00E3AA] flex items-center gap-1.5">
-                  <LibraryIcon size={14} className="text-[#00E3AA]" />
-                  Select a Companion
-                </label>
-                
-                <div className="relative group">
-                  <div className="absolute -inset-0.5 bg-gradient-to-r from-[#00E3AA]/20 to-[#00E3AA]/0 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
-                  <select
-                    onChange={async (e) => {
-                      const botId = e.target.value;
-                      if (!botId) return;
-                      const selected = bots.find(b => b.id === botId);
-                      if (selected) {
-                        const newConfig = {
-                          openclawUrl: selected.openclaw_url,
-                          gatewayToken: selected.gateway_token,
-                          sessionKey: stripSessionKey(selected.session_key),
-                          avatarId: selected.avatar_id,
-                          botName: selected.name,
-                        };
-                        setConfig(newConfig);
-                      }
-                    }}
-                    className="relative w-full bg-[#111111] border-2 border-[#1f1f1f] hover:border-[#00E3AA]/40 rounded-xl py-3.5 pl-4 pr-10 text-[14px] text-white focus:outline-none focus:border-[#00E3AA] transition-all cursor-pointer font-medium appearance-none shadow-inner"
-                    defaultValue=""
-                  >
-                    <option value="" disabled>Choose a bot to begin...</option>
-                    {bots.map(bot => {
-                      const date = new Date(bot.created_at);
-                      const timestamp = `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear().toString().slice(-2)} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
-                      return (
-                        <option key={bot.id} value={bot.id}>
-                          {bot.name} ({timestamp})
-                        </option>
-                      );
-                    })}
-                  </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#00E3AA]">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                  </div>
-                </div>
-
-                {config.openclawUrl && (
-                  <motion.div 
-                    initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    className="mt-2 p-5 rounded-2xl bg-gradient-to-b from-[#1a1a1a] to-[#0d0d0d] border border-[#2a2a2a] relative overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
-                  >
-                    <div className="absolute top-0 right-0 w-40 h-40 bg-[#00E3AA]/5 blur-3xl rounded-full pointer-events-none transform translate-x-1/3 -translate-y-1/3" />
-                    
-                    <div className="flex items-center gap-4 relative z-10 mb-6">
-                      <div className="w-16 h-16 rounded-full overflow-hidden border-[3px] border-[#00E3AA]/30 shrink-0 bg-[#0d0d0d] shadow-[0_0_20px_rgba(0,227,170,0.15)] flex items-center justify-center">
-                        {(() => {
-                          const avatar = AVATARS.find(a => a.id === config.avatarId);
-                          return avatar ? (
-                            <img src={avatar.image} alt="Avatar" className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="text-[#00E3AA]/50">
-                              <UserIcon size={24} />
-                            </div>
-                          );
-                        })()}
-                      </div>
-                      <div className="flex flex-col">
-                         <h3 className="font-bold text-white text-[18px] tracking-tight">{config.botName || "Unknown Bot"}</h3>
-                         <div className="flex items-center gap-1.5 mt-1">
-                           <div className="w-2 h-2 rounded-full bg-[#00E3AA] animate-pulse"></div>
-                           <span className="text-[#00E3AA] font-mono text-[11px] tracking-wider uppercase">Video Companion</span>
-                         </div>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-3">
-                      <button
-                        onClick={handleConnect}
-                        disabled={isConnecting}
-                        className="relative z-10 w-full py-3.5 rounded-xl font-bold text-[15px] tracking-wider transition-all duration-300
-                          bg-[#00E3AA] text-black hover:bg-[#00c994] active:scale-[0.98]
-                          disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100
-                          shadow-[0_0_20px_rgba(0,227,170,0.2)] hover:shadow-[0_0_30px_rgba(0,227,170,0.4)]
-                          flex items-center justify-center gap-2 uppercase overflow-hidden group border border-[#00E3AA]/50"
-                      >
-                        <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
-                        {isConnecting ? (
-                          <div className="w-5 h-5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
-                        ) : (
-                          "Join Meeting"
-                        )}
-                      </button>
-
-                      <button
-                        onClick={() => (window as any).setIsRecallModalOpen?.(true)}
-                        className="w-full py-2.5 rounded-xl font-bold text-[12px] tracking-widest transition-all duration-300
-                          bg-white/5 text-white/60 hover:bg-white/10 hover:text-white border border-white/10
-                          flex items-center justify-center gap-2 uppercase"
-                      >
-                        <LinkIcon size={14} />
-                        Get Recall URL
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-col gap-1.5 pb-4 border-b border-[#1f1f1f]">
-                <label className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#00E3AA] flex items-center gap-1.5">
-                  <LibraryIcon size={14} className="text-[#00E3AA]" />
-                  Quick Fill from Library
-                </label>
+            <div className="flex flex-col gap-1.5 pb-4 border-b border-[#1f1f1f]">
+              <label className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#00E3AA] flex items-center gap-1.5">
+                <LibraryIcon size={14} className="text-[#00E3AA]" />
+                Quick Fill from Library
+              </label>
                 <select
                   onChange={async (e) => {
                     const botId = e.target.value;
@@ -1515,13 +1424,13 @@ function SessionConfigForm({
                   })}
                 </select>
               </div>
-            )
-          )}
+            )}
 
-          {!onlyLauncher && (
-            <>
-              {field("openclawUrl",  "OpenClaw URL",     <LinkIcon />,   "http://localhost:18789")}
-              {field("gatewayToken", "Gateway Token",    <KeyIcon />,    "Enter your gateway token")}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {field("openclawUrl",  "URL",     <LinkIcon />,   "http://localhost:18789")}
+                {field("gatewayToken", "Token",    <KeyIcon />,    "Enter token")}
+              </div>
+              {field("botName",      "Bot Name",         <UserIcon />,   "Enter a custom name for this bot")}
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#6b7280] flex items-center gap-1.5">
@@ -1530,7 +1439,7 @@ function SessionConfigForm({
                 </label>
                 <button
                   onClick={onOpenPicker}
-                  className="group relative w-full aspect-video rounded-xl bg-[#0d0d0d] border-2 border-dashed border-[#242424] hover:border-[#00E3AA]/40 transition-all duration-300 overflow-hidden flex flex-col items-center justify-center gap-3"
+                  className="group relative w-full h-80 rounded-xl bg-[#0d0d0d] border-2 border-dashed border-[#242424] hover:border-[#00E3AA]/40 transition-all duration-300 overflow-hidden flex flex-col items-center justify-center gap-2"
                 >
                   {selectedAvatar ? (
                     <>
@@ -1559,9 +1468,91 @@ function SessionConfigForm({
                 </button>
               </div>
 
+              <div className="flex flex-col gap-3 p-4 rounded-2xl bg-white/[0.02] border border-white/5 mt-0 transition-all hover:bg-white/[0.04] shadow-inner">
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-0.5">
+                    <label className="text-[12px] font-bold uppercase tracking-[0.1em] text-neutral-400 flex items-center gap-2">
+                      <SmileIcon size={14} className="text-[#00E3AA]" />
+                      Dynamic Thinking
+                    </label>
+                    <p className="text-[10px] text-neutral-600 font-medium">Auto-trigger filler phrases</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer"
+                      checked={config.thinkingEnabled === "true"}
+                      onChange={(e) => setConfig({ ...config, thinkingEnabled: e.target.checked ? "true" : "false" })}
+                    />
+                    <div className="w-11 h-5 bg-neutral-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-5 after:transition-all peer-checked:bg-[#00E3AA]"></div>
+                  </label>
+                </div>
+
+                <AnimatePresence mode="wait">
+                  {config.thinkingEnabled === "true" && (
+                    <motion.div 
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2, ease: "easeInOut" }}
+                      className="overflow-hidden"
+                    >
+                      <div className="pt-2 flex flex-col gap-4 border-t border-white/5">
+                        <div className="flex flex-col gap-3">
+                          <div className="flex justify-between items-center text-[11px] font-bold text-neutral-500 uppercase tracking-widest pl-1">
+                            <span>Thinking Delay</span>
+                          </div>
+                          
+                          <div className="flex items-center gap-2 bg-black/40 p-1.5 rounded-lg border border-white/5">
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                const current = parseFloat(config.thinkingDelay || "5.0");
+                                if (current > 0.5) {
+                                  setConfig({ ...config, thinkingDelay: (current - 0.5).toFixed(1) });
+                                }
+                              }}
+                              className="w-8 h-8 flex items-center justify-center rounded-md bg-white/5 hover:bg-white/10 active:scale-95 transition-all text-[#00E3AA] border border-white/5"
+                            >
+                              <span className="text-lg font-bold">−</span>
+                            </button>
+                            
+                            <div className="flex-1 flex items-center justify-center gap-1">
+                              <input
+                                type="number"
+                                step="0.5"
+                                min="0.5"
+                                max="15"
+                                value={config.thinkingDelay}
+                                onChange={(e) => setConfig({ ...config, thinkingDelay: e.target.value })}
+                                className="w-12 bg-transparent text-center text-[15px] font-bold text-white focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              />
+                              <span className="text-[11px] font-bold text-neutral-500 uppercase tracking-tight">sec</span>
+                            </div>
+
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                const current = parseFloat(config.thinkingDelay || "5.0");
+                                if (current < 15) {
+                                  setConfig({ ...config, thinkingDelay: (current + 0.5).toFixed(1) });
+                                }
+                              }}
+                              className="w-8 h-8 flex items-center justify-center rounded-md bg-white/5 hover:bg-white/10 active:scale-95 transition-all text-[#00E3AA] border border-white/5"
+                            >
+                              <span className="text-lg font-bold">+</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
               <div className="flex flex-col gap-3 mt-4">
-                {titleOverride !== "Add Bot" && (
-                  <button
+                  {showConnectButton && (
+                    <button
                     onClick={handleConnect}
                     disabled={isConnecting || !config.openclawUrl || !config.gatewayToken}
                     className="w-full py-3.5 rounded-xl font-bold text-[15px] tracking-wide transition-all duration-200
@@ -1614,13 +1605,8 @@ function SessionConfigForm({
                   </button>
                 )}
               </div>
-            </>
-          )}
-        </div>
+            </div>
 
-        <p className="text-center text-[11px] text-[#3a3a3a] mt-4">
-          Config is saved locally and auto-filled next time
-        </p>
       </div>
     </motion.div>
   );
@@ -1759,7 +1745,7 @@ function TranscriptSynchronizer({
 
 // ─── Active Voice Assistant View ─────────────────────────────────────────────
 function ActiveVoiceAssistantView({ onConnectButtonClicked }: { onConnectButtonClicked: () => void }) {
-  const { state: agentState } = useVoiceAssistant();
+  const { state: agentState, videoTrack } = useVoiceAssistant();
   const [isChatVisible, setIsChatVisible] = useState(false);
   const [chatWidth, setChatWidth] = useState(450);
   const [isDragging, setIsDragging] = useState(false);
@@ -1785,7 +1771,7 @@ function ActiveVoiceAssistantView({ onConnectButtonClicked }: { onConnectButtonC
 
   if (agentState === "disconnected") return null;
 
-  const isAgentInteractive = ["listening", "thinking", "speaking", "idle"].includes(agentState);
+  const isAgentInteractive = ["listening", "thinking", "speaking", "idle"].includes(agentState) && !!videoTrack;
 
   return (
     <motion.div 
@@ -1832,9 +1818,7 @@ function SimpleVoiceAssistant({
   isEditing,
   onCancelEdit,
   bots = [],
-  showHeader = false,
-  titleOverride,
-  onlyLauncher = false,
+  showConnectButton = true,
 }: {
   onConnectButtonClicked: () => void;
   config: typeof DEFAULTS;
@@ -1845,9 +1829,7 @@ function SimpleVoiceAssistant({
   isEditing?: boolean;
   onCancelEdit?: () => void;
   bots?: Bot[];
-  showHeader?: boolean;
-  titleOverride?: string;
-  onlyLauncher?: boolean;
+  showConnectButton?: boolean;
 }) {
   const { state: agentState } = useVoiceAssistant();
   const [isConnecting, setIsConnecting] = useState(false);
@@ -1873,14 +1855,12 @@ function SimpleVoiceAssistant({
             isConnecting={isConnecting}
             onOpenPicker={onOpenPicker}
             onSaveAsBot={onSaveAsBot}
-             isSavingBot={isSavingBot}
-             isEditing={isEditing}
-             onCancelEdit={onCancelEdit}
-             bots={bots}
-             showHeader={showHeader}
-             titleOverride={titleOverride}
-             onlyLauncher={onlyLauncher}
-           />
+            isSavingBot={isSavingBot}
+            isEditing={isEditing}
+            onCancelEdit={onCancelEdit}
+            bots={bots}
+            showConnectButton={showConnectButton}
+          />
         ) : (
           <ActiveVoiceAssistantView 
             key="active" 
@@ -2453,9 +2433,15 @@ function DirectCallDashboard({
     }
   };
 
+  useEffect(() => {
+    if (autoStart) {
+      handleStartCall();
+    }
+  }, []); // Run once on mount
+
   // Keep track of if we've successfully connected so we can detect a disconnection
   const hasConnectedRef = useRef(false);
-  const isAgentInteractive = ["listening", "thinking", "speaking", "idle"].includes(agentState);
+  const isAgentInteractive = ["listening", "thinking", "speaking", "idle"].includes(agentState) && !!videoTrack;
 
   useEffect(() => {
     if (isAgentInteractive) {

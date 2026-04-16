@@ -17,6 +17,8 @@ export const bots = pgTable('bots', {
   gateway_token: text('gateway_token'),
   session_key: text('session_key'),
   agent_email: text('agent_email'), // Direct link to the bridge email
+  thinking_enabled: text('thinking_enabled').default('true'), // boolean as string for flexibility or use boolean()
+  thinking_delay: text('thinking_delay').default('5.0'), // float as string
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 });
@@ -43,6 +45,8 @@ export const agents = pgTable('agents', {
   agent_type: text('agent_type').default('openclaw'),
   config: jsonb('config').default({}),
   bot_id: uuid('bot_id').references(() => bots.id), // Back-reference to the bot library
+  thinking_enabled: text('thinking_enabled').default('true'),
+  thinking_delay: text('thinking_delay').default('5.0'),
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 });

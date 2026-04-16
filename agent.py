@@ -7,24 +7,25 @@ import typing
 import logging
 from dotenv import load_dotenv
 from livekit import agents
-from livekit.agents import Agent, AgentServer, AgentSession, cli, metrics, APIConnectOptions
+from livekit.agents import Agent, AgentServer, AgentSession, cli, metrics, APIConnectOptions, StopResponse, llm
 from livekit.agents.telemetry import set_tracer_provider
 from livekit.agents.voice import MetricsCollectedEvent
 from livekit.agents.voice.agent_session import SessionConnectOptions
 from livekit.plugins import elevenlabs, openai, trugen, silero, deepgram
- 
+
 # OTEL for Langfuse
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
- 
+
 import time
+import random
 import websockets
 from livekit.agents import stt
 from livekit.agents.utils import AudioBuffer
 from livekit.agents.types import NOT_GIVEN, NotGivenOr
 from livekit.agents.voice.room_io import RoomOptions
- 
+
 load_dotenv()
 logger = logging.getLogger("trugen-agent")
 
@@ -44,28 +45,28 @@ class SilencePaddingFilter(logging.Filter):
 # Apply filter to the noisy LiveKit logger
 logging.getLogger("livekit.agents").addFilter(SilencePaddingFilter())
 
- 
+
 # ---------------------------------------------------------------------------
 # CONFIG RESOLUTION
 # ---------------------------------------------------------------------------
 EMAIL_BOT_AVATAR_MAP = {
     "amansbot": "0f160301", "jasonbot": "182b03e8", "sameerbot": "05a001fc",
     "mikebot": "be5b2ce0", "johnnybot": "03ae0187", "amanbot": "0f160301",
-    "alexbot": "13550375", "amirbot": "18c4043e", "akbarsbot": "48d778c9",
-    "akbarbot": "48d778c9", "jessicabot": "1a640442", "lisasbot": "1a640442",
+    "alexbot": "13550375", "amirbot": "48d778c9",
+    "jessicabot": "1a640442", "lisasbot": "1a640442",
     "lisabot": "1a640442", "cathybot": "1a640442", "sofiabot": "1a640442",
     "lucybot": "1a640442", "kiarabot": "1a640442", "jenniferbot": "1a640442",
     "priyabot": "1a640442", "chloebot": "1a640442", "mishabot": "1a640442",
     "alliebot": "1a640442"
 }
- 
+
 MALE_AVATAR_IDS = {
     "182b03e8", "05a001fc", "be5b2ce0", "03ae0187",
-    "1fa504ff", "0f160301", "13550375", "48d778c9", "18c4043e"
+    "1fa504ff", "0f160301", "13550375", "18c4043e", "48d778c9"
 }
- 
+
 DEFAULT_AVATAR_ID = "1a640442"
- 
+
 # ---------------------------------------------------------------------------
 # RECALL.AI STT — connects to relay with room_id in URL
 # ---------------------------------------------------------------------------
@@ -75,13 +76,13 @@ class RecallAIDirectSTT(stt.STT):
         self._ctx = ctx
         self._recall_bot_id = recall_bot_id
         self._room_id = room_id  # ← LiveKit room name, used in relay URL
- 
+
     @property
     def provider(self) -> str: return "recall-ai-direct"
- 
+
     async def _recognize_impl(self, buffer: AudioBuffer, *, language: NotGivenOr[str] = NOT_GIVEN, conn_options: APIConnectOptions = APIConnectOptions()) -> stt.SpeechEvent:
         return stt.SpeechEvent(type=stt.SpeechEventType.START_OF_SPEECH, alternatives=[])
- 
+
     def stream(self, *, language: NotGivenOr[str] = NOT_GIVEN, conn_options: APIConnectOptions = APIConnectOptions()) -> "RecallSpeechStream":
         logger.info(f"[STT] Creating new RecallSpeechStream... bot_id={self._recall_bot_id}")
         return RecallSpeechStream(
@@ -91,8 +92,8 @@ class RecallAIDirectSTT(stt.STT):
             recall_bot_id=self._recall_bot_id,
             room_id=self._room_id,
         )
- 
- 
+
+
 class RecallSpeechStream(stt.SpeechStream):
     def __init__(self, *, stt: RecallAIDirectSTT, conn_options: APIConnectOptions,
                  ctx: agents.JobContext, recall_bot_id: str = "", room_id: str = "") -> None:
@@ -101,7 +102,7 @@ class RecallSpeechStream(stt.SpeechStream):
         self._recall_bot_id = recall_bot_id
         self._room_id = room_id
         self._speaking = False
- 
+
     def _emit_final(self, text: str):
         if not text: return
         if not self._speaking:
@@ -110,20 +111,20 @@ class RecallSpeechStream(stt.SpeechStream):
         self._event_ch.send_nowait(stt.SpeechEvent(type=stt.SpeechEventType.END_OF_SPEECH, alternatives=[stt.SpeechData(text=text, language="en")]))  # type: ignore
         self._event_ch.send_nowait(stt.SpeechEvent(type=stt.SpeechEventType.FINAL_TRANSCRIPT, alternatives=[stt.SpeechData(text=text, language="en")]))  # type: ignore
         self._speaking = False
- 
+
     def _emit_interim(self, text: str):
         if not text: return
         if not self._speaking:
             self._event_ch.send_nowait(stt.SpeechEvent(type=stt.SpeechEventType.START_OF_SPEECH, alternatives=[]))
             self._speaking = True
         self._event_ch.send_nowait(stt.SpeechEvent(type=stt.SpeechEventType.INTERIM_TRANSCRIPT, alternatives=[stt.SpeechData(text=text, language="en")]))  # type: ignore
- 
+
     async def _run(self) -> None:
         base_url = os.getenv("EXTERNAL_MEETINGS_WS_URL", "").strip()
         if not base_url:
             logger.warning("[RECALL] EXTERNAL_MEETINGS_WS_URL is not set!")
         retry_delay = 2
- 
+
         # -----------------------------------------------------------------------
         # RELAY ROUTING: Include room_id (and bot_id) as query params so the relay
         # can match this agent WS connection to incoming Recall.ai events.
@@ -133,7 +134,7 @@ class RecallSpeechStream(stt.SpeechStream):
         # -----------------------------------------------------------------------
         room_id = self._room_id or self._ctx.room.name
         logger.info(f"[RECALL] Base URL: {base_url}")
- 
+
         while True:
             try:
                 logger.info(f"[RECALL] Initializing WebSocket connection to {base_url}...")
@@ -144,23 +145,23 @@ class RecallSpeechStream(stt.SpeechStream):
                     open_timeout=15,
                 ) as ws:
                     logger.info("[RECALL] Handshake successful. Sending registration messages...")
-                    
+
                     # 1. Register Room ID
                     reg_room = {"type": "set_lk_room_id", "data": room_id}
-                    logger.info(f"[RECALL] Sending Room Registration \u2192 {reg_room}")
+                    logger.info(f"[RECALL] Sending Room Registration → {reg_room}")
                     await ws.send(json.dumps(reg_room))
-                    
+
                     # 2. Register Bot ID (optional)
                     if self._recall_bot_id:
                         reg_bot = {"type": "set_bot_id", "data": self._recall_bot_id}
-                        logger.info(f"[RECALL] Sending Bot Registration \u2192 {reg_bot}")
+                        logger.info(f"[RECALL] Sending Bot Registration → {reg_bot}")
                         await ws.send(json.dumps(reg_bot))
                     else:
                         logger.warning("[RECALL] No bot_id provided for registration. Routing might depend solely on room_id.")
- 
-                    logger.info(f"[RECALL] \u2713 Handshake and registration successful. Room: {room_id}")
+
+                    logger.info(f"[RECALL] ✓ Handshake and registration successful. Room: {room_id}")
                     retry_delay = 2
- 
+
                     while True:
                         try:
                             raw = await asyncio.wait_for(ws.recv(), timeout=30.0)
@@ -168,7 +169,7 @@ class RecallSpeechStream(stt.SpeechStream):
                             logger.debug("[RECALL] keepalive ping")
                             await ws.ping()
                             continue
- 
+
                         msg = json.loads(raw)
                         event = msg.get("event")
                         logger.debug(f"[RECALL] Incoming event: {event} | Payload: {raw}")
@@ -178,7 +179,7 @@ class RecallSpeechStream(stt.SpeechStream):
                             inner_data = msg.get("data", {})
                             if isinstance(inner_data, dict) and "data" in inner_data:
                                 inner_data = inner_data.get("data", {})
-                            
+
                             words = inner_data.get("words", []) if isinstance(inner_data, dict) else []
                             text = " ".join(
                                 w.get("text", "") for w in words
@@ -194,23 +195,23 @@ class RecallSpeechStream(stt.SpeechStream):
                                 else:
                                     logger.debug(f"[RECALL] PARTIAL: {text}")
                                     self._emit_interim(text)
- 
+
                         elif event == "participant_events.join":
                             participant = msg.get("data", {}).get("data", {}).get("participant", {})
                             name = participant.get("name", "Unknown") if isinstance(participant, dict) else "Unknown"
                             logger.info(f"[RECALL] ✓ Participant joined: {name}")
- 
+
                         elif event == "participant_events.leave":
                             participant = msg.get("data", {}).get("data", {}).get("participant", {})
                             name = participant.get("name", "Unknown") if isinstance(participant, dict) else "Unknown"
                             logger.info(f"[RECALL] Participant left: {name}")
- 
+
                         else:
                             # Log ANY unrecognised event so we can debug relay message format
                             logger.info(f"[RECALL] Unknown event type: {event} | raw: {raw[:200]}")
- 
+
             except websockets.InvalidHandshake as e:
-                logger.error(f"[RECALL] \u2717 Protocol error during handshake: {e}. Check if the URL is a valid WS/WSS endpoint. Retrying...")
+                logger.error(f"[RECALL] ✗ Protocol error during handshake: {e}. Check if the URL is a valid WS/WSS endpoint. Retrying...")
                 await asyncio.sleep(retry_delay)
                 retry_delay = min(retry_delay * 2, 30)
             except websockets.ConnectionClosed as e:
@@ -218,11 +219,11 @@ class RecallSpeechStream(stt.SpeechStream):
                 await asyncio.sleep(retry_delay)
                 retry_delay = min(retry_delay * 2, 30)
             except Exception as e:
-                logger.error(f"[RECALL] \u2717 Unexpected error in relay loop: {e}. Full context follows:", exc_info=True)
+                logger.error(f"[RECALL] ✗ Unexpected error in relay loop: {e}. Full context follows:", exc_info=True)
                 await asyncio.sleep(retry_delay)
                 retry_delay = min(retry_delay * 2, 30)
- 
-  
+
+
 def resolve_config(ctx: agents.JobContext) -> tuple[dict, str]:
     # 1. Job Metadata (Highest Priority for Dispatches)
     try:
@@ -275,44 +276,302 @@ def resolve_config(ctx: agents.JobContext) -> tuple[dict, str]:
             logger.debug(f"[CONFIG] Lookup error for {email}: {e}")
 
     return {}, "unknown"
- 
- 
+
+
 def setup_langfuse(metadata: dict):
     pub = os.getenv("LANGFUSE_PUBLIC_KEY")
     sec = os.getenv("LANGFUSE_SECRET_KEY")
     host = os.getenv("LANGFUSE_HOST") or os.getenv("LANGFUSE_BASE_URL")
- 
+
     if not all([pub, sec, host]):
         print("[LANGFUSE] Missing credentials, tracing disabled.")
         return None
- 
+
     auth = base64.b64encode(f"{pub}:{sec}".encode()).decode()
     safe_host = str(host).rstrip("/")
     os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = f"{safe_host}/api/public/otel"
     os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = f"Authorization=Basic {auth}"
- 
+
     tp = TracerProvider()
     tp.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
     set_tracer_provider(tp, metadata=metadata)
     return tp
- 
- 
-# ---------------------------------------------------------------------------
-# AGENT
-# ---------------------------------------------------------------------------
+
 class MyAgent(Agent):
-    def __init__(self) -> None:
-        super().__init__(instructions=(
+    def __init__(self, *, groq_llm: llm.LLM | None = None, enable_thinking: bool = True, thinking_delay: float = 3.0, **kwargs) -> None:
+        super().__init__(
+        instructions=(
             "You are a helpful AI assistant. Keep responses to 2-4 short spoken sentences. "
             "Be conversational. Never use markdown, bullet points, or formatting."
-        ))
- 
+        ),
+            **kwargs
+        )
+        self._groq_llm = groq_llm  # Groq for instant waiting messages
+        self._enable_thinking = enable_thinking
+        self._thinking_delay = thinking_delay
+        # Prevent concurrent turn processing
+        self._turn_lock = asyncio.Lock()
+        # Track if thinking played for current turn
+        self._thinking_played = False
+        self._response_buffer = []
+        self._last_user_message = None  # Store for context-aware waiting
+    
+    async def on_user_turn_completed(self, turn_ctx, new_message):
+        """Custom handling: stream LLM, buffer if thinking needed, then release."""
+        if not self._enable_thinking or not self._llm:
+            return  # Normal flow if thinking disabled
+            
+        # Prevent overlapping turns
+        if self._turn_lock.locked():
+            logger.info("[STREAM] Previous turn still active, skipping")
+            return
+            
+        async with self._turn_lock:
+            await self._process_turn(turn_ctx, new_message)
+        
+        # Raise StopResponse to prevent base Agent class from generating duplicate response
+        raise StopResponse()
+    
+    async def _process_turn(self, turn_ctx, new_message):
+        """Process a single user turn with streaming LLM."""
+        # Reset state for new turn
+        self._thinking_played = False
+        self._response_buffer = []
+        
+        # Store user message for context-aware waiting
+        self._last_user_message = new_message
+        
+        # Build chat context
+        chat_ctx = turn_ctx.copy()
+        chat_ctx.items.append(new_message)
+        
+        # Create events for coordination
+        thinking_started = asyncio.Event()
+        thinking_done = asyncio.Event()
+        first_chunk_received = asyncio.Event()
+        
+        # Start LLM stream
+        logger.info("[STREAM] Starting LLM stream...")
+        # Access the llm provider (ensure it's the standard LLM for .chat())
+        from livekit.agents import llm as llm_lib
+        llm_provider = self.llm
+        if not isinstance(llm_provider, llm_lib.LLM):
+             logger.error(f"[STREAM] LLM provider not supported or not found: {type(llm_provider)}")
+             return
+             
+        llm_stream = llm_provider.chat(chat_ctx=chat_ctx)
+        stream_start_time = asyncio.get_event_loop().time()
+        
+        # Start thinking timer
+        thinking_task = asyncio.create_task(
+            self._thinking_timer(thinking_started, thinking_done)
+        )
+        
+        # Process LLM stream
+        chunk_count = 0
+        
+        try:
+            async for chunk in llm_stream:
+                chunk_count += 1
+                
+                # Extract text
+                text = self._extract_text_from_chunk(chunk)
+                if text:
+                    self._response_buffer.append(text)
+                    
+                    # Track first text chunk timing and cancel thinking timer if it's fast
+                    if not first_chunk_received.is_set():
+                        first_chunk_received.set()
+                        elapsed = asyncio.get_event_loop().time() - stream_start_time
+                        logger.info(f"[STREAM] First text chunk after {elapsed:.2f}s")
+                        
+                        # Fast response: cancel timer, don't play thinking
+                        if not thinking_started.is_set():
+                            logger.info("[STREAM] Fast response, cancelling thinking timer")
+                            thinking_task.cancel()
+                            try:
+                                await thinking_task
+                            except asyncio.CancelledError:
+                                pass
+                            thinking_done.set()  # Signal that "thinking" is done (skipped)
+                        else:
+                            # Thinking is playing - let it finish, just buffer the response
+                            logger.info("[STREAM] Response arrived during thinking - will wait for it to finish")
+                    
+        except Exception as e:
+            logger.error(f"[STREAM] LLM stream error: {e}")
+            thinking_task.cancel()
+            return
+        
+        # Wait for thinking to complete (always wait for full phrase)
+        try:
+            await thinking_done.wait()
+        except Exception:
+            pass  # Ignore if cancelled
+        
+        # Speak main response (with error handling for session closing)
+        full_text = "".join(self._response_buffer)
+        if full_text.strip():
+            logger.info(f"[STREAM] Speaking {len(full_text)} chars ({chunk_count} chunks)")
+            try:
+                await self.session.say(full_text)
+            except RuntimeError as e:
+                if "AgentSession is closing" in str(e):
+                    logger.info("[STREAM] Session closing, skipping speak")
+                else:
+                    raise
+        else:
+            logger.warning("[STREAM] Empty response, nothing to speak")
+    
+    def _extract_text_from_chunk(self, chunk):
+        """Extract text from LLM chunk."""
+        text = ""
+        
+        # Try OpenAI-style chunks
+        if hasattr(chunk, 'choices') and chunk.choices:
+            delta = chunk.choices[0].delta
+            if hasattr(delta, 'content') and delta.content:
+                text = delta.content
+        # Try LiveKit ChatChunk style
+        elif hasattr(chunk, 'delta') and chunk.delta:
+            if hasattr(chunk.delta, 'content') and chunk.delta.content:
+                text = chunk.delta.content
+        # Try direct string
+        elif isinstance(chunk, str):
+            text = chunk
+            
+        return text
+    
+    async def _thinking_timer(self, started_event, done_event):
+        """Timer that fires after delay to generate dynamic waiting message via Groq."""
+        try:
+            await asyncio.sleep(self._thinking_delay)
+            
+            # Only play if not already cancelled
+            started_event.set()
+            
+            # Generate dynamic waiting message using Groq
+            waiting_message = await self._generate_waiting_message()
+            
+            logger.info(f"[THINKING] Timer fired, saying: '{waiting_message}'")
+            self._thinking_played = True
+            # No interruptions - let the full message play for better UX
+            # Play the filler phrase (non-interruptible to ensure it finishes)
+            try:
+                await self.session.say(waiting_message, allow_interruptions=False)
+                logger.info("[THINKING] Done")
+            except RuntimeError as e:
+                if "AgentSession is closing" in str(e):
+                    logger.info("[THINKING] Session closing, skipping say()")
+                else:
+                    raise
+            
+        except asyncio.CancelledError:
+            logger.info("[THINKING] Timer cancelled (fast response or interrupted)")
+        finally:
+            done_event.set()
+    
+    async def _generate_waiting_message(self) -> str:
+        """Generate context-aware waiting message using Groq LLM."""
+        if not self._groq_llm or not self._last_user_message:
+            # Fallback to static if Groq not available
+            fallbacks = [
+                "Let me think about that for a moment.",
+                "Hmm, give me a second to consider this.",
+                "Just a moment while I work through that.",
+            ]
+            return random.choice(fallbacks)
+        
+        try:
+            # Create prompt for Groq to generate waiting message
+            user_query = self._last_user_message.content or ""
+            
+# ── Filler LLM Prompt (the in-between one) ─────────────────────────────────
+            waiting_prompt = (
+                "Generate a brief context-aware filler phrase while the main response is being prepared.\n\n"
+                f"User message: '{user_query}'\n\n"
+                "RULES:\n"
+                "1. First, identify the TRUE intent behind the message — not the literal words\n"
+                "2. 3-8 words, always ends with '...'\n"
+                "3. NEVER extract filler words as topics — words like 'fine', 'okay', 'yeah', 'good', "
+                "'all', 'now', 'here', 'it', 'things' are NOT topics\n"
+                "4. NEVER say 'that' — name the actual subject\n\n"
+                "INTENT DETECTION LOGIC — pick the right pattern:\n"
+                "- Message expresses a STATUS or FEELING (fine, okay, good, not great, tired, happy) "
+                "→ Acknowledge the emotion, bridge to response: 'Glad to hear, putting a reply together...'\n"
+                "- Message is a GREETING (hi, hello, hey, good morning) "
+                "→ Warm setup phrase: 'Getting things ready for you...'\n"
+                "- Message is APPRECIATION or COMPLIMENT (thanks, you're great, awesome) "
+                "→ Light acknowledgment: 'Happy to help, thinking ahead...'\n"
+                "- Message is AGREEMENT or ACKNOWLEDGMENT (okay cool, makes sense, got it, sure) "
+                "→ Move forward naturally: 'Good, figuring out the next step...'\n"
+                "- Message is UNCERTAINTY or NEGATIVE (not sure, not really, I don't know, not good) "
+                "→ Supportive bridge: 'No worries, thinking it through...'\n"
+                "- Message is a clear TASK or QUESTION (what is X, help me with Y, fix Z) "
+                "→ Reference the specific topic: 'Looking into [topic] for you...'\n\n"
+                "GOOD examples:\n"
+                "   - 'It is all okay now here' → 'Glad things are sorted, thinking ahead...'\n"
+                "   - 'Everything is fine now' → 'Good to know, putting a reply together...'\n"
+                "   - 'Yeah all good' → 'Nice, working on a response...'\n"
+                "   - 'Not really doing great' → 'No worries, thinking it through...'\n"
+                "   - 'Haha yeah makes sense' → 'Glad it clicked, figuring out more...'\n"
+                "   - 'Hi there' → 'Setting things up for you...'\n"
+                "   - 'Thanks a lot!' → 'Happy to help, thinking ahead...'\n"
+                "   - 'Fix my Python code' → 'Scanning your Python code...'\n"
+                "   - 'Plan a trip to Rome' → 'Planning your Rome itinerary...'\n"
+                "   - 'What's the weather?' → 'Checking the weather forecast...'\n\n"
+                "BAD examples (never do this):\n"
+                "   - 'Looking into your fine status...' ❌\n"
+                "   - 'Processing your okay...' ❌\n"
+                "   - 'Checking your yeah...' ❌\n"
+                "   - 'Thinking about your here...' ❌\n"
+                "   - 'One moment please' ❌\n"
+                "   - 'Let me think about that' ❌\n\n"
+                "Respond with ONLY the filler phrase. No labels, no explanation."
+            )
+            
+            # Quick Groq call for instant response
+            from livekit.agents import llm as llm_types
+            chat_ctx = llm_types.ChatContext()
+            chat_ctx.add_message(role="user", content=waiting_prompt)
+            
+            response_text = ""
+            async for chunk in self._groq_llm.chat(chat_ctx=chat_ctx):
+                text = self._extract_text_from_chunk(chunk)
+                if text:
+                    response_text += text
+            
+            # Clean up the response
+            waiting_msg = response_text.strip().strip('"').strip("'")
+            
+            # Ensure it's not too long
+            if len(waiting_msg) > 80:
+                waiting_msg = waiting_msg[:77] + "..."
+            
+            if waiting_msg:
+                logger.info(f"[GROQ] Generated waiting message: '{waiting_msg}'")
+                return waiting_msg
+            else:
+                raise ValueError("Empty Groq response")
+                
+        except Exception as e:
+            logger.warning(f"[GROQ] Failed to generate waiting message: {e}, using fallback")
+            fallbacks = [
+                "Let me think about that...",
+                "Hmm, give me a moment...",
+                "One second while I check...",
+            ]
+            return random.choice(fallbacks)
+
+
 server = AgentServer()
- 
+
 @server.rtc_session(agent_name="clawdface")
 async def my_agent(ctx: agents.JobContext):
+    # Dynamic thinking settings resolved from metadata below
+
     await ctx.connect()
- 
+
     config, connection_type = {}, "unknown"
     for _ in range(30):
         config, connection_type = resolve_config(ctx)
@@ -324,7 +583,7 @@ async def my_agent(ctx: agents.JobContext):
     logger.info(f"[METADATA] Job Metadata: {ctx.job.metadata[:300]}")
 
     if not config:
-        logger.error(f"[SESSION] \u2717 Failed to resolve config for room {ctx.room.name}")
+        logger.error(f"[SESSION] ✗ Failed to resolve config for room {ctx.room.name}")
         return
 
     url = config.get("openclawUrl", "").strip()
@@ -332,6 +591,18 @@ async def my_agent(ctx: agents.JobContext):
     key = config.get("sessionKey", "")
     avatar_id = config.get("avatarId") or os.getenv("TRUGEN_AVATAR_ID") or DEFAULT_AVATAR_ID
     voice_id = "CwhRBWXzGAHq8TQ4Fs17" if avatar_id in MALE_AVATAR_IDS else "FGY2WhTYpPnrIDTdsKH5"
+    
+    # Resolve dynamic thinking settings check both snake_case and camelCase
+    thinking_enabled_val = config.get("enable_thinking") or config.get("thinking_enabled") or "true"
+    ENABLE_LET_ME_THINK = str(thinking_enabled_val).lower() == "true"
+    
+    thinking_delay_val = config.get("thinking_delay") or config.get("thinkingDelay") or "5.0"
+    try:
+        THINKING_DELAY = float(thinking_delay_val)
+    except (ValueError, TypeError):
+        THINKING_DELAY = 5.0
+    
+    logger.info(f"[CONFIG] Thinking: {ENABLE_LET_ME_THINK} | Delay: {THINKING_DELAY}s")
 
     tp = setup_langfuse({
         "langfuse.session.id": ctx.room.name,
@@ -368,11 +639,11 @@ async def my_agent(ctx: agents.JobContext):
         recall_bot_id = config.get("recallBotId", "") or ""
         livekit_room_id = config.get("roomId") or ctx.room.name
         logger.info(f"[SESSION] Start: {connection_type} | Mode: RECALL | Bot: {recall_bot_id or 'none'}")
-        logger.info(f"[STT] Meeting mode \u2192 RecallAIDirectSTT | room_sid={livekit_room_id}")
+        logger.info(f"[STT] Meeting mode → RecallAIDirectSTT | room_sid={livekit_room_id}")
         stt_provider = RecallAIDirectSTT(ctx=ctx, recall_bot_id=recall_bot_id, room_id=livekit_room_id)
     else:
         logger.info(f"[SESSION] Start: {connection_type} | Mode: STANDARD")
-        logger.info(f"[STT] Standard mode \u2192 Deepgram STTv2 (Flux)")
+        logger.info(f"[STT] Standard mode → Deepgram STTv2 (Flux)")
         stt_provider = deepgram.STTv2(
             model="flux-general-en",
             eager_eot_threshold=0.4,
@@ -385,19 +656,23 @@ async def my_agent(ctx: agents.JobContext):
         tts=elevenlabs.TTS(voice_id=voice_id, model="eleven_flash_v2_5"),
         conn_options=SessionConnectOptions(
             llm_conn_options=APIConnectOptions(timeout=300.0, max_retry=0)
-        )
+        ),
+        # preemptive_generation=False: We manually control LLM timing to avoid
+        # double requests. We stream the LLM response but buffer it until
+        # after "let me think" plays, then release it.
+        preemptive_generation=False
     )
 
-    @session.on("user_input_transcribed")
-    def on_user_speech(ev: agents.UserInputTranscribedEvent):
-        if ev.transcript and ev.is_final:
-            logger.info(f"[STT] \u2713 {ev.transcript}")
+    # Note: All thinking logic is now handled inside MyAgent class
+    # to enable single LLM request with streaming/buffering approach
 
-    @session.on("conversation_item_added")
-    def on_item_added(ev: agents.ConversationItemAddedEvent):
-        if getattr(ev.item, "role", None) == "assistant":
-            content = getattr(ev.item, "content", None)
-            if content: logger.info(f"[TTS] Avatar: {content}")
+    # Groq LLM for instant waiting messages
+    groq_api_key = os.getenv("GROQ_API_KEY") or "MISSING_KEY"
+    groq_llm = openai.LLM(
+        api_key=groq_api_key,
+        base_url="https://api.groq.com/openai/v1",
+        model="openai/gpt-oss-120b",  # Fast Groq model for instant waiting messages
+    )
 
     if connection_type in ("email_dispatch", "recall") or config.get("recallBotId"):
         room_opts = RoomOptions(close_on_disconnect=False)
@@ -408,8 +683,20 @@ async def my_agent(ctx: agents.JobContext):
     try:
         trugen_avatar = trugen.AvatarSession(avatar_id=avatar_id)
         await trugen_avatar.start(session, room=ctx.room)
-        await session.start(MyAgent(), room=ctx.room, room_options=room_opts)
-        session.say("Hello! Let's get started.")
+        
+        # In LiveKit 1.x, we use the high-level Agent properties correctly.
+        agent = MyAgent(
+            llm=llm,
+            stt=stt_provider,
+            tts=elevenlabs.TTS(voice_id=voice_id, model="eleven_flash_v2_5"),
+            vad=vad_provider,
+            groq_llm=groq_llm, 
+            enable_thinking=ENABLE_LET_ME_THINK, 
+            thinking_delay=THINKING_DELAY
+        )
+        
+        await session.start(agent, room=ctx.room, room_options=room_opts)
+        await agent.session.say("Hello! Let's get started.")
     except Exception as e:
         logger.error(f"[SESSION] ✗ Fatal error: {e}")
         raise
@@ -420,5 +707,5 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "download-files":
         silero.VAD.load()
         sys.exit(0)
-    
+
     cli.run_app(server)
