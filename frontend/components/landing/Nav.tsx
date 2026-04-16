@@ -54,10 +54,10 @@ export function Nav() {
             </>
           ) : (
             <>
-              <Link href="/handler/sign-in" className="text-base font-medium text-white hover:text-[#00E3AA] transition-colors">
+              <Link href="/log-in" className="text-base font-medium text-white hover:text-[#00E3AA] transition-colors">
                 Log In
               </Link>
-              <Link href="/handler/sign-up">
+              <Link href="/sign-up">
                 <motion.button 
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}

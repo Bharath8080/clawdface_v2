@@ -14,7 +14,6 @@
     "@livekit/components-react": "^2.9.3",
     "@livekit/components-styles": "^1.1.4",
     "@livekit/protocol": "^1.28.0",
-    "@react-oauth/google": "^0.13.4",
     "@stackframe/stack": "^2.8.80",
     "@supabase/supabase-js": "^2.99.1",
     "@tailwindcss/typography": "^0.5.19",

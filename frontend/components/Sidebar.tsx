@@ -1,9 +1,10 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { getInitials } from '@/lib/auth';
 import { useUser, useStackApp } from '@stackframe/stack';
+import { getLicenseDetails } from '@/app/services/pricingPaymentService';
 
 // ---- Icons ----
 const BotIcon = () => <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="10" x="3" y="11" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" x2="8" y1="16" y2="16"/><line x1="16" x2="16" y1="16" y2="16"/></svg>;
@@ -21,6 +22,7 @@ const CardIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="non
 const SunIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>;
 const SignOutIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>;
 const ActivityIcon = () => <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>;
+const FileTextIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>;
 
 function Tooltip({ label }: { label: string }) {
   return (
@@ -80,7 +82,7 @@ function ColIconBtn({ label, icon, isActive, onClick }: NavItemProps) {
 }
 
 // ---- Profile Dropdown ----
-function ProfileDropdown({ user, initials, onClose, className = "bottom-full left-0 mb-2 w-full" }: { user: any; initials: string; onClose: () => void; className?: string }) {
+function ProfileDropdown({ user, initials, onClose, planLabel, className = "bottom-full left-0 mb-2 w-full" }: { user: any; initials: string; onClose: () => void; planLabel: string; className?: string }) {
   const router = useRouter();
   const app = useStackApp();
 
@@ -111,16 +113,16 @@ function ProfileDropdown({ user, initials, onClose, className = "bottom-full lef
         )}
         <div className="flex flex-col min-w-0">
           <span className="text-white text-[13px] font-semibold truncate">{user.primaryEmail || user.displayName}</span>
-          <span className="text-[#6b7280] text-[11px]">Free Plan</span>
+          <span className="text-[#6b7280] text-[11px]">{planLabel}</span>
         </div>
       </div>
 
       {/* Menu items */}
       <div className="py-1">
-        {menuItem(<CrownIcon />, "Upgrade to Pro", () => onClose(), "text-yellow-400")}
+        {menuItem(<CrownIcon />, "Upgrade to Pro", () => { router.push("/dashboard/settings/billing-and-subscription"); onClose(); }, "text-yellow-400")}
         <div className="border-t border-[#1f1f1f] my-1" />
         {menuItem(<GearIcon />, "Settings", () => onClose())}
-        {menuItem(<CardIcon />, "Subscriptions", () => onClose())}
+        {menuItem(<CardIcon />, "Billing & Plans", () => { router.push("/dashboard/settings/billing-and-subscription"); onClose(); })}
         <div className="border-t border-[#1f1f1f] my-1" />
         {/* Light mode — dummy (coming soon) */}
         {menuItem(<SunIcon />, "Light Mode", () => onClose(), "opacity-40 cursor-not-allowed")}
@@ -142,8 +144,40 @@ export function Sidebar({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [monitorOpen, setMonitorOpen] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [planLabel, setPlanLabel] = useState("{planLabel}");
   const user = useUser();
+  const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    const tryFetch = () => {
+      const apiKey = localStorage.getItem("defaultApiKey");
+      if (!apiKey) return false;
+      getLicenseDetails(apiKey).then(({ data }) => {
+        if (!data?.slug) return;
+        const slug = data.slug;
+        if (slug.includes("ente_ente")) setPlanLabel("Enterprise Plan");
+        else if (!slug.includes("free")) setPlanLabel("Pro Plan");
+        else setPlanLabel("Free Plan");
+      });
+      return true;
+    };
+
+    if (!tryFetch()) {
+      // API key not set yet — retry once after it's initialized
+      const t = setTimeout(tryFetch, 2000);
+      return () => clearTimeout(t);
+    }
+  }, [user?.id]);
+
+  // Auto-open settings section when on a settings page
+  useEffect(() => {
+    if (pathname?.startsWith("/dashboard/settings")) {
+      setSettingsOpen(true);
+    }
+  }, [pathname]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -200,6 +234,28 @@ export function Sidebar({
         {monitorOpen && <div className="flex flex-col gap-0.5">
           <SubRow label="Conversations" icon={<HistoryIcon />} onClick={() => handleNav("Conversations")} isActive={activeSession === "Conversations"} />
         </div>}
+
+        {/* Settings */}
+        <button onClick={() => setSettingsOpen(!settingsOpen)}
+          className="w-full flex items-center gap-3 px-3 py-[11px] rounded-lg text-left text-[#9ca3af] hover:bg-[#1c1c1c] hover:text-white transition-all duration-150">
+          <span className="shrink-0"><GearIcon /></span>
+          <span className="flex-1 text-[15px] font-medium leading-none">Settings</span>
+          <span className={`transition-transform duration-200 ${settingsOpen ? '' : '-rotate-90'}`}><ChevronDown /></span>
+        </button>
+        {settingsOpen && <div className="flex flex-col gap-0.5">
+          <SubRow
+            label="Billing & Plans"
+            icon={<CardIcon />}
+            onClick={() => { router.push("/dashboard/settings/billing-and-subscription"); setIsMobileMenuOpen(false); }}
+            isActive={pathname === "/dashboard/settings/billing-and-subscription"}
+          />
+          <SubRow
+            label="Invoices"
+            icon={<FileTextIcon />}
+            onClick={() => { router.push("/dashboard/settings/invoices"); setIsMobileMenuOpen(false); }}
+            isActive={pathname === "/dashboard/settings/invoices"}
+          />
+        </div>}
       </nav>
 
       {/* Footer / Configuration */}
@@ -211,7 +267,7 @@ export function Sidebar({
         {/* Profile + dropdown */}
         <div ref={dropdownRef} className="relative">
           {dropdownOpen && user && (
-            <ProfileDropdown user={user} initials={initials} onClose={() => setDropdownOpen(false)} />
+            <ProfileDropdown user={user} initials={initials} onClose={() => setDropdownOpen(false)} planLabel={planLabel} />
           )}
           <div 
             onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -222,7 +278,7 @@ export function Sidebar({
               <span className="text-white text-[14px] font-semibold leading-tight truncate">
                 {user ? (user.primaryEmail || user.displayName) : "Loading..."}
               </span>
-              <span className="text-[#5a5a5a] text-[12px] leading-tight font-medium">Free Plan</span>
+              <span className="text-[#5a5a5a] text-[12px] leading-tight font-medium">{planLabel}</span>
             </div>
             <button className="text-[#5a5a5a] hover:text-[#9ca3af] transition-colors p-1 shrink-0">
               <DotsIcon />
@@ -251,6 +307,7 @@ export function Sidebar({
         <ColIconBtn label="Doctor" icon={<ActivityIcon />} isActive={activeSession === "Doctor"} onClick={() => handleNav("Doctor")} />
         <ColIconBtn label="Stock Avatars" icon={<UserIcon />}     isActive={activeSession === "Avatars"}   onClick={() => handleNav("Avatars")} />
         <ColIconBtn label="Conversations" icon={<HistoryIcon />} isActive={activeSession === "Conversations"} onClick={() => handleNav("Conversations")} />
+        <ColIconBtn label="Billing & Plans" icon={<CardIcon />} isActive={!!pathname?.startsWith("/dashboard/settings")} onClick={() => { router.push("/dashboard/settings/billing-and-subscription"); setIsMobileMenuOpen(false); }} />
       </nav>
       <div className="flex flex-col items-center px-2 pb-4 shrink-0 gap-2">
         <div className="border-t border-[#232323] w-full mb-1" />
@@ -258,11 +315,12 @@ export function Sidebar({
         <div className="border-t border-[#232323] w-full mb-1" />
         <div ref={dropdownRef} className="relative group w-full flex justify-center">
           {dropdownOpen && user && (
-            <ProfileDropdown 
-              user={user} 
-              initials={initials} 
-              onClose={() => setDropdownOpen(false)} 
-              className="bottom-0 left-full ml-4 w-[260px]" 
+            <ProfileDropdown
+              user={user}
+              initials={initials}
+              onClose={() => setDropdownOpen(false)}
+              planLabel={planLabel}
+              className="bottom-0 left-full ml-4 w-[260px]"
             />
           )}
           <button onClick={() => setDropdownOpen(!dropdownOpen)} className="relative p-1">

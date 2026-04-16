@@ -11,7 +11,7 @@ import { stackServerApp } from "@/stack";
 import { redirect } from "next/navigation";
 
 export default async function LandingPage() {
-  const user = await stackServerApp.getUser();
+  const user = await stackServerApp.getUser({ or: "return-null" });
   if (user) {
     redirect("/dashboard");
   }

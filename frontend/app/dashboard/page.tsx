@@ -18,7 +18,10 @@ import { useCallback, useEffect, useState, useRef, Suspense } from "react";
 import type { ConnectionDetails } from "@/app/api/connection-details/route";
 import { useRouter } from "next/navigation";
 import { useUser } from "@stackframe/stack";
+import { initDefaultApiKey } from "@/app/services/apiKeyService";
+import { createUserServiceServer } from "@/app/services/createUserService";
 import { Sidebar } from "@/components/Sidebar";
+import { SubscriptionView } from "@/components/SubscriptionView";
 import Image from "next/image";
 import { 
   fetchBotsAction as fetchBots, 
@@ -628,6 +631,7 @@ function ClientPage() {
   const [isRecallModalOpen, setIsRecallModalOpen] = useState(false);
   const user = useUser();
   const [authChecked, setAuthChecked] = useState(false);
+  const apiKeyInitialized = useRef(false);
 
   // Session config state
   const [config, setConfig] = useState<typeof DEFAULTS>(DEFAULTS);
@@ -754,6 +758,34 @@ function ClientPage() {
   useEffect(() => {
     if (authChecked && user) {
       const initData = async () => {
+        // Initialize backend API key once (guard prevents re-runs on user object refresh)
+        if (!apiKeyInitialized.current) {
+          apiKeyInitialized.current = true;
+          try {
+            const tokens = await user.currentSession.getTokens();
+            if (tokens?.accessToken) {
+              // Ensure user exists in backend before fetching workspace/API key.
+              // POST /v1/user is idempotent — a 409 Conflict (already exists) is fine.
+              const nameParts = (user.displayName ?? "").trim().split(/\s+/).filter(Boolean);
+              const firstName = nameParts[0] ?? "";
+              const email = user.primaryEmail ?? "";
+              await createUserServiceServer({
+                id: user.id,
+                email,
+                first_name: firstName,
+                last_name: nameParts.slice(1).join(" "),
+                // company is used as org name in the backend; fall back to firstName then email prefix
+                company: firstName || email.split("@")[0] || "ClawdFace User",
+                password_hash: "",
+              });
+
+              await initDefaultApiKey(user.id, tokens.accessToken);
+            }
+          } catch (err) {
+            console.error("API key init error:", err);
+          }
+        }
+
         const email = user.primaryEmail || user.displayName;
         if (email) {
           try {
@@ -786,11 +818,14 @@ function ClientPage() {
       };
       initData();
     }
-  }, [authChecked, user]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authChecked, user?.id]);
 
   useEffect(() => {
     if (user === null) {
-      router.replace("/handler/sign-in");
+      router.replace("/log-in");
+    } else if (user && !user.primaryEmailVerified) {
+      router.replace("/email-not-verified");
     } else if (user) {
       setAuthChecked(true);
     }
@@ -1028,6 +1063,7 @@ function ClientPage() {
     );
   }
 
+
   const handleSaveBot = async () => {
     if (!profileId) return;
     setIsLoadingBots(true);
@@ -1179,6 +1215,8 @@ function ClientPage() {
                 }}
                 botHealth={botHealth}
               />
+            ) : activeSession === "Subscription" ? (
+              <SubscriptionView />
             ) : activeSession === "Conversations" ? (
               selectedConversation ? (
                 <ConversationDetailView 
