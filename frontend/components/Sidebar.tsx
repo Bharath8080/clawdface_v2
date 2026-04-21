@@ -185,14 +185,14 @@ function QuickCallDropdown({ bots, avatars, onSelect, onClose, className = "bott
 
 // ─── Main Sidebar ─────────────────────────────────────────────────────────────
 export function Sidebar({
-  activeSession, setActiveSession, isMobileMenuOpen, setIsMobileMenuOpen, bots, onQuickCall
+  activeSession, setActiveSession, isMobileMenuOpen, setIsMobileMenuOpen, bots = [], onQuickCall = () => {}
 }: {
   activeSession: string;
   setActiveSession: (s: string) => void;
   isMobileMenuOpen: boolean;
   setIsMobileMenuOpen: (o: boolean) => void;
-  bots: AgentBot[];
-  onQuickCall: (bot: AgentBot) => void | Promise<void>;
+  bots?: AgentBot[];
+  onQuickCall?: (bot: AgentBot) => void | Promise<void>;
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
