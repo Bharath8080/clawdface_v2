@@ -56,7 +56,8 @@ const ArrowRightIcon = () => (
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function formatCredits(n: number): string {
-  if (n >= 1000) return `${(n / 1000).toFixed(0)}K`;
+  if (n >= 1000 && n % 1000 === 0) return `${n / 1000}K`;
+  if (n >= 1000) return n.toLocaleString();
   return String(n);
 }
 
@@ -166,35 +167,29 @@ function PlanCard({
 
       {/* Stats row */}
       {(plan.credits > 0 || plan.concurrentSessions > 0) && (
-        <div className="flex items-center gap-4 mb-5 p-3 rounded-xl bg-white/[0.03] border border-white/5">
-          {plan.credits > 0 && (
-            <div className="flex flex-col items-center flex-1">
-              <span className="text-white font-bold text-base">{formatCredits(plan.credits)}</span>
-              <span className="text-[#6b7280] text-[11px] mt-0.5">credits / mo</span>
-            </div>
-          )}
-          {plan.concurrentSessions > 0 && (
-            <>
-              <div className="w-px h-8 bg-white/8" />
-              <div className="flex flex-col items-center flex-1">
-                <span className="text-white font-bold text-base">
-                  {plan.concurrentSessions >= 60 ? "∞" : plan.concurrentSessions}
-                </span>
-                <span className="text-[#6b7280] text-[11px] mt-0.5">concurrent</span>
-              </div>
-            </>
-          )}
-          {plan.maxSessionDuration > 0 && (
-            <>
-              <div className="w-px h-8 bg-white/8" />
-              <div className="flex flex-col items-center flex-1">
-                <span className="text-white font-bold text-base">
-                  {plan.maxSessionDuration >= 120 ? "∞" : `${plan.maxSessionDuration}m`}
-                </span>
-                <span className="text-[#6b7280] text-[11px] mt-0.5">per session</span>
-              </div>
-            </>
-          )}
+        <div className="grid grid-cols-3 divide-x divide-white/[0.06] mb-5 py-3 rounded-xl bg-white/[0.03] border border-white/5">
+          <div className="flex flex-col items-center justify-center gap-0.5 px-2 text-center">
+            <span className="text-white font-bold text-sm leading-none">
+              {plan.credits > 0 ? formatCredits(plan.credits) : "—"}
+            </span>
+            <span className="text-[#6b7280] text-[10px] mt-1 leading-tight">credits / mo</span>
+          </div>
+          <div className="flex flex-col items-center justify-center gap-0.5 px-2 text-center">
+            <span className="text-white font-bold text-sm leading-none">
+              {plan.concurrentSessions > 0
+                ? plan.concurrentSessions >= 60 ? "∞" : plan.concurrentSessions
+                : "—"}
+            </span>
+            <span className="text-[#6b7280] text-[10px] mt-1 leading-tight">concurrent</span>
+          </div>
+          <div className="flex flex-col items-center justify-center gap-0.5 px-2 text-center">
+            <span className="text-white font-bold text-sm leading-none">
+              {plan.maxSessionDuration > 0
+                ? plan.maxSessionDuration >= 120 ? "∞" : `${plan.maxSessionDuration}m`
+                : "—"}
+            </span>
+            <span className="text-[#6b7280] text-[10px] mt-1 leading-tight">per session</span>
+          </div>
         </div>
       )}
 
@@ -412,12 +407,18 @@ function SubscriptionViewInner() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.1 }}
-          className="text-[13px] font-semibold text-[#6b7280] uppercase tracking-widest mb-5"
+          className="text-[13px] text-center font-semibold text-[#6b7280] uppercase tracking-widest mb-5"
         >
           Subscription Plans
         </motion.h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-12">
+        <div className={`grid gap-5 mb-12 grid-cols-1 ${
+          subscriptionPlans.length === 1
+            ? "max-w-sm mx-auto"
+            : subscriptionPlans.length === 2
+              ? "md:grid-cols-2 max-w-2xl mx-auto"
+              : "md:grid-cols-3"
+        }`}>
           {isLoading
             ? [0, 1, 2].map((i) => <PlanSkeleton key={i} />)
             : subscriptionPlans.map((plan, idx) => (

@@ -5,8 +5,9 @@ import { useRouter, usePathname } from 'next/navigation';
 import { getInitials } from '@/lib/auth';
 import { useUser, useStackApp } from '@stackframe/stack';
 import { getLicenseDetails } from '@/app/services/pricingPaymentService';
-import { Bot } from '@/lib/database-actions';
+import { type AgentBot } from '@/app/services/agentService';
 import { AVATARS } from '@/lib/constants';
+import { fetchAvatars, type AvatarItem } from '@/app/services/avatarService';
 
 // ---- Icons ----
 const BotIcon = () => <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="10" x="3" y="11" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" x2="8" y1="16" y2="16"/><line x1="16" x2="16" y1="16" y2="16"/></svg>;
@@ -137,7 +138,7 @@ function ProfileDropdown({ user, initials, onClose, planLabel, className = "bott
 }
 
 // ---- Quick Call Dropdown ----
-function QuickCallDropdown({ bots, onSelect, onClose, className = "bottom-full left-0 mb-2 w-full" }: { bots: Bot[]; onSelect: (bot: Bot) => void; onClose: () => void; className?: string }) {
+function QuickCallDropdown({ bots, avatars, onSelect, onClose, className = "bottom-full left-0 mb-2 w-full" }: { bots: AgentBot[]; avatars: AvatarItem[]; onSelect: (bot: AgentBot) => void; onClose: () => void; className?: string }) {
   return (
     <div className={`absolute ${className} bg-[#161616] border border-[#242424] rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.5)] overflow-hidden z-[200]`}>
       <div className="px-4 py-3 border-b border-[#242424]">
@@ -150,7 +151,7 @@ function QuickCallDropdown({ bots, onSelect, onClose, className = "bottom-full l
           </div>
         ) : (
           bots?.map((bot) => {
-            const avatar = AVATARS.find(a => a.id === bot.avatar_id);
+            const avatar = avatars.find(a => a.id === (bot.avatars[0]?.avatar_key_id ?? ""));
             return (
               <button
                 key={bot.id}
@@ -162,15 +163,15 @@ function QuickCallDropdown({ bots, onSelect, onClose, className = "bottom-full l
               >
                 <div className="w-8 h-8 rounded-full overflow-hidden border border-white/10 shrink-0 group-hover:border-[#00E3AA]/40 transition-colors">
                   {avatar ? (
-                    <Image src={avatar.image} alt={bot.name} width={32} height={32} className="object-cover" />
+                    <Image src={avatar.image} alt={bot.agent_name} width={32} height={32} className="object-cover" />
                   ) : (
                     <div className="w-full h-full bg-[#1c2e28] flex items-center justify-center text-[10px] font-bold text-[#00E3AA]">
-                      {bot.name.charAt(0)}
+                      {bot.agent_name.charAt(0)}
                     </div>
                   )}
                 </div>
                 <div className="flex flex-col items-start min-w-0">
-                  <span className="font-semibold truncate w-full">{bot.name}</span>
+                  <span className="font-semibold truncate w-full">{bot.agent_name}</span>
                   <span className="text-[10px] text-[#5a5a5a] uppercase tracking-tight">Saved Bot</span>
                 </div>
               </button>
@@ -190,38 +191,55 @@ export function Sidebar({
   setActiveSession: (s: string) => void;
   isMobileMenuOpen: boolean;
   setIsMobileMenuOpen: (o: boolean) => void;
-  bots: Bot[];
-  onQuickCall: (bot: Bot) => void;
+  bots: AgentBot[];
+  onQuickCall: (bot: AgentBot) => void | Promise<void>;
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [planLabel, setPlanLabel] = useState("{planLabel}");
+  const [planLabel, setPlanLabel] = useState("Free Plan");
   const [quickCallOpen, setQuickCallOpen] = useState(false);
+  const [avatars, setAvatars] = useState<AvatarItem[]>(AVATARS);
   const user = useUser();
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
 
   useEffect(() => {
+    let cancelled = false;
+    let attempts = 0;
+    const maxAttempts = 10;
+    const retryDelay = 1500;
+
     const tryFetch = () => {
+      if (cancelled) return;
       const apiKey = localStorage.getItem("defaultApiKey");
-      if (!apiKey) return false;
+      if (!apiKey) {
+        if (attempts < maxAttempts) {
+          attempts++;
+          setTimeout(tryFetch, retryDelay);
+        }
+        return;
+      }
       getLicenseDetails(apiKey).then(({ data }) => {
-        if (!data?.slug) return;
+        if (cancelled || !data?.slug) return;
         const slug = data.slug;
         if (slug.includes("ente_ente")) setPlanLabel("Enterprise Plan");
         else if (!slug.includes("free")) setPlanLabel("Pro Plan");
         else setPlanLabel("Free Plan");
       });
-      return true;
     };
 
-    if (!tryFetch()) {
-      // API key not set yet — retry once after it's initialized
-      const t = setTimeout(tryFetch, 2000);
-      return () => clearTimeout(t);
-    }
+    tryFetch();
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  useEffect(() => {
+    const apiKey = localStorage.getItem("defaultApiKey");
+    if (!apiKey) return;
+    fetchAvatars(apiKey).then(({ data }) => {
+      if (data && data.length > 0) setAvatars(data);
+    });
   }, [user?.id]);
 
   // Auto-open settings section when on a settings page
@@ -313,7 +331,7 @@ export function Sidebar({
         
         <div ref={quickCallRef} className="relative">
           {quickCallOpen && (
-            <QuickCallDropdown bots={bots} onSelect={onQuickCall} onClose={() => setQuickCallOpen(false)} />
+            <QuickCallDropdown bots={bots} avatars={avatars} onSelect={onQuickCall} onClose={() => setQuickCallOpen(false)} />
           )}
           <NavRow 
             label="Quick Call" 
@@ -376,10 +394,11 @@ export function Sidebar({
         
         <div ref={quickCallRef} className="relative w-full flex justify-center group">
           {quickCallOpen && (
-            <QuickCallDropdown 
-              bots={bots} 
-              onSelect={onQuickCall} 
-              onClose={() => setQuickCallOpen(false)} 
+            <QuickCallDropdown
+              bots={bots}
+              avatars={avatars}
+              onSelect={onQuickCall}
+              onClose={() => setQuickCallOpen(false)}
               className="bottom-0 left-full ml-4 w-[260px]"
             />
           )}

@@ -120,6 +120,7 @@ export const initDefaultApiKey = async (
 
     if (defaultKey) {
       localStorage.setItem("defaultApiKey", defaultKey.key_hash);
+      localStorage.setItem("defaultApiKeyId", defaultKey.id);
       return defaultKey.key_hash;
     }
 
@@ -136,6 +137,7 @@ export const initDefaultApiKey = async (
 
     if (newKey) {
       localStorage.setItem("defaultApiKey", newKey.key_hash);
+      localStorage.setItem("defaultApiKeyId", newKey.id);
       return newKey.key_hash;
     }
 
@@ -150,4 +152,5 @@ export const initDefaultApiKey = async (
 /** Clears the cached API key (call on sign-out). */
 export const clearApiKey = () => {
   localStorage.removeItem("defaultApiKey");
+  localStorage.removeItem("defaultApiKeyId");
 };
