@@ -14,24 +14,22 @@ import { RoomContext, useVoiceAssistant, useRoomContext } from "@livekit/compone
 import useCombinedTranscriptions from "@/hooks/useCombinedTranscriptions";
 import { AnimatePresence, motion } from "framer-motion";
 import { Room, RoomEvent, DisconnectReason } from "livekit-client";
-import { useCallback, useEffect, useState, useRef, Suspense } from "react";
+import { useCallback, useEffect, useState, useRef, Suspense, createContext, useContext } from "react";
 import type { ConnectionDetails } from "@/app/api/connection-details/route";
 import { useRouter } from "next/navigation";
 import { useUser } from "@stackframe/stack";
+import { initDefaultApiKey } from "@/app/services/apiKeyService";
+import { createUserServiceServer } from "@/app/services/createUserService";
+import { createAgent, updateAgent, getAgents, deleteAgent, type AgentBot } from "@/app/services/agentService";
+import { getConversations, createConversation } from "@/app/services/conversationService";
 import { Sidebar } from "@/components/Sidebar";
+import { SubscriptionView } from "@/components/SubscriptionView";
 import Image from "next/image";
-import { 
-  fetchBotsAction as fetchBots, 
-  createBotAction as createBot, 
-  updateBotAction as updateBot, 
-  deleteBotAction as deleteBot, 
-  fetchConversationsAction as fetchConversations,
-  createConversationAction,
+import {
+  createBotAction as createBot,
   updateLastConfigAction as updateLastConfig,
   syncUserAction,
-  Bot 
 } from "@/lib/database-actions";
-import { supabase } from "@/lib/supabase-client";
 
 // ─── Session Config Defaults ────────────────────────────────────────────────
 const DEFAULTS = {
@@ -54,6 +52,10 @@ const stripSessionKey = (key: string) => {
 };
 
 import { AVATARS } from "@/lib/constants";
+import { fetchAvatars, type AvatarItem } from "@/app/services/avatarService";
+
+const AvatarsContext = createContext<AvatarItem[]>(AVATARS);
+const useAvatars = () => useContext(AvatarsContext);
 
 // ─── Icons ──────────────────────────────────────────────────────────────────
 const UserIcon = ({ size = 15 }: { size?: number }) => (
@@ -282,7 +284,7 @@ const RecallUrlModal = ({
 };
 
 // ─── Doctor View ─────────────────────────────────────────────────────────────
-function DoctorView({ bots, onHealthUpdate }: { bots: Bot[], onHealthUpdate?: (key: string, status: 'healthy' | 'unhealthy') => void }) {
+function DoctorView({ bots, onHealthUpdate }: { bots: AgentBot[], onHealthUpdate?: (key: string, status: 'healthy' | 'unhealthy') => void }) {
   const [url, setUrl] = useState("");
   const [status, setStatus] = useState<"idle" | "checking" | "healthy" | "error_404" | "error_connection">( "idle" );
   const [lastCheck, setLastCheck] = useState<Date | null>(null);
@@ -290,7 +292,7 @@ function DoctorView({ bots, onHealthUpdate }: { bots: Bot[], onHealthUpdate?: (k
 
   useEffect(() => {
     if (bots.length > 0 && !url) {
-      setUrl(bots[0].openclaw_url);
+      setUrl(bots[0].config?.openclaw_url ?? "");
     }
   }, [bots, url]);
 
@@ -299,9 +301,9 @@ function DoctorView({ bots, onHealthUpdate }: { bots: Bot[], onHealthUpdate?: (k
     setStatus("checking");
     setApiError(null);
 
-    const activeBot = bots.find(b => b.openclaw_url.replace(/\/$/, "") === url.replace(/\/$/, "")) || (bots.length > 0 ? bots[0] : null);
-    const token = activeBot?.gateway_token || "";
-    const sessionKey = activeBot?.session_key || "";
+    const activeBot = bots.find(b => (b.config?.openclaw_url ?? "").replace(/\/$/, "") === url.replace(/\/$/, "")) || (bots.length > 0 ? bots[0] : null);
+    const token = activeBot?.config?.gateway_token || "";
+    const sessionKey = activeBot?.config?.session_key || "";
     
     try {
       // Use the server-side API route to avoid CORS
@@ -608,13 +610,17 @@ function ClientPage() {
   const [isRecallModalOpen, setIsRecallModalOpen] = useState(false);
   const user = useUser();
   const [authChecked, setAuthChecked] = useState(false);
+  const [avatars, setAvatars] = useState<AvatarItem[]>(AVATARS);
+  const apiKeyInitialized = useRef(false);
 
   // Session config state
   const [config, setConfig] = useState<typeof DEFAULTS>(DEFAULTS);
-  const [bots, setBots] = useState<Bot[]>([]);
+  const [bots, setBots] = useState<AgentBot[]>([]);
   const [profileId, setProfileId] = useState<string | null>(null);
   const [isLoadingBots, setIsLoadingBots] = useState(false);
   const [editingBotId, setEditingBotId] = useState<string | null>(null);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const selectedAgentIdRef = useRef<string | null>(null);
   const [dbLastConfig, setDbLastConfig] = useState<any>(null);
   const [botHealth, setBotHealth] = useState<Record<string, 'healthy' | 'unhealthy' | 'checking' | 'unknown'>>({});
   const [showHealthAlert, setShowHealthAlert] = useState(false);
@@ -632,11 +638,16 @@ function ClientPage() {
   const configRef = useRef(config);
   const activeSessionRef = useRef(activeSession);
   const technicalSessionKeyRef = useRef<string>("");
-  
+  const botsRef = useRef<AgentBot[]>([]);
+
   // Sync refs with state to ensure handleDisconnected sees latest values
   useEffect(() => {
     configRef.current = config;
   }, [config]);
+
+  useEffect(() => {
+    botsRef.current = bots;
+  }, [bots]);
 
   useEffect(() => {
     activeSessionRef.current = activeSession;
@@ -661,18 +672,19 @@ function ClientPage() {
   // (Moved to TranscriptSynchronizer component to stay within RoomContext)
 
   // ─── Automated Health Checks ────────────────────────────────────────────────
-  const checkAllBotsHealth = useCallback(async (currentBots: Bot[]) => {
+  const checkAllBotsHealth = useCallback(async (currentBots: AgentBot[]) => {
     if (currentBots.length === 0) return;
-    
+
     // Group unique gateways to avoid redundant pings
     const uniqueConfigs = new Set<string>();
     const tasks: Promise<any>[] = [];
 
     currentBots.forEach(bot => {
-      const configKey = `${bot.openclaw_url.replace(/\/$/, "")}|${bot.gateway_token}`;
+      if (!bot.config?.openclaw_url) return;
+      const configKey = `${bot.config.openclaw_url.replace(/\/$/, "")}|${bot.config.gateway_token ?? ""}`;
       if (!uniqueConfigs.has(configKey)) {
         uniqueConfigs.add(configKey);
-        
+
         // Mark as checking
         setBotHealth(prev => ({ ...prev, [configKey]: 'checking' }));
 
@@ -683,9 +695,9 @@ function ClientPage() {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                url: bot.openclaw_url,
-                token: bot.gateway_token,
-                sessionKey: bot.session_key || ""
+                url: bot.config.openclaw_url,
+                token: bot.config.gateway_token ?? "",
+                sessionKey: bot.config.session_key || ""
               })
             });
             const data = await res.json();
@@ -734,6 +746,34 @@ function ClientPage() {
   useEffect(() => {
     if (authChecked && user) {
       const initData = async () => {
+        // Initialize backend API key once (guard prevents re-runs on user object refresh)
+        if (!apiKeyInitialized.current) {
+          apiKeyInitialized.current = true;
+          try {
+            const tokens = await user.currentSession.getTokens();
+            if (tokens?.accessToken) {
+              // Ensure user exists in backend before fetching workspace/API key.
+              // POST /v1/user is idempotent — a 409 Conflict (already exists) is fine.
+              const nameParts = (user.displayName ?? "").trim().split(/\s+/).filter(Boolean);
+              const firstName = nameParts[0] ?? "";
+              const email = user.primaryEmail ?? "";
+              await createUserServiceServer({
+                id: user.id,
+                email,
+                first_name: firstName,
+                last_name: nameParts.slice(1).join(" "),
+                // company is used as org name in the backend; fall back to firstName then email prefix
+                company: firstName || email.split("@")[0] || "ClawdFace User",
+                password_hash: "",
+              });
+
+              await initDefaultApiKey(user.id, tokens.accessToken);
+            }
+          } catch (err) {
+            console.error("API key init error:", err);
+          }
+        }
+
         const email = user.primaryEmail || user.displayName;
         if (email) {
           try {
@@ -741,8 +781,9 @@ function ClientPage() {
             if (profile) {
               setProfileId(profile.id);
               setIsLoadingBots(true);
-              const userBots = await fetchBots(profile.id);
-              setBots(userBots);
+              const initApiKey = localStorage.getItem("defaultApiKey") ?? "";
+              const { data: agentData } = await getAgents(initApiKey);
+              setBots(agentData ?? []);
               setIsLoadingBots(false);
               
               if (profile.last_config) {
@@ -766,27 +807,37 @@ function ClientPage() {
       };
       initData();
     }
-  }, [authChecked, user]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authChecked, user?.id]);
+
+  useEffect(() => {
+    if (!authChecked) return;
+    const apiKey = localStorage.getItem("defaultApiKey");
+    if (!apiKey) return;
+    fetchAvatars(apiKey).then(({ data }) => {
+      if (data && data.length > 0) setAvatars(data);
+    });
+  }, [authChecked]);
 
   useEffect(() => {
     if (user === null) {
-      router.replace("/handler/sign-in");
+      router.replace("/log-in");
+    } else if (user && !user.primaryEmailVerified) {
+      router.replace("/email-not-verified");
     } else if (user) {
       setAuthChecked(true);
     }
   }, [user, router]);
   
-  // Fetch conversations when switching to the Monitor section
+  // Fetch conversations when switching to the Conversations section
   useEffect(() => {
     if (activeSession === "Conversations" && authChecked) {
       const loadConversations = async () => {
         setIsLoadingConversations(true);
         try {
-          const email = user?.primaryEmail || user?.displayName;
-          if (email) {
-            const data = await fetchConversations(email);
-            setConversations(data);
-          }
+          const apiKey = localStorage.getItem("defaultApiKey") ?? "";
+          const { data } = await getConversations(apiKey);
+          setConversations(data ?? []);
         } catch (err) {
           console.error("Failed to fetch conversations:", err);
         } finally {
@@ -845,9 +896,9 @@ function ClientPage() {
 
     const finalConfig = {
       ...activeConfig,
-      avatarId: activeConfig.avatarId || AVATARS[0].id,
+      avatarId: activeConfig.avatarId || avatars[0].id,
       sessionKey: finalSessionKey,
-      botName: activeConfig.botName || (AVATARS.find(a => a.id === activeConfig.avatarId)?.name) || "Bot",
+      botName: activeConfig.botName || (avatars.find(a => a.id === activeConfig.avatarId)?.name) || "Bot",
       enable_thinking: activeConfig.thinkingEnabled,
       thinking_delay: activeConfig.thinkingDelay,
     };
@@ -877,19 +928,39 @@ function ClientPage() {
     await room.localParticipant.setMicrophoneEnabled(true);
   }, [room, config]);
 
-  const handleQuickCallSelect = (bot: Bot) => {
+  const handleQuickCallSelect = async (bot: AgentBot) => {
+    setSelectedAgentId(bot.id);
+    selectedAgentIdRef.current = bot.id;
     setConfig({
       ...config,
-      openclawUrl: bot.openclaw_url,
-      gatewayToken: bot.gateway_token,
-      sessionKey: bot.session_key ? stripSessionKey(bot.session_key) : "",
-      avatarId: bot.avatar_id,
-      botName: bot.name,
-      thinkingEnabled: bot.thinking_enabled,
-      thinkingDelay: bot.thinking_delay,
+      openclawUrl: bot.config.openclaw_url,
+      gatewayToken: bot.config.gateway_token,
+      sessionKey: bot.config.session_key ? stripSessionKey(bot.config.session_key) : "",
+      avatarId: bot.avatars[0]?.avatar_key_id ?? "",
+      botName: bot.agent_name,
+      thinkingEnabled: String(bot.config.thinking_enabled ?? true),
+      thinkingDelay: String(bot.config.thinking_delay ?? 5.0),
     });
     setActiveSession("DirectCall");
     setIsMobileMenuOpen(false);
+
+    // Fire conversation creation immediately on quick call selection
+    const apiKey = localStorage.getItem("defaultApiKey") ?? "";
+    const apiKeyId = localStorage.getItem("defaultApiKeyId") ?? undefined;
+    const email = user?.primaryEmail ?? user?.displayName ?? "";
+    if (apiKey && bot.id && email) {
+      createConversation(apiKey, {
+        agentId: bot.id,
+        userName: user?.displayName || email,
+        userId: email,
+        context: { text: "" },
+        mode:'voa',
+        metadata: { active: "true" },
+      }).then(({ data, error }) => {
+        if (error) console.error("Conversation create error:", error);
+        else console.log("Conversation created:", data);
+      });
+    }
   };
 
   useEffect(() => {
@@ -950,31 +1021,33 @@ function ClientPage() {
           participant: s.participant
         }));
 
-      if (filteredTranscript.length > 0 && email) {
+      if (email) {
         try {
-          const selectedAvatar = AVATARS.find(a => a.id === currentConfig.avatarId) || AVATARS[0];
-          console.log("💾 Persisting conversation to Supabase via Server Action...");
-          
-          // Use technicalSessionKey (full timestamped) for history but strip prefix
-          const fullKey = technicalSessionKeyRef.current || currentConfig.sessionKey;
-          const cleanHistoryName = fullKey.replace(/^agent:main:/, "");
-          const data = await createConversationAction({
-            user_email: email,
-            bot_name: cleanHistoryName || currentConfig.botName || selectedAvatar.name || "Unknown Session",
-            bot_avatar: selectedAvatar.id,
-            status: status, // Dynamic status
-            duration: duration.toString(),
-            transcript: filteredTranscript, 
-          });
+          const convApiKey = localStorage.getItem("defaultApiKey") ?? "";
+          const convApiKeyId = localStorage.getItem("defaultApiKeyId") ?? undefined;
+          // Prefer the explicitly selected agent; fall back to matching by URL from the bot library
+          const resolvedAgentId = selectedAgentIdRef.current
+            ?? botsRef.current.find(b =>
+                (b.config?.openclaw_url ?? "") === (currentConfig.openclawUrl ?? "")
+              )?.id
+            ?? "";
 
-          console.log("✅ Conversation saved successfully:", data);
-          
-          // Refresh the conversations list
-          const conversationsData = await fetchConversations(email);
-          setConversations(conversationsData);
-          
+          if (convApiKey && resolvedAgentId) {
+            await createConversation(convApiKey, {
+              agentId: resolvedAgentId,
+              userName: user?.displayName || email,
+              userId: email,
+              mode: "voa",
+              context: { text: "" },
+              metadata: { active: "false" },
+            });
+
+            // Refresh conversations list
+            const { data: convData } = await getConversations(convApiKey);
+            setConversations(convData ?? []);
+          }
         } catch (err) {
-          console.error("⛔ Critical Saving Exception:", err);
+          console.error("⛔ Conversation save error:", err);
         }
       }
 
@@ -1025,53 +1098,35 @@ function ClientPage() {
     );
   }
 
+
   const handleSaveBot = async () => {
     if (!profileId) return;
     setIsLoadingBots(true);
     try {
+      const apiKey = localStorage.getItem("defaultApiKey") ?? "";
+
       if (editingBotId) {
-        // Find the bot to get its agent_email for syncing
-        const botToUpdate = bots.find(b => b.id === editingBotId);
-        
-        // Update existing bot library record
-        const { error } = await supabase
-          .from('bots')
-          .update({
-            name: config.botName || "Unnamed Bot",
-            avatar_id: config.avatarId,
+        const selectedAvatar = avatars.find(a => a.id === config.avatarId);
+        const botName = config.botName || (selectedAvatar ? `${selectedAvatar.name}'s Bot` : "My Bot");
+        await updateAgent(apiKey, editingBotId, {
+          agent_name: botName,
+          config: {
             openclaw_url: config.openclawUrl,
             gateway_token: config.gatewayToken,
             session_key: config.sessionKey,
-            thinking_enabled: config.thinkingEnabled,
-            thinking_delay: config.thinkingDelay,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', editingBotId);
-          
-        if (error) throw error;
-
-        // Sync to agents table if an email is assigned
-        if (botToUpdate?.agent_email) {
-          await supabase
-            .from('agents')
-            .update({
-              avatar_id: config.avatarId,
-              openclaw_url: config.openclawUrl,
-              gateway_token: config.gatewayToken,
-              thinking_enabled: config.thinkingEnabled,
-              thinking_delay: config.thinkingDelay,
-              updated_at: new Date().toISOString()
-            })
-            .eq('email', botToUpdate.agent_email);
-        }
-
+            thinking_enabled: config.thinkingEnabled === "true",
+            thinking_delay: parseFloat(config.thinkingDelay || "5.0"),
+          },
+          avatars: [{ avatar_key_id: config.avatarId }],
+        });
         setEditingBotId(null);
       } else {
-        // Create new bot
-        const selectedAvatar = AVATARS.find(a => a.id === config.avatarId);
-        await createBot({
+        // Create new bot in Supabase
+        const selectedAvatar = avatars.find(a => a.id === config.avatarId);
+        const botName = config.botName || (selectedAvatar ? `${selectedAvatar.name}'s Bot` : "My New Bot");
+        const newBot = await createBot({
           user_id: profileId,
-          name: config.botName || (selectedAvatar ? `${selectedAvatar.name}'s Bot` : "My New Bot"),
+          name: botName,
           avatar_id: config.avatarId,
           openclaw_url: config.openclawUrl,
           gateway_token: config.gatewayToken,
@@ -1080,10 +1135,32 @@ function ClientPage() {
           thinking_enabled: config.thinkingEnabled,
           thinking_delay: config.thinkingDelay,
         });
+
+        // Create via API
+        if (apiKey && newBot?.agent_email) {
+          await createAgent(apiKey, {
+            agent_name: botName,
+            agent_system_prompt: "",
+            email: newBot.agent_email,
+            config: {
+              openclaw_url: config.openclawUrl,
+              gateway_token: config.gatewayToken,
+              session_key: config.sessionKey,
+              thinking_enabled: config.thinkingEnabled === "true",
+              thinking_delay: parseFloat(config.thinkingDelay || "5.0"),
+            },
+            tools: {},
+            avatars: [{ avatar_key_id: config.avatarId }],
+            is_active: true,
+            is_public: false,
+            type: "voa",
+            add_on: [],
+          });
+        }
       }
       // Refresh bots list
-      const userBots = await fetchBots(profileId);
-      setBots(userBots);
+      const { data: refreshedAgents } = await getAgents(apiKey);
+      setBots(refreshedAgents ?? []);
       setActiveSession("Library");
     } catch (err: any) {
       console.error("Failed to save/update bot:", err.message || err);
@@ -1093,6 +1170,7 @@ function ClientPage() {
   };
 
   return (
+    <AvatarsContext.Provider value={avatars}>
     <main data-lk-theme="default" className="h-[100dvh] w-screen bg-[#050505] flex overflow-hidden font-[Inter] text-white">
         <Sidebar
           activeSession={activeSession}
@@ -1168,42 +1246,47 @@ function ClientPage() {
                 bots={bots} 
                 profileId={profileId} 
                 onRefresh={async () => {
-                  if (profileId) {
-                    setIsLoadingBots(true);
-                    const userBots = await fetchBots(profileId);
-                    setBots(userBots);
-                    setIsLoadingBots(false);
-                  }
+                  const refreshKey = localStorage.getItem("defaultApiKey") ?? "";
+                  setIsLoadingBots(true);
+                  const { data: agentData } = await getAgents(refreshKey);
+                  setBots(agentData ?? []);
+                  setIsLoadingBots(false);
                 }}
                 onSelectBot={(bot) => {
+                  setSelectedAgentId(bot.id);
+                  selectedAgentIdRef.current = bot.id;
                   const newConfig = {
-                    openclawUrl: bot.openclaw_url,
-                    gatewayToken: bot.gateway_token,
-                    sessionKey: stripSessionKey(bot.session_key || ""),
-                    avatarId: bot.avatar_id,
-                    botName: bot.name,
-                    thinkingEnabled: bot.thinking_enabled || "true",
-                    thinkingDelay: bot.thinking_delay || "5.0",
+                    openclawUrl: bot.config.openclaw_url,
+                    gatewayToken: bot.config.gateway_token,
+                    sessionKey: stripSessionKey(bot.config.session_key || ""),
+                    avatarId: bot.avatars[0]?.avatar_key_id ?? "",
+                    botName: bot.agent_name,
+                    thinkingEnabled: String(bot.config.thinking_enabled ?? true),
+                    thinkingDelay: String(bot.config.thinking_delay ?? 5.0),
                   };
-                  setConfig(newConfig); // ensure state is updated for dashboard
+                  setConfig(newConfig);
                   onConnectButtonClicked(undefined, newConfig);
                   setActiveSession("DirectCall");
                 }}
                 onEditBot={(bot) => {
+                  setSelectedAgentId(bot.id);
+                  selectedAgentIdRef.current = bot.id;
                   setEditingBotId(bot.id);
                   setConfig({
-                    openclawUrl: bot.openclaw_url,
-                    gatewayToken: bot.gateway_token,
-                    sessionKey: stripSessionKey(bot.session_key || ""),
-                    avatarId: bot.avatar_id,
-                    botName: bot.name,
-                    thinkingEnabled: bot.thinking_enabled || "true",
-                    thinkingDelay: bot.thinking_delay || "5.0",
+                    openclawUrl: bot.config.openclaw_url,
+                    gatewayToken: bot.config.gateway_token,
+                    sessionKey: stripSessionKey(bot.config.session_key || ""),
+                    avatarId: bot.avatars[0]?.avatar_key_id ?? "",
+                    botName: bot.agent_name,
+                    thinkingEnabled: String(bot.config.thinking_enabled ?? true),
+                    thinkingDelay: String(bot.config.thinking_delay ?? 5.0),
                   });
                   setActiveSession("AddBot");
                 }}
                 botHealth={botHealth}
               />
+            ) : activeSession === "Subscription" ? (
+              <SubscriptionView />
             ) : activeSession === "Conversations" ? (
               selectedConversation ? (
                 <ConversationDetailView 
@@ -1251,7 +1334,7 @@ function ClientPage() {
               ...config, 
               avatarId: id,
               botName: (!config.botName || config.botName === "Bot" || config.botName === "My Bot") 
-                ? (AVATARS.find(a => a.id === id)?.name || "") 
+                ? (avatars.find(a => a.id === id)?.name || "")
                 : config.botName
             });
           }}
@@ -1273,6 +1356,7 @@ function ClientPage() {
           )}
         </AnimatePresence>
     </main>
+    </AvatarsContext.Provider>
   );
 }
 
@@ -1298,11 +1382,12 @@ function SessionConfigForm({
   isSavingBot?: boolean;
   isEditing?: boolean;
   onCancelEdit?: () => void;
-  bots?: Bot[];
+  bots?: AgentBot[];
   isConnecting?: boolean;
   showConnectButton?: boolean;
 }) {
-  const selectedAvatar = AVATARS.find((a) => a.id === config.avatarId);
+  const avatars = useAvatars();
+  const selectedAvatar = avatars.find((a) => a.id === config.avatarId);
 
   const handleConnect = (e: React.MouseEvent | React.FormEvent) => {
     e.preventDefault();
@@ -1334,9 +1419,9 @@ function SessionConfigForm({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -24 }}
       transition={{ duration: 0.35, ease: [0.09, 1.04, 0.245, 1.055] }}
-      className="flex items-center justify-center h-full p-6"
+      className="h-full overflow-y-auto custom-scrollbar"
     >
-      <div className="w-full max-w-[620px]">
+      <div className="w-full max-w-[620px] mx-auto px-6 py-8">
         <div className="mb-6 text-center">
           <h2 className="text-[22px] font-bold text-white tracking-tight">
             {isEditing ? "Edit Bot Configuration" : (isSavingBot ? "Save Bot to Library" : "Quick Call")}
@@ -1362,11 +1447,11 @@ function SessionConfigForm({
                     const selected = bots.find(b => b.id === botId);
                     if (selected) {
                       const newConfig = {
-                        openclawUrl: selected.openclaw_url,
-                        gatewayToken: selected.gateway_token,
-                        sessionKey: stripSessionKey(selected.session_key),
-                        avatarId: selected.avatar_id,
-                        botName: selected.name,
+                        openclawUrl: selected.config.openclaw_url,
+                        gatewayToken: selected.config.gateway_token,
+                        sessionKey: stripSessionKey(selected.config.session_key),
+                        avatarId: selected.avatars[0]?.avatar_key_id ?? "",
+                        botName: selected.agent_name,
                       };
                       setConfig(newConfig);
                     }
@@ -1376,11 +1461,11 @@ function SessionConfigForm({
                 >
                   <option value="" disabled>Select a bot to fill fields...</option>
                   {bots.map(bot => {
-                    const date = new Date(bot.created_at);
-                    const timestamp = `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear().toString().slice(-2)} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+                    const date = bot.created_at ? new Date(bot.created_at) : null;
+                    const timestamp = date ? `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear().toString().slice(-2)} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}` : "";
                     return (
                       <option key={bot.id} value={bot.id}>
-                        {bot.name} ({timestamp})
+                        {bot.agent_name}{timestamp ? ` (${timestamp})` : ""}
                       </option>
                     );
                   })}
@@ -1586,6 +1671,7 @@ function AvatarPickerModal({
   onClose: () => void;
   onSelect: (id: string) => void;
 }) {
+  const avatars = useAvatars();
   const [tempId, setTempId] = useState(currentId);
   if (!isOpen) return null;
   return (
@@ -1609,7 +1695,7 @@ function AvatarPickerModal({
         </div>
         <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {AVATARS.map((avatar) => (
+            {avatars.map((avatar) => (
               <button
                 key={avatar.id}
                 onClick={() => setTempId(avatar.id)}
@@ -1646,6 +1732,7 @@ function AvatarPickerModal({
 
 // ─── Avatar Gallery ──────────────────────────────────────────────────────────
 function AvatarGallery() {
+  const avatars = useAvatars();
   return (
     <div className="absolute inset-0 overflow-y-auto p-6 md:p-10 custom-scrollbar bg-[#050505] z-10">
       <div className="max-w-6xl mx-auto pb-20">
@@ -1657,7 +1744,7 @@ function AvatarGallery() {
           <p className="text-[#6b7280] mt-2">Design your AI companions with advanced customization</p>
         </header>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
-          {AVATARS.map((avatar) => (
+          {avatars.map((avatar) => (
             <div key={avatar.id} className="group relative rounded-2xl transition-all duration-200 overflow-hidden border border-white/5 hover:border-white/10">
               <div className="relative w-full aspect-video">
                 <img src={avatar.image} alt={avatar.name} className="w-full h-full object-cover transition-transform duration-400 group-hover:scale-105" loading="lazy" />
@@ -1790,7 +1877,7 @@ function SimpleVoiceAssistant({
   isSavingBot?: boolean;
   isEditing?: boolean;
   onCancelEdit?: () => void;
-  bots?: Bot[];
+  bots?: AgentBot[];
   showConnectButton?: boolean;
 }) {
   const { state: agentState } = useVoiceAssistant();
@@ -1885,21 +1972,22 @@ function onDeviceFailure(error: Error) {
 }
 
 // ─── Bot Library View ────────────────────────────────────────────────────────
-function BotLibraryView({ 
-  bots, 
-  profileId, 
-  onRefresh, 
+function BotLibraryView({
+  bots,
+  profileId,
+  onRefresh,
   onSelectBot,
   onEditBot,
   botHealth
-}: { 
-  bots: Bot[], 
+}: {
+  bots: AgentBot[],
   profileId: string | null,
   onRefresh: () => void,
-  onSelectBot: (bot: Bot) => void,
-  onEditBot: (bot: Bot) => void,
+  onSelectBot: (bot: AgentBot) => void,
+  onEditBot: (bot: AgentBot) => void,
   botHealth: Record<string, 'healthy' | 'unhealthy' | 'checking' | 'unknown'>
 }) {
+  const avatars = useAvatars();
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
 
@@ -1907,14 +1995,10 @@ function BotLibraryView({
     e.stopPropagation();
     if (!confirm("Are you sure you want to delete this bot?")) return;
     setIsDeleting(id);
-    try {
-      await deleteBot(id);
-      onRefresh();
-    } catch (err) {
-      console.error("Delete failed:", err);
-    } finally {
-      setIsDeleting(null);
-    }
+    const apiKey = localStorage.getItem("defaultApiKey") ?? "";
+    await deleteAgent(apiKey, id);
+    onRefresh();
+    setIsDeleting(null);
   };
 
   const containerVariants = {
@@ -1992,7 +2076,7 @@ function BotLibraryView({
             className="grid grid-cols-1 min-[500px]:grid-cols-2 min-[1100px]:grid-cols-3 xl:grid-cols-3 gap-6 md:gap-8"
           >
             {bots.map((bot) => {
-              const avatar = AVATARS.find(a => a.id === bot.avatar_id);
+              const avatar = avatars.find(a => a.id === (bot.avatars[0]?.avatar_key_id ?? ""));
               return (
                 <motion.div 
                   key={bot.id} 
@@ -2007,8 +2091,8 @@ function BotLibraryView({
                   <div className="relative aspect-[16/10] w-full overflow-hidden bg-black/40">
                     {avatar ? (
                       <img 
-                        src={avatar.image} 
-                        alt={bot.name} 
+                        src={avatar.image}
+                        alt={bot.agent_name}
                         className="w-full h-full object-cover transition-transform duration-500 scale-105 group-hover:scale-110 opacity-100 grayscale-0" 
                       />
                     ) : (
@@ -2020,7 +2104,7 @@ function BotLibraryView({
                     {/* Health Status Indicator Badge */}
                     <div className="absolute top-4 left-4 z-20">
                       {(() => {
-                        const healthKey = `${bot.openclaw_url.replace(/\/$/, "")}|${bot.gateway_token}`;
+                        const healthKey = `${(bot.config?.openclaw_url ?? "").replace(/\/$/, "")}|${bot.config?.gateway_token ?? ""}`;
                         const status = botHealth[healthKey] || 'unknown';
                         
                         return (
@@ -2069,7 +2153,7 @@ function BotLibraryView({
                     {/* Bot Name Badge (Bottom Left) */}
                     <div className="absolute bottom-4 left-6">
                       <h3 className="text-xl font-bold text-white tracking-tight group-hover:text-[#00E3AA] transition-colors duration-200 font-outfit">
-                        {bot.name || "Unnamed Bot"}
+                        {bot.agent_name || "Unnamed Bot"}
                       </h3>
                       <div className="flex items-center gap-1.5 mt-1">
                         <div className="w-1.5 h-1.5 rounded-full bg-[#00E3AA] shadow-[0_0_8px_rgba(0,227,170,0.6)]" />
@@ -2085,7 +2169,7 @@ function BotLibraryView({
                         {/* URL Source */}
                         <div className="flex items-center gap-3 px-1 text-[12px] text-neutral-500">
                           <span className="text-neutral-700"><LinkIcon size={14} /></span>
-                          <span className="truncate italic font-medium">{bot.openclaw_url}</span>
+                          <span className="truncate italic font-medium">{bot.config?.openclaw_url ?? "—"}</span>
                         </div>
 
                         {/* Avatar Info */}
@@ -2095,35 +2179,35 @@ function BotLibraryView({
                           </div>
                           <div className="flex flex-col">
                             <span className="text-[9px] text-neutral-600 font-bold uppercase tracking-tighter leading-none font-outfit">Avatar Id</span>
-                            <span className="text-[12px] text-neutral-300 font-jetbrains-mono font-medium truncate">{bot.avatar_id}</span>
+                            <span className="text-[12px] text-neutral-300 font-jetbrains-mono font-medium truncate">{bot.avatars[0]?.avatar_key_id ?? "—"}</span>
                           </div>
                         </div>
 
                         {/* Email Info */}
-                        {bot.agent_email && (
+                        {bot.email && (
                           <div className="flex items-center justify-between group/email py-2 px-3 rounded-xl bg-[#00E3AA]/5 border border-[#00E3AA]/10 hover:border-[#00E3AA]/30 transition-all shadow-inner relative">
                             <div className="flex items-center gap-3 min-w-0">
                               <div className="w-6 h-6 rounded-lg bg-[#00E3AA]/10 flex items-center justify-center text-[#00E3AA] shrink-0">
                                 <MailIcon size={12} />
                               </div>
                               <span className="text-[12px] text-[#00E3AA] font-bold font-jetbrains-mono truncate lowercase tracking-tight">
-                                {bot.agent_email}
+                                {bot.email}
                               </span>
                             </div>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                navigator.clipboard.writeText(bot.agent_email);
-                                setCopiedEmail(bot.agent_email);
+                                navigator.clipboard.writeText(bot.email);
+                                setCopiedEmail(bot.email);
                                 setTimeout(() => setCopiedEmail(null), 2000);
                               }}
                               className={`p-1.5 rounded-lg transition-all ${
-                                copiedEmail === bot.agent_email 
-                                  ? "text-[#00E3AA] bg-[#00E3AA]/20 opacity-100" 
+                                copiedEmail === bot.email
+                                  ? "text-[#00E3AA] bg-[#00E3AA]/20 opacity-100"
                                   : "text-neutral-500 hover:text-white transition-all opacity-0 group-hover/email:opacity-100"
                               }`}
                             >
-                              {copiedEmail === bot.agent_email ? <CheckIcon size={14} /> : <span className="rotate-45 block"><LinkIcon size={14} /></span>}
+                              {copiedEmail === bot.email ? <CheckIcon size={14} /> : <span className="rotate-45 block"><LinkIcon size={14} /></span>}
                             </button>
                           </div>
                         )}
@@ -2135,20 +2219,20 @@ function BotLibraryView({
                         <span className="text-[9px] text-neutral-600 font-bold uppercase tracking-tighter font-outfit">Creation Date</span>
                         <div className="flex items-center gap-1.5 text-[11px] text-neutral-400 font-bold font-jetbrains-mono whitespace-nowrap">
                           <span className="text-neutral-700"><ClockIcon size={12} /></span>
-                          <span>{new Date(bot.created_at).toLocaleDateString()}</span>
+                          <span>{bot.created_at ? new Date(bot.created_at).toLocaleDateString() : "—"}</span>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <button 
+                        <button
                           onClick={(e) => {
                             e.stopPropagation();
                             const newConfig = {
-                              openclawUrl: bot.openclaw_url,
-                              gatewayToken: bot.gateway_token,
-                              sessionKey: "", 
-                              avatarId: bot.avatar_id,
-                              botName: bot.name,
+                              openclawUrl: bot.config.openclaw_url,
+                              gatewayToken: bot.config.gateway_token,
+                              sessionKey: "",
+                              avatarId: bot.avatars[0]?.avatar_key_id ?? "",
+                              botName: bot.agent_name,
                             };
                             (window as any).openRecallWithConfig?.(newConfig);
                           }}
@@ -2187,6 +2271,7 @@ function ConversationsListView({
   conversations: any[];
   onSelect: (conv: any) => void;
 }) {
+  const avatars = useAvatars();
   return (
     <div className="absolute inset-0 overflow-y-auto p-6 md:p-10 custom-scrollbar bg-[#050505] z-10">
       <div className="max-w-6xl mx-auto pb-20">
@@ -2229,6 +2314,12 @@ function ConversationsListView({
                     if (normalized === "failed" || normalized === "interrupted") return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
                     return "bg-gray-500/10 text-gray-500 border-gray-500/20";
                   };
+                  // Map API response fields — agentId links back to the bot in the library
+                  const matchedBot = avatars.find(a => a.id === (conv.bot_avatar ?? conv.agentId));
+                  const displayAvatar = matchedBot ?? avatars[0];
+                  const displayName = conv.bot_name || conv.userName || conv.userId || "Unknown";
+                  const displayId = conv.session_key || conv.agentId || conv.id;
+                  const displayDate = conv.created_at ? new Date(conv.created_at) : null;
                   return (
                     <tr key={conv.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors cursor-pointer group" onClick={() => onSelect(conv)}>
                       <td className="px-6 py-4">
@@ -2236,43 +2327,37 @@ function ConversationsListView({
                           {conv.status || "Completed"}
                         </span>
                       </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg overflow-hidden bg-white/10 flex flex-shrink-0 items-center justify-center text-[#9ca3af]">
-                          {(() => {
-                            // Try to find by ID, fallback to finding by Name, finally fallback to index 0
-                            const avatar = AVATARS.find(a => a.id === conv.bot_avatar) 
-                                        || AVATARS.find(a => a.name === conv.bot_name)
-                                        || AVATARS[0];
-                            return <img src={avatar.image} className="w-full h-full object-cover" alt={avatar.name} />;
-                          })()}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg overflow-hidden bg-white/10 flex flex-shrink-0 items-center justify-center text-[#9ca3af]">
+                            {displayAvatar ? (
+                              <img src={displayAvatar.image} className="w-full h-full object-cover" alt={displayAvatar.name} />
+                            ) : (
+                              <UserIcon size={16} />
+                            )}
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-[#6b7280] text-[10px] font-bold uppercase tracking-widest mb-0.5 opacity-60">Video Companion</span>
+                            <span className="text-white text-[14px] font-bold truncate leading-tight">{displayName}</span>
+                            <span className="text-[#3a3a3a] text-[9px] font-mono truncate mt-0.5">ID: {displayId}</span>
+                          </div>
                         </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="text-[#6b7280] text-[10px] font-bold uppercase tracking-widest mb-0.5 opacity-60">Video Companion</span>
-                          <span className="text-white text-[14px] font-bold truncate leading-tight">
-                            {conv.bot_name || "Unknown"}
-                          </span>
-                          <span className="text-[#3a3a3a] text-[9px] font-mono truncate mt-0.5">
-                            ID: {conv.session_key}
-                          </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-[#9ca3af] text-[13px]">{conv.duration ? `${conv.duration}s` : '—'}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="text-white text-[13px]">{displayDate ? displayDate.toLocaleDateString() : '—'}</span>
+                          <span className="text-[#3a3a3a] text-[11px]">{displayDate ? displayDate.toLocaleTimeString() : ''}</span>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-[#9ca3af] text-[13px]">{conv.duration ? `${conv.duration}s` : '0s'}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col">
-                        <span className="text-white text-[13px]">{new Date(conv.created_at).toLocaleDateString()}</span>
-                        <span className="text-[#3a3a3a] text-[11px]">{new Date(conv.created_at).toLocaleTimeString()}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <button className="px-4 py-1.5 rounded-lg bg-white/5 hover:bg-[#00E3AA]/20 hover:text-[#00E3AA] transition-all text-[12px] font-semibold text-white/70">View History</button>
-                    </td>
-                  </tr>
-                );
-              })}
+                      </td>
+                      <td className="px-6 py-4">
+                        <button className="px-4 py-1.5 rounded-lg bg-white/5 hover:bg-[#00E3AA]/20 hover:text-[#00E3AA] transition-all text-[12px] font-semibold text-white/70">View History</button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -2299,8 +2384,8 @@ function ConversationDetailView({
               <ChevronDownIcon className="rotate-90" />
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-white tracking-tight">Conversation with {conversation.bot_name}</h1>
-              <p className="text-[#6b7280] text-sm mt-1">{new Date(conversation.created_at).toLocaleString()} • {conversation.duration}s</p>
+              <h1 className="text-2xl font-bold text-white tracking-tight">Conversation with {conversation.bot_name || conversation.userName || "Agent"}</h1>
+              <p className="text-[#6b7280] text-sm mt-1">{conversation.created_at ? new Date(conversation.created_at).toLocaleString() : "—"}{conversation.duration ? ` • ${conversation.duration}s` : ""}</p>
             </div>
           </div>
           <span className={`px-3 py-1 rounded-full text-[12px] font-bold uppercase border ${
@@ -2382,7 +2467,8 @@ function DirectCallDashboard({
 }) {
   const { state: agentState, audioTrack, videoTrack } = useVoiceAssistant();
   const [isConnecting, setIsConnecting] = useState(autoStart || false);
-  const selectedAvatar = AVATARS.find(a => a.id === config.avatarId) || AVATARS[0];
+  const avatars = useAvatars();
+  const selectedAvatar = avatars.find(a => a.id === config.avatarId) || avatars[0];
 
   const handleStartCall = async () => {
     setIsConnecting(true);
