@@ -10677,20 +10677,6 @@ func HandleConversationCreation(
 
 	selectedAgent.Actions = actions
 
-	// Infra
-	var infraId, infraName, infraDesc, infraURL, infraToken string
-	var infraActive bool
-
-	err = tx.QueryRow(`
-        SELECT id, name, description, active, url, token
-        FROM infra
-        WHERE active = TRUE
-        LIMIT 1
-    `).Scan(&infraId, &infraName, &infraDesc, &infraActive, &infraURL, &infraToken)
-	if err != nil {
-		return "", "", Agent{}, fmt.Errorf("failed to load infra: %v", err)
-	}
-
 	var maxCallDuration int
 	err = tx.QueryRow(`
         SELECT cl.max_session_duration
