@@ -1593,6 +1593,14 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	).Scan(&userID)
 
 	if err != nil {
+		// Handle unique constraint violations (user already exists) gracefully
+		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
+			log.Printf("User already exists (constraint: %s), returning success", pqErr.Constraint)
+			tx.Rollback()
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]string{"message": "user already exists", "userId": user.ID})
+			return
+		}
 		log.Printf("Error creating user: %v", err)
 		WriteInternalServerError(w, "Failed to create user")
 		return
@@ -6398,14 +6406,13 @@ func getAgentFunction(agentConfigID string, apiKeyId string, w http.ResponseWrit
 		WHERE ak1.id = $2 and a.id = $1`
 
 	var (
-		id, name, prompt, tools, config, atype string
-		isActive, isPublic, record             bool
-		defaultSystemPrompt                    bool
-		avatars                                string
-		createdAt, updatedAt                   time.Time
-		createdBy, callback_url, email         string
-		callback_events                        []string
-		add_ons                                json.RawMessage
+		id, name, prompt, atype         string
+		isActive, isPublic, record      bool
+		defaultSystemPrompt             bool
+		createdAt, updatedAt            time.Time
+		createdBy, callback_url, email  string
+		callback_events                 []string
+		add_ons, tools, config, avatars json.RawMessage
 	)
 
 	err := DB.QueryRow(query, agentConfigID, apiKeyId).Scan(
@@ -6664,14 +6671,13 @@ func GetAllAgentFunction(apiKeyId string, w http.ResponseWriter) ([]map[string]i
 	var agentConfigs []map[string]interface{}
 	for rows.Next() {
 		var (
-			id, name, prompt, tools, config, callback_url, atype string
-			avatars                                              string
-			isActive, isPublic, record                           bool
-			defaultSystemPrompt                                  bool
-			createdAt, updatedAt                                 time.Time
-			createdBy, email                                     string
-			callback_events                                      []string
-			add_ons                                              json.RawMessage
+			id, name, prompt, callback_url, atype string
+			isActive, isPublic, record            bool
+			defaultSystemPrompt                   bool
+			createdAt, updatedAt                  time.Time
+			createdBy, email                      string
+			callback_events                       []string
+			add_ons, tools, config, avatars       json.RawMessage
 		)
 
 		if err := rows.Scan(
