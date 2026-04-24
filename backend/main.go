@@ -796,7 +796,7 @@ func main() {
 
 		// Conversation Management Routes
 		r.Route("/public/conversation", func(r chi.Router) {
-			r.Use(SameOriginMiddleware())
+			//r.Use(SameOriginMiddleware())
 			r.Post("/feedback", func(w http.ResponseWriter, r *http.Request) {
 				utils.HandleCreateFeedback(w, r)
 			})
