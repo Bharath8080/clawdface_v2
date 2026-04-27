@@ -33,11 +33,18 @@ export const fetchAvatars = async (
         error: null,
       };
     } else {
-      const errorText = await response.json();
+      const errorText = await response.text();
+      let errorMessage = "An error occurred";
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error || errorJson.message || errorText;
+      } catch {
+        errorMessage = errorText || "An error occurred";
+      }
       return {
         data: null,
         status: response.status,
-        error: `${errorText?.error || errorText?.message || "An error occurred"}`,
+        error: errorMessage,
       };
     }
   } catch (err: unknown) {

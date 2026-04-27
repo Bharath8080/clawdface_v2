@@ -51,11 +51,18 @@ export const createAgent = async (
       const data = await response.json();
       return { data, error: null };
     } else {
-      const errorText = await response.json();
+      const errorText = await response.text();
+      let errorMessage = "An error occurred";
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error || errorJson.message || errorText;
+      } catch {
+        errorMessage = errorText || "An error occurred";
+      }
       return {
         data: null,
         status: response.status,
-        error: `${errorText?.error || errorText?.message || "An error occurred"}`,
+        error: errorMessage,
       };
     }
   } catch (err: unknown) {
@@ -83,11 +90,18 @@ export const updateAgent = async (
       const data = await response.json();
       return { data, error: null };
     } else {
-      const errorText = await response.json();
+      const errorText = await response.text();
+      let errorMessage = "An error occurred";
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error || errorJson.message || errorText;
+      } catch {
+        errorMessage = errorText || "An error occurred";
+      }
       return {
         data: null,
         status: response.status,
-        error: `${errorText?.error || errorText?.message || "An error occurred"}`,
+        error: errorMessage,
       };
     }
   } catch (err: unknown) {
@@ -107,8 +121,15 @@ export const deleteAgent = async (
       headers: { "X-API-Key": apiKey },
     });
     if (response.ok) return { error: null };
-    const errorText = await response.json();
-    return { error: `${errorText?.error || errorText?.message || "An error occurred"}` };
+    const errorText = await response.text();
+    let errorMessage = "An error occurred";
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorMessage = errorJson.error || errorJson.message || errorText;
+    } catch {
+      errorMessage = errorText || "An error occurred";
+    }
+    return { error: errorMessage };
   } catch (err: unknown) {
     return { error: err instanceof Error ? err.message : "Unknown error" };
   }
@@ -126,11 +147,18 @@ export const getAgents = async (
       const data = await response.json();
       return { data: data?.filter((el: any) => el?.is_active) ?? [], error: null };
     } else {
-      const errorText = await response.json();
+      const errorText = await response.text();
+      let errorMessage = "An error occurred";
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error || errorJson.message || errorText;
+      } catch {
+        errorMessage = errorText || "An error occurred";
+      }
       return {
         data: null,
         status: response.status,
-        error: `${errorText?.error || errorText?.message || "An error occurred"}`,
+        error: errorMessage,
       };
     }
   } catch (err: unknown) {

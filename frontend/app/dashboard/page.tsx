@@ -30,6 +30,10 @@ import {
   updateLastConfigAction as updateLastConfig,
   syncUserAction,
 } from "@/lib/database-actions";
+import { type AvatarItem, fetchAvatars } from "@/app/services/avatarService";
+
+// Duplicate AvatarsContext removed
+
 
 // ─── Session Config Defaults ────────────────────────────────────────────────
 const DEFAULTS = {
@@ -52,10 +56,10 @@ const stripSessionKey = (key: string) => {
 };
 
 import { AVATARS } from "@/lib/constants";
-import { fetchAvatars, type AvatarItem } from "@/app/services/avatarService";
 
-const AvatarsContext = createContext<AvatarItem[]>(AVATARS);
-const useAvatars = () => useContext(AvatarsContext);
+
+export const AvatarsContext = createContext<AvatarItem[]>(AVATARS);
+export const useAvatars = () => useContext(AvatarsContext);
 
 // ─── Icons ──────────────────────────────────────────────────────────────────
 const UserIcon = ({ size = 15 }: { size?: number }) => (
@@ -863,6 +867,11 @@ function ClientPage() {
   };
 
   const onConnectButtonClicked = useCallback(async (forcedSessionKey?: string, forcedConfig?: typeof DEFAULTS) => {
+    if (room.state !== "disconnected") {
+      console.warn("⚠️ Already connecting or connected. State:", room.state);
+      return;
+    }
+    
     // HARD RESET: Clear all previous session data before starting a new one
     console.log("🧹 Hard Reset: Clearing previous session data");
     setSessionTranscript([]);
@@ -1079,11 +1088,15 @@ function ClientPage() {
 
   // ─── Auto-disconnect call on navigation ────────────────────────────────────
   useEffect(() => {
-    // If the room is connected (or connecting) and the user navigates to a new section,
-    // explicitly disconnect it to ensure a clean state for the new view.
+    // Define sessions that are allowed to maintain an active call
+    const callCapableSessions = ["DirectCall", "My Bot"];
+    
+    // If the room is active and we navigate to a non-call session, disconnect.
     if (room && (room.state === "connected" || room.state === "connecting" || room.state === "reconnecting")) {
-      console.log("🚶 Navigation event: User moved to section:", activeSession, "- auto-disconnecting call");
-      room.disconnect();
+      if (!callCapableSessions.includes(activeSession)) {
+        console.log("🚶 Navigation event: User moved to non-call section:", activeSession, "- auto-disconnecting call");
+        room.disconnect();
+      }
     }
   }, [activeSession, room]);
 

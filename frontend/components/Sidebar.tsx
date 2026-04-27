@@ -199,11 +199,13 @@ export function Sidebar({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [planLabel, setPlanLabel] = useState("Free Plan");
   const [quickCallOpen, setQuickCallOpen] = useState(false);
+
   const [avatars, setAvatars] = useState<AvatarItem[]>(AVATARS);
   const user = useUser();
   const router = useRouter();
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
 
   useEffect(() => {
     let cancelled = false;
@@ -264,6 +266,7 @@ export function Sidebar({
   }, []);
 
   const initials = getInitials(user?.primaryEmail, user?.displayName);
+
   const handleNav = (session: string) => { 
     setActiveSession(session); 
     setIsMobileMenuOpen(false); 

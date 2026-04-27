@@ -80,8 +80,15 @@ export const getPricingPlans = async (
       const data = (await response.json()) as PlanType[];
       return { data, error: null };
     } else {
-      const errorText = await response.json();
-      return { data: null, status: response.status, error: `${errorText?.error || errorText?.message || "An error occurred"}` };
+      const errorText = await response.text();
+      let errorMessage = "An error occurred";
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error || errorJson.message || errorText;
+      } catch {
+        errorMessage = errorText || "An error occurred";
+      }
+      return { data: null, status: response.status, error: errorMessage };
     }
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error";
@@ -102,8 +109,15 @@ export const getLicenseDetails = async (
       const data = (await response.json()) as ILicenseInfo;
       return { data, error: null };
     } else {
-      const errorText = await response.json();
-      return { data: null, status: response.status, error: `${errorText?.error || errorText?.message || "An error occurred"}` };
+      const errorText = await response.text();
+      let errorMessage = "An error occurred";
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error || errorJson.message || errorText;
+      } catch {
+        errorMessage = errorText || "An error occurred";
+      }
+      return { data: null, status: response.status, error: errorMessage };
     }
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error";
@@ -126,8 +140,15 @@ export const purchasePlan = async (
       const data = (await response.json()) as { checkoutUrl: string };
       return { data, error: null };
     } else {
-      const errorText = await response.json();
-      return { data: null, status: response.status, error: `${errorText?.error || errorText?.message || "An error occurred"}` };
+      const errorText = await response.text();
+      let errorMessage = "An error occurred";
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error || errorJson.message || errorText;
+      } catch {
+        errorMessage = errorText || "An error occurred";
+      }
+      return { data: null, status: response.status, error: errorMessage };
     }
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error";
@@ -150,8 +171,15 @@ export const getBillDetails = async (
       const data = (await response.json()) as IBillBreakupInfo;
       return { data, error: null };
     } else {
-      const errorText = await response.json();
-      return { data: null, status: response.status, error: `${errorText?.error || errorText?.message || "An error occurred"}` };
+      const errorText = await response.text();
+      let errorMessage = "An error occurred";
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error || errorJson.message || errorText;
+      } catch {
+        errorMessage = errorText || "An error occurred";
+      }
+      return { data: null, status: response.status, error: errorMessage };
     }
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error";
@@ -172,8 +200,15 @@ export const getPaymentHistory = async (
       const data = (await response.json()) as IInvoiceInfo[];
       return { data, error: null };
     } else {
-      const errorText = await response.json();
-      return { data: null, status: response.status, error: `${errorText?.error || errorText?.message || "An error occurred"}` };
+      const errorText = await response.text();
+      let errorMessage = "An error occurred";
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error || errorJson.message || errorText;
+      } catch {
+        errorMessage = errorText || "An error occurred";
+      }
+      return { data: null, status: response.status, error: errorMessage };
     }
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error";
@@ -206,8 +241,15 @@ export const contactUsQuery = async (
       const data = await response.json();
       return { data, error: null };
     } else {
-      const errorText = await response.json();
-      return { data: null, status: response.status, error: `${errorText?.error || errorText?.message || "An error occurred"}` };
+      const errorText = await response.text();
+      let errorMessage = "An error occurred";
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error || errorJson.message || errorText;
+      } catch {
+        errorMessage = errorText || "An error occurred";
+      }
+      return { data: null, status: response.status, error: errorMessage };
     }
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error";
@@ -228,8 +270,15 @@ export const getManageSubUrl = async (
       const data = (await response.json()) as { manageUrl: string };
       return { data, error: null };
     } else {
-      const errorText = await response.json();
-      return { data: null, status: response.status, error: `${errorText?.error || errorText?.message || "An error occurred"}` };
+      const errorText = await response.text();
+      let errorMessage = "An error occurred";
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error || errorJson.message || errorText;
+      } catch {
+        errorMessage = errorText || "An error occurred";
+      }
+      return { data: null, status: response.status, error: errorMessage };
     }
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error";
