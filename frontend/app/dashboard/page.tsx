@@ -674,6 +674,7 @@ function ClientPage() {
   const botsRef = useRef<AgentBot[]>([]);
   const currentConversationIdRef = useRef<string | null>(null);
   const currentJobIdRef = useRef<string | null>(null);
+  const connectionLockRef = useRef(false);
 
   // Sync refs with state to ensure handleDisconnected sees latest values
   useEffect(() => {
@@ -804,6 +805,15 @@ function ClientPage() {
               const initApiKey = localStorage.getItem("defaultApiKey") ?? "";
               const { data: agentData } = await getAgents(initApiKey);
               setBots(agentData ?? []);
+              
+              // Also fetch avatars here so it uses the same fresh key
+              try {
+                const { data: avatarData } = await fetchAvatars(initApiKey);
+                if (avatarData && avatarData.length > 0) setAvatars(avatarData);
+              } catch (avErr) {
+                console.error("Avatar fetch error:", avErr);
+              }
+
               setIsLoadingBots(false);
               
               if (profile.last_config) {
@@ -830,14 +840,6 @@ function ClientPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authChecked, user?.id]);
 
-  useEffect(() => {
-    if (!authChecked) return;
-    const apiKey = localStorage.getItem("defaultApiKey");
-    if (!apiKey) return;
-    fetchAvatars(apiKey).then(({ data }) => {
-      if (data && data.length > 0) setAvatars(data);
-    });
-  }, [authChecked]);
 
   useEffect(() => {
     if (user === null) {
@@ -883,72 +885,73 @@ function ClientPage() {
   };
 
   const onConnectButtonClicked = useCallback(async (forcedSessionKey?: string, forcedConfig?: typeof DEFAULTS) => {
-    if (room.state !== "disconnected") {
-      console.warn("⚠️ Already connecting or connected. State:", room.state);
+    if (room.state !== "disconnected" || isValidatingCredit || connectionLockRef.current) {
+      console.warn("⚠️ Connection already in progress or connected. State:", room.state, "Validating:", isValidatingCredit, "Locked:", connectionLockRef.current);
       return;
     }
     
-    // HARD RESET: Clear all previous session data before starting a new one
-    console.log("🧹 Hard Reset: Clearing previous session data");
-    setSessionTranscript([]);
-    transcriptRef.current = [];
-    setSessionStartTime(null);
-    startTimeRef.current = null;
-    segmentsMapRef.current.clear();
-    finalSegmentIds.current.clear();
-    currentConversationIdRef.current = null;
-    currentJobIdRef.current = null;
-
-    const activeConfig = forcedConfig || config;
-
-    // 1. Persist config to localStorage (Works on Vercel)
-    localStorage.setItem("openclaw_config", JSON.stringify(activeConfig));
-
-    // 2. Sync to Supabase & local files
-    const email = user?.primaryEmail || user?.displayName;
-    if (email) {
-      await updateLastConfig(email, activeConfig);
-      try {
-        await fetch("/api/user-config", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: email, config: activeConfig }),
-        });
-      } catch (err) {
-        console.warn("Local sync skipped (expected on production)");
-      }
-    }
-
-    const finalSessionKey = `agent:main:${generateSessionId()}`;
-
-    const finalConfig = {
-      ...activeConfig,
-      avatarId: activeConfig.avatarId || avatars[0].id,
-      sessionKey: finalSessionKey,
-      botName: activeConfig.botName || (avatars.find(a => a.id === activeConfig.avatarId)?.name) || "Bot",
-      enable_thinking: activeConfig.thinkingEnabled,
-      thinking_delay: activeConfig.thinkingDelay,
-    };
-
-    // Update config state but keep sessionKey clean for UI
-    setConfig({
-      ...finalConfig,
-      sessionKey: stripSessionKey(finalSessionKey)
-    });
-
-    // Store the full technical session key for history persistence
-    technicalSessionKeyRef.current = finalSessionKey;
-
-    // --- Credit Validation Step ---
+    connectionLockRef.current = true;
     setIsValidatingCredit(true);
     setApiError(null);
+
     try {
-      const email = user?.primaryEmail || user?.displayName || "";
+      // HARD RESET: Clear all previous session data before starting a new one
+      console.log("🧹 Hard Reset: Clearing previous session data");
+      setSessionTranscript([]);
+      transcriptRef.current = [];
+      setSessionStartTime(null);
+      startTimeRef.current = null;
+      segmentsMapRef.current.clear();
+      finalSegmentIds.current.clear();
+      currentConversationIdRef.current = null;
+      currentJobIdRef.current = null;
+
+      const activeConfig = forcedConfig || config;
+
+      // 1. Persist config to localStorage (Works on Vercel)
+      localStorage.setItem("openclaw_config", JSON.stringify(activeConfig));
+
+      // 2. Sync to Supabase & local files
+      const email = user?.primaryEmail || user?.displayName;
+      if (email) {
+        await updateLastConfig(email, activeConfig);
+        try {
+          await fetch("/api/user-config", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: email, config: activeConfig }),
+          });
+        } catch (err) {
+          console.warn("Local sync skipped (expected on production)");
+        }
+      }
+
+      const finalSessionKey = `agent:main:${generateSessionId()}`;
+
+      const finalConfig = {
+        ...activeConfig,
+        avatarId: activeConfig.avatarId || (avatars && avatars[0]?.id) || "",
+        sessionKey: finalSessionKey,
+        botName: activeConfig.botName || (avatars && avatars.find(a => a.id === activeConfig.avatarId)?.name) || "Bot",
+        enable_thinking: activeConfig.thinkingEnabled,
+        thinking_delay: activeConfig.thinkingDelay,
+      };
+
+      // Update config state but keep sessionKey clean for UI
+      setConfig({
+        ...finalConfig,
+        sessionKey: stripSessionKey(finalSessionKey)
+      });
+
+      // Store the full technical session key for history persistence
+      technicalSessionKeyRef.current = finalSessionKey;
+
+      // --- Credit Validation Step ---
+      const validationEmail = user?.primaryEmail || user?.displayName || "";
       
-      if (!email) {
+      if (!validationEmail) {
         console.error("❌ Credit Validation - Missing user email. Validation cannot proceed.");
         setApiError("Authentication required. Please sign in again.");
-        setIsValidatingCredit(false);
         return;
       }
 
@@ -956,14 +959,13 @@ function ClientPage() {
 
       if (!resolvedAgentId) {
         setApiError("Unable to identify the agent. Please re-select your bot from the library.");
-        setIsValidatingCredit(false);
         return;
       }
 
       const validationPayload = {
         agentId: resolvedAgentId,
-        userName: email,
-        userId: email,
+        userName: validationEmail,
+        userId: validationEmail,
         context: {
           text: ""
         },
@@ -999,7 +1001,6 @@ function ClientPage() {
       if (validationResponse.status === 403) {
         console.log("🚫 Credit Validation - 403 Forbidden: Redirecting to Billing");
         setShowCreditModal(true);
-        setIsValidatingCredit(false);
         return;
       }
 
@@ -1012,14 +1013,11 @@ function ClientPage() {
           console.error(`❌ Validation failed (${validationResponse.status}):`, errorText);
           setApiError(`Session start failed (Error ${validationResponse.status}). Please try again later.`);
         }
-        
-        setIsValidatingCredit(false);
         return;
       }
 
-      // If we reach here, validation passed (either first try or retry)
-      const successResponse = (validationResponse.status === 200) ? validationResponse : null;
-      const validationData = successResponse ? await successResponse.json().catch(() => ({})) : {};
+      // If we reach here, validation passed
+      const validationData = await validationResponse.json().catch(() => ({}));
       console.log("🔍 Credit Validation - Success Response:", JSON.stringify(validationData, null, 2));
 
       // Capture conversation and job IDs for usage tracking
@@ -1029,30 +1027,34 @@ function ClientPage() {
       if (validationData.job_id || validationData.jobId) {
         currentJobIdRef.current = validationData.job_id || validationData.jobId;
       }
+
+      // --- End Credit Validation ---
+
+      // --- Connection Step ---
+      console.log("🚀 Connecting with config:", finalConfig);
+      const response = await fetch("/api/connection-details", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(finalConfig),
+      });
+
+      const connectionDetailsData: ConnectionDetails = await response.json();
+      await room.connect(connectionDetailsData.serverUrl, connectionDetailsData.participantToken, {
+        // @ts-ignore
+        signalTimeout: 30000, 
+        connectTimeout: 30000,
+      });
+      await room.localParticipant.setMicrophoneEnabled(true);
+
     } catch (err: any) {
-      console.error("❌ Credit Validation Error:", err);
-      setApiError("An error occurred while validating credits.");
+      console.error("❌ Connection Error:", err);
+      setApiError("An error occurred while starting the session.");
+    } finally {
+      connectionLockRef.current = false;
       setIsValidatingCredit(false);
-      return;
     }
-    setIsValidatingCredit(false);
-    // --- End Credit Validation ---
+  }, [room, config, user, avatars]);
 
-    console.log("🚀 Connecting with config:", finalConfig);
-    const response = await fetch("/api/connection-details", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(finalConfig),
-    });
-
-    const connectionDetailsData: ConnectionDetails = await response.json();
-    await room.connect(connectionDetailsData.serverUrl, connectionDetailsData.participantToken, {
-      // @ts-ignore
-      signalTimeout: 30000, 
-      connectTimeout: 30000,
-    });
-    await room.localParticipant.setMicrophoneEnabled(true);
-  }, [room, config]);
 
   const handleQuickCallSelect = async (bot: AgentBot) => {
     setSelectedAgentId(bot.id);
@@ -1413,6 +1415,7 @@ function ClientPage() {
           setIsMobileMenuOpen={setIsMobileMenuOpen}
           bots={bots}
           onQuickCall={handleQuickCallSelect}
+          avatars={avatars}
         />
 
       <div className="flex-1 h-full w-full overflow-hidden flex flex-col relative z-0">
@@ -1512,7 +1515,6 @@ function ClientPage() {
                     thinkingDelay: String(bot.config.thinking_delay ?? 5.0),
                   };
                   setConfig(newConfig);
-                  onConnectButtonClicked(undefined, newConfig);
                   setActiveSession("DirectCall");
                 }}
                 onEditBot={(bot) => {

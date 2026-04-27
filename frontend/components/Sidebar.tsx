@@ -193,6 +193,7 @@ export function Sidebar({
   setIsMobileMenuOpen: (o: boolean) => void;
   bots?: AgentBot[];
   onQuickCall?: (bot: AgentBot) => void | Promise<void>;
+  avatars: AvatarItem[];
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -200,7 +201,6 @@ export function Sidebar({
   const [planLabel, setPlanLabel] = useState("Free Plan");
   const [quickCallOpen, setQuickCallOpen] = useState(false);
 
-  const [avatars, setAvatars] = useState<AvatarItem[]>(AVATARS);
   const user = useUser();
   const router = useRouter();
   const pathname = usePathname();
@@ -234,14 +234,6 @@ export function Sidebar({
 
     tryFetch();
     return () => { cancelled = true; };
-  }, [user?.id]);
-
-  useEffect(() => {
-    const apiKey = localStorage.getItem("defaultApiKey");
-    if (!apiKey) return;
-    fetchAvatars(apiKey).then(({ data }) => {
-      if (data && data.length > 0) setAvatars(data);
-    });
   }, [user?.id]);
 
   // Auto-open settings section when on a settings page
