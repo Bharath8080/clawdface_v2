@@ -28,6 +28,7 @@ import Image from "next/image";
 import {
   createBotAction as createBot,
   updateLastConfigAction as updateLastConfig,
+  updateBotAction as updateBot,
   syncUserAction,
 } from "@/lib/database-actions";
 import { type AvatarItem, fetchAvatars } from "@/app/services/avatarService";
@@ -287,6 +288,29 @@ const RecallUrlModal = ({
   );
 };
 
+// ─── Gateway Checklist Component ──────────────────────────────────────────────
+const GatewayChecklist = () => (
+  <div className="bg-black/40 rounded-2xl p-6 border border-white/5 space-y-4">
+    <h4 className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-2 mb-2">
+       Verification Checklist
+    </h4>
+    <ul className="text-[14px] text-neutral-400 space-y-3 list-none font-medium">
+      <li className="flex items-center gap-3">
+        <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center text-[10px] text-neutral-500 shrink-0">1</div>
+        Is your Ngrok tunnel running?
+      </li>
+      <li className="flex items-center gap-3">
+        <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center text-[10px] text-neutral-500 shrink-0">2</div>
+        Is the OpenClaw Gateway service started?
+      </li>
+      <li className="flex items-center gap-3">
+        <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center text-[10px] text-neutral-500 shrink-0">3</div>
+        Check your Target Gateway URL for typos.
+      </li>
+    </ul>
+  </div>
+);
+
 // ─── Doctor View ─────────────────────────────────────────────────────────────
 function DoctorView({ bots, onHealthUpdate }: { bots: AgentBot[], onHealthUpdate?: (key: string, status: 'healthy' | 'unhealthy') => void }) {
   const [url, setUrl] = useState("");
@@ -328,13 +352,31 @@ function DoctorView({ bots, onHealthUpdate }: { bots: AgentBot[], onHealthUpdate
 
       if (data.status === 200) {
         setStatus("healthy");
+        // Always pass the ID and status to the handler
+        if (onHealthUpdate && activeBot) onHealthUpdate(activeBot.id, 'healthy');
       } else if (data.status === 404) {
-        setStatus("error_404");
+        // If it's a 404, check if it's an ngrok URL
+        const isNgrok = url.includes("ngrok-free.dev") || 
+                        url.includes("ngrok.io") || 
+                        url.includes("ngrok-free.app") ||
+                        (data.server && data.server.toLowerCase().includes("ngrok"));
+        
+        if (isNgrok) {
+          setApiError("Ngrok returned a 404. Your tunnel is likely not running or the URL has expired.");
+          setStatus("error_connection");
+          if (onHealthUpdate && activeBot) onHealthUpdate(activeBot.id, 'unhealthy');
+        } else {
+          // If not ngrok, it might be the gateway but the endpoint is off
+          setStatus("error_404");
+          if (onHealthUpdate && activeBot) onHealthUpdate(activeBot.id, 'unhealthy');
+        }
       } else if (data.error) {
         setApiError(data.error);
         setStatus("error_connection");
+        if (onHealthUpdate && activeBot) onHealthUpdate(activeBot.id, 'unhealthy');
       } else {
         setStatus("error_connection");
+        if (onHealthUpdate && activeBot) onHealthUpdate(activeBot.id, 'unhealthy');
       }
     } catch (error: any) {
       console.error("DIAGNOSTICS_ERROR:", error);
@@ -413,9 +455,9 @@ function DoctorView({ bots, onHealthUpdate }: { bots: AgentBot[], onHealthUpdate
                 <div className="w-12 h-12 rounded-2xl bg-green-500/20 flex items-center justify-center text-green-500 shrink-0 shadow-[0_0_20px_rgba(34,197,94,0.2)]">
                   <CheckIcon size={24} />
                 </div>
-                <div>
-                  <h3 className="text-lg font-bold text-green-400 mb-2 font-outfit">Gateway Operational</h3>
-                  <p className="text-[15px] text-green-400/70 font-medium leading-relaxed">
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-[#00E3AA] mb-2 font-outfit">Gateway Operational</h3>
+                  <p className="text-[15px] text-[#00E3AA]/70 font-medium leading-relaxed">
                     Diagnostics passed! Your OpenClaw gateway is active and the Chat Completions endpoint is correctly enabled.
                   </p>
                 </div>
@@ -449,7 +491,7 @@ function DoctorView({ bots, onHealthUpdate }: { bots: AgentBot[], onHealthUpdate
                       Resolution Steps
                     </h4>
                   </div>
-                   <div className="p-8 space-y-8">
+                  <div className="p-8 space-y-8">
                     <div className="space-y-4">
                       <p className="text-[14px] text-neutral-400 font-medium">1. Run this command to enable the endpoint:</p>
                       <CopyableCommand command="openclaw config set gateway.http.endpoints.chatCompletions.enabled true" />
@@ -481,25 +523,7 @@ function DoctorView({ bots, onHealthUpdate }: { bots: AgentBot[], onHealthUpdate
                     {apiError || "Could not reach the gateway. Please verify your connection settings."}
                   </p>
                   
-                  <div className="bg-black/40 rounded-2xl p-6 border border-white/5 space-y-4">
-                    <h4 className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-2 mb-2">
-                       Verification Checklist
-                    </h4>
-                    <ul className="text-[14px] text-neutral-400 space-y-3 list-none font-medium">
-                      <li className="flex items-center gap-3">
-                        <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center text-[10px] text-neutral-500 shrink-0">1</div>
-                        Is your Ngrok tunnel running?
-                      </li>
-                      <li className="flex items-center gap-3">
-                        <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center text-[10px] text-neutral-500 shrink-0">2</div>
-                        Is the OpenClaw Gateway service started?
-                      </li>
-                      <li className="flex items-center gap-3">
-                        <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center text-[10px] text-neutral-500 shrink-0">3</div>
-                        Check your Target Gateway URL for typos.
-                      </li>
-                    </ul>
-                  </div>
+                  <GatewayChecklist />
                 </div>
               </motion.div>
             )}
@@ -612,9 +636,12 @@ function ClientPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
   const [isRecallModalOpen, setIsRecallModalOpen] = useState(false);
+  const [showCreditModal, setShowCreditModal] = useState(false);
+  const [isValidatingCredit, setIsValidatingCredit] = useState(false);
   const user = useUser();
   const [authChecked, setAuthChecked] = useState(false);
   const [avatars, setAvatars] = useState<AvatarItem[]>(AVATARS);
+  const [apiError, setApiError] = useState<string | null>(null);
   const apiKeyInitialized = useRef(false);
 
   // Session config state
@@ -625,6 +652,7 @@ function ClientPage() {
   const [editingBotId, setEditingBotId] = useState<string | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const selectedAgentIdRef = useRef<string | null>(null);
+  const externalAgentIdRef = useRef<string | null>(null);
   const [dbLastConfig, setDbLastConfig] = useState<any>(null);
   const [botHealth, setBotHealth] = useState<Record<string, 'healthy' | 'unhealthy' | 'checking' | 'unknown'>>({});
   const [showHealthAlert, setShowHealthAlert] = useState(false);
@@ -655,21 +683,6 @@ function ClientPage() {
 
   useEffect(() => {
     activeSessionRef.current = activeSession;
-    // Clear editing state when switching to Add Bot, but retain config data for pre-fill
-    if (activeSession === "AddBot") {
-      setEditingBotId(null);
-      
-      // Always pre-fill with the database's last configuration, or defaults if none
-      if (dbLastConfig) {
-        const lastCfg = { ...DEFAULTS, ...dbLastConfig };
-        if (lastCfg.sessionKey) {
-          lastCfg.sessionKey = stripSessionKey(lastCfg.sessionKey);
-        }
-        setConfig(lastCfg);
-      } else {
-        setConfig(DEFAULTS);
-      }
-    }
   }, [activeSession]);
 
   // Robust Transcription Tracking via Hook
@@ -921,6 +934,97 @@ function ClientPage() {
     // Store the full technical session key for history persistence
     technicalSessionKeyRef.current = finalSessionKey;
 
+    // --- Credit Validation Step ---
+    setIsValidatingCredit(true);
+    setApiError(null);
+    try {
+      const email = user?.primaryEmail || user?.displayName || "";
+      
+      if (!email) {
+        console.error("❌ Credit Validation - Missing user email. Validation cannot proceed.");
+        setApiError("Authentication required. Please sign in again.");
+        setIsValidatingCredit(false);
+        return;
+      }
+
+      const resolvedAgentId = externalAgentIdRef.current || selectedAgentIdRef.current || "";
+
+      if (!resolvedAgentId) {
+        setApiError("Unable to identify the agent. Please re-select your bot from the library.");
+        setIsValidatingCredit(false);
+        return;
+      }
+
+      const validationPayload = {
+        agentId: resolvedAgentId,
+        userName: email,
+        userId: email,
+        context: {
+          text: ""
+        },
+        mode: "voa",
+        metadata: {
+          active: "true"
+        }
+      };
+
+      console.log("🔍 Credit Validation - Outgoing Payload:", JSON.stringify(validationPayload, null, 2));
+
+      const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || "https://qaapi.clawdface.ai").replace(/\/$/, "");
+      
+      let token = "";
+      try {
+        // @ts-ignore
+        token = await user?.getAccessToken() || "";
+      } catch (e) {
+        console.warn("⚠️ Credit Validation - Failed to get access token:", e);
+      }
+
+      const validationResponse = await fetch(`${baseUrl}/v1/public/conversation`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(validationPayload)
+      });
+
+      console.log("🔍 Credit Validation - Status:", validationResponse.status);
+      
+      if (validationResponse.status === 403) {
+        console.log("🚫 Credit Validation - 403 Forbidden: Redirecting to Billing");
+        setShowCreditModal(true);
+        setIsValidatingCredit(false);
+        return;
+      }
+
+      if (validationResponse.status !== 200) {
+        const errorText = await validationResponse.text().catch(() => "");
+        
+        if (validationResponse.status === 500 && errorText.includes("concurrent session limit")) {
+          setApiError("You already have an active session. Please close it or wait 10 seconds and try again.");
+        } else {
+          console.error(`❌ Validation failed (${validationResponse.status}):`, errorText);
+          setApiError(`Session start failed (Error ${validationResponse.status}). Please try again later.`);
+        }
+        
+        setIsValidatingCredit(false);
+        return;
+      }
+
+      // If we reach here, validation passed (either first try or retry)
+      const successResponse = (validationResponse.status === 200) ? validationResponse : null;
+      const validationData = successResponse ? await successResponse.json().catch(() => ({})) : {};
+      console.log("🔍 Credit Validation - Success Response:", JSON.stringify(validationData, null, 2));
+    } catch (err: any) {
+      console.error("❌ Credit Validation Error:", err);
+      setApiError("An error occurred while validating credits.");
+      setIsValidatingCredit(false);
+      return;
+    }
+    setIsValidatingCredit(false);
+    // --- End Credit Validation ---
+
     console.log("🚀 Connecting with config:", finalConfig);
     const response = await fetch("/api/connection-details", {
       method: "POST",
@@ -940,6 +1044,17 @@ function ClientPage() {
   const handleQuickCallSelect = async (bot: AgentBot) => {
     setSelectedAgentId(bot.id);
     selectedAgentIdRef.current = bot.id;
+    
+    // FIX: Prioritize bot.agent_id, then session_key, never fall back to internal UUID
+    // @ts-ignore
+    const externalId = bot.agent_id || stripSessionKey(bot.config?.session_key || "");
+    
+    if (!externalId) {
+      console.log("ℹ️ No explicit agent_id or session_key found for this bot, will use fallback ID.");
+    }
+    
+    externalAgentIdRef.current = externalId || "";
+
     setConfig({
       ...config,
       openclawUrl: bot.config.openclaw_url,
@@ -952,24 +1067,6 @@ function ClientPage() {
     });
     setActiveSession("DirectCall");
     setIsMobileMenuOpen(false);
-
-    // Fire conversation creation immediately on quick call selection
-    const apiKey = localStorage.getItem("defaultApiKey") ?? "";
-    const apiKeyId = localStorage.getItem("defaultApiKeyId") ?? undefined;
-    const email = user?.primaryEmail ?? user?.displayName ?? "";
-    if (apiKey && bot.id && email) {
-      createConversation(apiKey, {
-        agentId: bot.id,
-        userName: user?.displayName || email,
-        userId: email,
-        context: { text: "" },
-        mode:'voa',
-        metadata: { active: "true" },
-      }).then(({ data, error }) => {
-        if (error) console.error("Conversation create error:", error);
-        else console.log("Conversation created:", data);
-      });
-    }
   };
 
   useEffect(() => {
@@ -990,6 +1087,42 @@ function ClientPage() {
 
     const handleDisconnected = async (reason?: DisconnectReason) => {
       console.log("📡 handleDisconnected Logic Triggered, Reason:", reason);
+      
+      // --- Close active session on backend ---
+      try {
+        const email = user?.primaryEmail || user?.displayName || "";
+        let token = "";
+        try {
+          // @ts-ignore
+          token = await user?.getAccessToken() || "";
+        } catch (e) {}
+
+        const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || "https://qaapi.clawdface.ai").replace(/\/$/, "");
+        
+        const closePayload = {
+          agentId: externalAgentIdRef.current || "",
+          userName: email,
+          userId: email,
+          context: { text: "" },
+          mode: "voa",
+          metadata: { active: "false" }
+        };
+
+        console.log("🔴 Closing active session on backend:", closePayload);
+        
+        await fetch(`${baseUrl}/v1/public/conversation`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { "Authorization": `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify(closePayload)
+        });
+      } catch (err) {
+        console.warn("⚠️ Could not close backend session:", err);
+      }
+      // --- End session closing ---
+
       const endTime = Date.now();
       const startTime = startTimeRef.current;
       const duration = startTime ? Math.round((endTime - startTime) / 1000) : 0;
@@ -1078,13 +1211,36 @@ function ClientPage() {
     room.on(RoomEvent.Connected, handleConnected);
     room.on(RoomEvent.Disconnected, handleDisconnected);
 
+    // Close session when user closes/refreshes the tab
+    const handleBeforeUnload = async () => {
+      if (room.state === "connected" && selectedAgentIdRef.current) {
+        const email = user?.primaryEmail || user?.displayName || "";
+        const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || "https://qaapi.clawdface.ai").replace(/\/$/, "");
+        
+        navigator.sendBeacon(
+          `${baseUrl}/v1/public/conversation`,
+          JSON.stringify({
+            agentId: externalAgentIdRef.current || "",
+            userName: email,
+            userId: email,
+            context: { text: "" },
+            mode: "voa",
+            metadata: { active: "false" }
+          })
+        );
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
     return () => {
       console.log("🧹 Cleaning up Room listeners");
       room.off(RoomEvent.MediaDevicesError, onDeviceFailure);
       room.off(RoomEvent.Connected, handleConnected);
       room.off(RoomEvent.Disconnected, handleDisconnected);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, [room]);
+  }, [room, user]);
 
   // ─── Auto-disconnect call on navigation ────────────────────────────────────
   useEffect(() => {
@@ -1099,6 +1255,14 @@ function ClientPage() {
       }
     }
   }, [activeSession, room]);
+
+  const refreshBots = async () => {
+    const refreshKey = localStorage.getItem("defaultApiKey") ?? "";
+    setIsLoadingBots(true);
+    const { data: agentData } = await getAgents(refreshKey);
+    setBots(agentData ?? []);
+    setIsLoadingBots(false);
+  };
 
   if (!authChecked) {
     return (
@@ -1118,26 +1282,24 @@ function ClientPage() {
     try {
       const apiKey = localStorage.getItem("defaultApiKey") ?? "";
 
+      const selectedAvatar = avatars.find(a => a.id === config.avatarId);
+      const botName = config.botName || (selectedAvatar ? `${selectedAvatar.name}'s Bot` : "My New Bot");
+      
+      let botToUse;
       if (editingBotId) {
-        const selectedAvatar = avatars.find(a => a.id === config.avatarId);
-        const botName = config.botName || (selectedAvatar ? `${selectedAvatar.name}'s Bot` : "My Bot");
-        await updateAgent(apiKey, editingBotId, {
-          agent_name: botName,
-          config: {
-            openclaw_url: config.openclawUrl,
-            gateway_token: config.gatewayToken,
-            session_key: config.sessionKey,
-            thinking_enabled: config.thinkingEnabled === "true",
-            thinking_delay: parseFloat(config.thinkingDelay || "5.0"),
-          },
-          avatars: [{ avatar_key_id: config.avatarId }],
+        // Update existing bot in Supabase
+        botToUse = await updateBot(editingBotId, {
+          name: botName,
+          avatar_id: config.avatarId,
+          openclaw_url: config.openclawUrl,
+          gateway_token: config.gatewayToken,
+          session_key: config.sessionKey,
+          thinking_enabled: config.thinkingEnabled,
+          thinking_delay: config.thinkingDelay,
         });
-        setEditingBotId(null);
       } else {
         // Create new bot in Supabase
-        const selectedAvatar = avatars.find(a => a.id === config.avatarId);
-        const botName = config.botName || (selectedAvatar ? `${selectedAvatar.name}'s Bot` : "My New Bot");
-        const newBot = await createBot({
+        botToUse = await createBot({
           user_id: profileId,
           name: botName,
           avatar_id: config.avatarId,
@@ -1148,32 +1310,40 @@ function ClientPage() {
           thinking_enabled: config.thinkingEnabled,
           thinking_delay: config.thinkingDelay,
         });
+      }
 
-        // Create via API
-        if (apiKey && newBot?.agent_email) {
-          await createAgent(apiKey, {
-            agent_name: botName,
-            agent_system_prompt: "",
-            email: newBot.agent_email,
-            config: {
-              openclaw_url: config.openclawUrl,
-              gateway_token: config.gatewayToken,
-              session_key: config.sessionKey,
-              thinking_enabled: config.thinkingEnabled === "true",
-              thinking_delay: parseFloat(config.thinkingDelay || "5.0"),
-            },
-            tools: {},
-            avatars: [{ avatar_key_id: config.avatarId }],
-            is_active: true,
-            is_public: false,
-            type: "voa",
-            add_on: [],
-          });
+      // Sync with API
+      if (apiKey && botToUse?.agent_email) {
+        const agentPayload = {
+          agent_name: botName,
+          agent_system_prompt: "",
+          email: botToUse.agent_email,
+          config: {
+            openclaw_url: config.openclawUrl,
+            gateway_token: config.gatewayToken,
+            session_key: config.sessionKey,
+            thinking_enabled: config.thinkingEnabled === "true",
+            thinking_delay: parseFloat(config.thinkingDelay || "5.0"),
+          },
+          tools: {},
+          avatars: [{ avatar_key_id: config.avatarId }],
+          is_active: true,
+          is_public: false,
+          type: "voa",
+          add_on: [],
+        };
+
+        if (editingBotId) {
+          await updateAgent(apiKey, editingBotId, agentPayload);
+        } else {
+          await createAgent(apiKey, agentPayload);
         }
       }
-      // Refresh bots list
-      const { data: refreshedAgents } = await getAgents(apiKey);
-      setBots(refreshedAgents ?? []);
+      
+      // Refresh and reset
+      await refreshBots();
+      setEditingBotId(null);
+      setConfig(DEFAULTS);
       setActiveSession("Library");
     } catch (err: any) {
       console.error("Failed to save/update bot:", err.message || err);
@@ -1182,6 +1352,8 @@ function ClientPage() {
     }
   };
 
+
+
   return (
     <AvatarsContext.Provider value={avatars}>
     <main data-lk-theme="default" className="h-[100dvh] w-screen bg-[#050505] flex overflow-hidden font-[Inter] text-white">
@@ -1189,6 +1361,14 @@ function ClientPage() {
           activeSession={activeSession}
           setActiveSession={(session) => {
             setActiveSession(session);
+            // Clear editing state when navigating via sidebar
+            if (session !== "AddBot") {
+              setEditingBotId(null);
+              // Only reset config if we're not moving to a call-related session
+              if (session !== "DirectCall" && session !== "My Bot") {
+                setConfig(DEFAULTS);
+              }
+            }
           }}
           isMobileMenuOpen={isMobileMenuOpen}
           setIsMobileMenuOpen={setIsMobileMenuOpen}
@@ -1235,39 +1415,54 @@ function ClientPage() {
                 }}
                 bots={activeSession === "My Bot" ? bots : []}
                 showConnectButton={activeSession === "My Bot"}
+                isConnecting={isValidatingCredit || room.state === "connecting"}
               />
             ) : activeSession === "DirectCall" ? (
               <DirectCallDashboard
                 config={config}
                 autoStart={true}
-                onStartCall={() => {
-                  onConnectButtonClicked();
+                onStartCall={async () => {
+                  await onConnectButtonClicked();
                 }}
-                onBack={() => setActiveSession("Library")}
+                onBack={() => {
+                  setEditingBotId(null);
+                  setConfig(DEFAULTS);
+                  setActiveSession("Library");
+                }}
+                isValidating={isValidatingCredit}
               />
             ) : activeSession === "Avatars" ? (
               <AvatarGallery />
             ) : activeSession === "Doctor" ? (
               <DoctorView 
                 bots={bots} 
-                onHealthUpdate={(key, status) => {
-                  setBotHealth(prev => ({ ...prev, [key]: status }));
+                onHealthUpdate={(id, status) => {
+                  const bot = bots.find(b => b.id === id);
+                  if (bot) {
+                    const healthKey = `${(bot.config?.openclaw_url ?? "").replace(/\/$/, "")}|${bot.config?.gateway_token ?? ""}`;
+                    setBotHealth(prev => ({ ...prev, [healthKey]: status }));
+                  }
                 }}
               />
             ) : activeSession === "Library" ? (
               <BotLibraryView 
                 bots={bots} 
                 profileId={profileId} 
-                onRefresh={async () => {
-                  const refreshKey = localStorage.getItem("defaultApiKey") ?? "";
-                  setIsLoadingBots(true);
-                  const { data: agentData } = await getAgents(refreshKey);
-                  setBots(agentData ?? []);
-                  setIsLoadingBots(false);
-                }}
+                onRefresh={refreshBots}
                 onSelectBot={(bot) => {
                   setSelectedAgentId(bot.id);
                   selectedAgentIdRef.current = bot.id;
+                  
+                  // FIX: Prioritize bot.agent_id, then session_key, never fall back to internal UUID
+                  // @ts-ignore
+                  const externalId = bot.agent_id || stripSessionKey(bot.config?.session_key || "");
+                  
+                  if (!externalId) {
+                    console.log("ℹ️ No explicit agent_id or session_key found for this bot, will use fallback ID.");
+                  }
+                  
+                  externalAgentIdRef.current = externalId || "";
+
                   const newConfig = {
                     openclawUrl: bot.config.openclaw_url,
                     gatewayToken: bot.config.gateway_token,
@@ -1282,10 +1477,8 @@ function ClientPage() {
                   setActiveSession("DirectCall");
                 }}
                 onEditBot={(bot) => {
-                  setSelectedAgentId(bot.id);
-                  selectedAgentIdRef.current = bot.id;
                   setEditingBotId(bot.id);
-                  setConfig({
+                  const editConfig = {
                     openclawUrl: bot.config.openclaw_url,
                     gatewayToken: bot.config.gateway_token,
                     sessionKey: stripSessionKey(bot.config.session_key || ""),
@@ -1293,7 +1486,8 @@ function ClientPage() {
                     botName: bot.agent_name,
                     thinkingEnabled: String(bot.config.thinking_enabled ?? true),
                     thinkingDelay: String(bot.config.thinking_delay ?? 5.0),
-                  });
+                  };
+                  setConfig(editConfig);
                   setActiveSession("AddBot");
                 }}
                 botHealth={botHealth}
@@ -1368,6 +1562,11 @@ function ClientPage() {
             />
           )}
         </AnimatePresence>
+
+        <CreditModal 
+          isOpen={showCreditModal} 
+          onClose={() => setShowCreditModal(false)} 
+        />
     </main>
     </AvatarsContext.Provider>
   );
@@ -1649,12 +1848,16 @@ function SessionConfigForm({
                     <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                       <circle cx="12" cy="12" r="10" opacity="0.25"/><path d="M22 12a10 10 0 0 1-10 10" opacity="0.9"/>
                     </svg>
+                  ) : isEditing ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
                   ) : (
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>
                     </svg>
                   )}
-                  {isEditing ? "Update Bot" : "Save as new Bot"}
+                  {isEditing ? "Update Bot Configuration" : "Save as new Bot"}
                 </button>
                 {isEditing && (
                   <button
@@ -1669,6 +1872,65 @@ function SessionConfigForm({
 
       </div>
     </motion.div>
+  );
+}
+
+// ─── Credit Error Modal ──────────────────────────────────────────────────────
+function CreditModal({
+  isOpen,
+  onClose,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="w-full max-w-md bg-[#0a0a0a] rounded-3xl border border-white/5 shadow-2xl overflow-hidden relative p-8 text-center"
+      >
+        <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+        </div>
+        
+        <h2 className="text-2xl font-bold text-white mb-3 font-outfit">Not enough credits</h2>
+        <p className="text-neutral-400 text-[15px] leading-relaxed mb-8">
+          Not enough credits to start the conversation. Please add credits in the Payments section to continue.
+        </p>
+
+        <div className="flex flex-col gap-3">
+          <button 
+            onClick={() => {
+              onClose();
+              router.push("/dashboard/settings/billing-and-subscription");
+            }}
+            className="w-full py-4 bg-[#00E3AA] hover:bg-[#00c994] text-black font-bold rounded-2xl transition-all shadow-[0_0_20px_rgba(0,227,170,0.2)] active:scale-[0.98]"
+          >
+            Go to Payments
+          </button>
+          <button 
+            onClick={onClose}
+            className="w-full py-4 bg-white/5 hover:bg-white/10 text-white font-semibold rounded-2xl transition-all border border-white/5 active:scale-[0.98]"
+          >
+            Dismiss
+          </button>
+        </div>
+
+        <button 
+          onClick={onClose}
+          className="absolute top-4 right-4 text-neutral-600 hover:text-white transition-colors"
+        >
+          <CloseIcon size={14} />
+        </button>
+      </motion.div>
+    </div>
   );
 }
 
@@ -1881,6 +2143,7 @@ function SimpleVoiceAssistant({
   onCancelEdit,
   bots = [],
   showConnectButton = true,
+  isConnecting: isConnectingProp = false,
 }: {
   onConnectButtonClicked: () => void;
   config: typeof DEFAULTS;
@@ -1892,16 +2155,19 @@ function SimpleVoiceAssistant({
   onCancelEdit?: () => void;
   bots?: AgentBot[];
   showConnectButton?: boolean;
+  isConnecting?: boolean;
 }) {
   const { state: agentState } = useVoiceAssistant();
-  const [isConnecting, setIsConnecting] = useState(false);
+  const [internalIsConnecting, setInternalIsConnecting] = useState(false);
+
+  const isConnecting = internalIsConnecting || isConnectingProp;
 
   const handleConnect = async () => {
-    setIsConnecting(true);
+    setInternalIsConnecting(true);
     try {
       await onConnectButtonClicked();
     } finally {
-      setIsConnecting(false);
+      setInternalIsConnecting(false);
     }
   };
 
@@ -2472,11 +2738,13 @@ function DirectCallDashboard({
   onStartCall,
   onBack,
   autoStart = false,
+  isValidating = false,
 }: {
   config: typeof DEFAULTS;
   onStartCall: () => void;
   onBack: () => void;
   autoStart?: boolean;
+  isValidating?: boolean;
 }) {
   const { state: agentState, audioTrack, videoTrack } = useVoiceAssistant();
   const [isConnecting, setIsConnecting] = useState(autoStart || false);
@@ -2485,9 +2753,8 @@ function DirectCallDashboard({
 
   const handleStartCall = async () => {
     setIsConnecting(true);
-    // Remove hardcoded timeout, let connection state be purely dynamic
     try {
-      onStartCall();
+      await onStartCall();
     } catch (e) {
       console.error(e);
       setIsConnecting(false);
@@ -2530,93 +2797,56 @@ function DirectCallDashboard({
     return <ActiveVoiceAssistantView onConnectButtonClicked={onStartCall} />;
   }
 
+  // Determine if we are in any state that should show the orb instead of the prep UI
+  const isPending = isConnecting || isValidating || agentState === "connecting";
+
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="flex flex-col items-center justify-center h-full p-6 text-center"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="flex flex-col items-center justify-center min-h-[80vh] w-full"
     >
-      <div className="w-full max-w-2xl p-12 relative flex flex-col items-center justify-center">
-        {/* Removed box background and border for a seamless dark theme integration */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#00E3AA]/5 rounded-full blur-[100px] pointer-events-none" />
-        
-        {/* Back button intentionally removed during connecting state */}
-
-        <div className="relative mb-10 min-h-[300px] flex flex-col items-center justify-center">
-          {isConnecting ? (
-            <div className="flex flex-col items-center justify-center py-10">
-              <AIGlowingOrb />
-              <motion.h2 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.5 }}
-                className="text-2xl font-bold text-white mt-4 tracking-wide flex items-center"
-              >
-                Connecting to bot
-                <motion.span
-                  className="inline-block"
-                  animate={{ opacity: [0, 1, 0] }}
-                  transition={{ duration: 1.5, repeat: Infinity, times: [0, 0.5, 1] }}
-                >
-                  .
-                </motion.span>
-                <motion.span
-                  className="inline-block"
-                  animate={{ opacity: [0, 1, 0] }}
-                  transition={{ duration: 1.5, repeat: Infinity, times: [0, 0.5, 1], delay: 0.2 }}
-                >
-                  .
-                </motion.span>
-                <motion.span
-                  className="inline-block"
-                  animate={{ opacity: [0, 1, 0] }}
-                  transition={{ duration: 1.5, repeat: Infinity, times: [0, 0.5, 1], delay: 0.4 }}
-                >
-                  .
-                </motion.span>
-              </motion.h2>
-            </div>
-          ) : (
-            <>
-              <div className="w-56 h-56 mx-auto rounded-full p-1.5 border-2 border-[#00E3AA]/30 shadow-[0_0_40px_rgba(0,227,170,0.15)] relative">
-                <div className="w-full h-full rounded-full overflow-hidden relative">
-                  <Image 
-                    src={selectedAvatar.image} 
-                    alt={selectedAvatar.name} 
-                    fill 
-                    className="object-cover transition-all"
-                  />
-                </div>
-                {/* Status indicator */}
-                <div className="absolute bottom-4 right-4 w-6 h-6 rounded-full bg-[#00E3AA] border-4 border-[#0A0A0A] shadow-lg animate-pulse" />
-              </div>
-            </>
-          )}
+      {isPending ? (
+        <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in duration-500">
+          <AIGlowingOrb />
+          <motion.h2 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-2xl font-bold text-white mt-8 tracking-wide flex items-center"
+          >
+            {isValidating ? "Validating credits" : "Connecting to bot"}
+            <span className="flex ml-1">
+              <motion.span animate={{ opacity: [0, 1, 0] }} transition={{ duration: 1.5, repeat: Infinity }}>.</motion.span>
+              <motion.span animate={{ opacity: [0, 1, 0] }} transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }}>.</motion.span>
+              <motion.span animate={{ opacity: [0, 1, 0] }} transition={{ duration: 1.5, repeat: Infinity, delay: 0.4 }}>.</motion.span>
+            </span>
+          </motion.h2>
         </div>
+      ) : (
+        <div className="flex flex-col items-center space-y-12">
+          <div className="w-56 h-56 rounded-full p-1.5 border-2 border-[#00E3AA]/30 shadow-[0_0_40px_rgba(0,227,170,0.15)] relative">
+            <div className="w-full h-full rounded-full overflow-hidden relative">
+              <Image 
+                src={selectedAvatar.image} 
+                alt={selectedAvatar.name} 
+                fill 
+                className="object-cover"
+              />
+            </div>
+            <div className="absolute bottom-4 right-4 w-6 h-6 rounded-full bg-[#00E3AA] border-4 border-[#0A0A0A] shadow-lg animate-pulse" />
+          </div>
 
-        {!isConnecting && (
-          <>
-            <h1 className="text-4xl font-extrabold text-white mb-3 tracking-tight">
-              {config.botName || selectedAvatar.name}
-            </h1>
-            <p className="text-neutral-400 text-lg mb-10 max-w-md mx-auto leading-relaxed">
-              Your AI assistant is ready. Click the button below to start your conversation.
-            </p>
-          </>
-        )}
-
-        {!isConnecting && (
           <button
             onClick={handleStartCall}
-            className="group relative px-12 py-5 bg-[#00E3AA] hover:bg-[#00c994] text-black font-bold text-xl rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-[0_20px_40px_-12px_rgba(0,227,170,0.4)] flex items-center gap-3 mx-auto"
+            className="group relative px-12 py-5 bg-[#00E3AA] hover:bg-[#00c994] text-black font-bold text-xl rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-[0_20px_40px_-12px_rgba(0,227,170,0.4)] flex items-center gap-3"
           >
-            <svg className="group-hover:translate-x-1 transition-transform" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
               <polygon points="5 3 19 12 5 21 5 3"/>
             </svg>
             Start Call
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </motion.div>
   );
 }
