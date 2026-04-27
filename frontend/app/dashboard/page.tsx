@@ -22,6 +22,7 @@ import { initDefaultApiKey } from "@/app/services/apiKeyService";
 import { createUserServiceServer } from "@/app/services/createUserService";
 import { createAgent, updateAgent, getAgents, deleteAgent, type AgentBot } from "@/app/services/agentService";
 import { getConversations, createConversation } from "@/app/services/conversationService";
+import { sendUsageData } from "@/app/services/usageService";
 import { Sidebar } from "@/components/Sidebar";
 import { SubscriptionView } from "@/components/SubscriptionView";
 import Image from "next/image";
@@ -671,6 +672,8 @@ function ClientPage() {
   const activeSessionRef = useRef(activeSession);
   const technicalSessionKeyRef = useRef<string>("");
   const botsRef = useRef<AgentBot[]>([]);
+  const currentConversationIdRef = useRef<string | null>(null);
+  const currentJobIdRef = useRef<string | null>(null);
 
   // Sync refs with state to ensure handleDisconnected sees latest values
   useEffect(() => {
@@ -893,6 +896,8 @@ function ClientPage() {
     startTimeRef.current = null;
     segmentsMapRef.current.clear();
     finalSegmentIds.current.clear();
+    currentConversationIdRef.current = null;
+    currentJobIdRef.current = null;
 
     const activeConfig = forcedConfig || config;
 
@@ -1016,6 +1021,14 @@ function ClientPage() {
       const successResponse = (validationResponse.status === 200) ? validationResponse : null;
       const validationData = successResponse ? await successResponse.json().catch(() => ({})) : {};
       console.log("🔍 Credit Validation - Success Response:", JSON.stringify(validationData, null, 2));
+
+      // Capture conversation and job IDs for usage tracking
+      if (validationData.conversation_id || validationData.conversationId) {
+        currentConversationIdRef.current = validationData.conversation_id || validationData.conversationId;
+      }
+      if (validationData.job_id || validationData.jobId) {
+        currentJobIdRef.current = validationData.job_id || validationData.jobId;
+      }
     } catch (err: any) {
       console.error("❌ Credit Validation Error:", err);
       setApiError("An error occurred while validating credits.");
@@ -1100,7 +1113,7 @@ function ClientPage() {
         const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || "https://qaapi.clawdface.ai").replace(/\/$/, "");
         
         const closePayload = {
-          agentId: externalAgentIdRef.current || "",
+          agentId: externalAgentIdRef.current || selectedAgentIdRef.current || "",
           userName: email,
           userId: email,
           context: { text: "" },
@@ -1152,6 +1165,32 @@ function ClientPage() {
         sessionType: currentSessionType,
         status
       });
+
+      // --- Send Usage Details ---
+      if (currentConversationIdRef.current) {
+        const usageStatus = reason === DisconnectReason.CLIENT_INITIATED 
+          ? "USER_TERMINATED" 
+          : status.toUpperCase();
+
+        const usagePayload = {
+          conversation_id: currentConversationIdRef.current,
+          job_id: currentJobIdRef.current || "",
+          status: usageStatus,
+          usage: {
+            total_duration: duration
+          }
+        };
+
+        console.log("📈 Sending Usage Data:", usagePayload);
+        sendUsageData(usagePayload).then(({ success, error }) => {
+          if (success) {
+            console.log("✅ Usage data sent successfully");
+          } else {
+            console.warn("⚠️ Failed to send usage data:", error);
+          }
+        });
+      }
+      // --- End Usage Details ---
 
       // Filter for non-empty text and ensure we only save if there's meaningful interaction
       const filteredTranscript = currentTranscript
