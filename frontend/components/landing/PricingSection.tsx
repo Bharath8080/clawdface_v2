@@ -50,9 +50,9 @@ const plans = [
 
 export function PricingSection() {
   return (
-    <section id="pricing" className="py-24 lg:py-32 px-6 bg-[#050505] relative overflow-hidden">
+    <section id="pricing" className="py-24 lg:py-32 px-6 bg-canvas relative overflow-hidden">
       {/* Background Glow */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#00E3AA]/5 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-brand/5 rounded-full blur-[120px] pointer-events-none" />
 
       <div className="max-w-7xl mx-auto relative z-10">
         <div className="text-center mb-16">
@@ -84,12 +84,12 @@ export function PricingSection() {
               transition={{ delay: idx * 0.1 }}
               className={`relative p-8 rounded-3xl border transition-all duration-300 ${
                 plan.popular 
-                  ? "bg-white/[0.05] border-[#00E3AA]/30 shadow-[0_0_40px_-15px_rgba(0,227,170,0.2)]" 
+                  ? "bg-white/[0.05] border-brand/30 shadow-[0_0_40px_-15px_rgba(0,227,170,0.2)]" 
                   : "bg-white/[0.02] border-white/10"
               }`}
             >
               {plan.popular && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-[#00E3AA] text-black px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-brand text-black px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
                   Most Popular
                 </div>
               )}
@@ -101,7 +101,7 @@ export function PricingSection() {
                   {plan.price !== "Custom" && plan.price !== "Free" && <span className="text-zinc-500">/month</span>}
                 </div>
                 {plan.subtext && (
-                  <p className="text-sm text-[#00E3AA] font-medium mb-4">{plan.subtext}</p>
+                  <p className="text-sm text-brand font-medium mb-4">{plan.subtext}</p>
                 )}
                 <p className="text-zinc-300 text-sm">{plan.description}</p>
               </div>
@@ -109,7 +109,7 @@ export function PricingSection() {
               <div className="space-y-4 mb-10">
                 {plan.features.map((feature, fIdx) => (
                   <div key={fIdx} className="flex items-start gap-3">
-                    <div className={`mt-1 flex-shrink-0 rounded-full p-0.5 ${feature.included ? "text-[#00E3AA]" : "text-zinc-600"}`}>
+                    <div className={`mt-1 flex-shrink-0 rounded-full p-0.5 ${feature.included ? "text-brand" : "text-zinc-600"}`}>
                       {feature.included ? (
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                           <polyline points="20 6 9 17 4 12" />
@@ -130,7 +130,7 @@ export function PricingSection() {
               <button 
                 className={`w-full py-4 rounded-xl font-bold transition-all ${
                   plan.popular
-                    ? "bg-[#00E3AA] text-black hover:scale-[1.02] active:scale-95 shadow-lg shadow-[#00E3AA]/20"
+                    ? "bg-brand text-black hover:scale-[1.02] active:scale-95 shadow-lg shadow-brand/20"
                     : "bg-white/10 text-white hover:bg-white/20"
                 }`}
               >

@@ -54,14 +54,14 @@ const features = [
 
 export function FeaturesSection() {
   return (
-    <section id="features" className="py-24 px-6 relative overflow-hidden bg-[#0a0a0a]">
+    <section id="features" className="py-24 px-6 relative overflow-hidden bg-surface-secondary">
       <div className="mb-16 text-center max-w-3xl mx-auto">
         <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-2 rounded-full mb-6">
           <span className="text-zinc-400 text-sm font-semibold">Capabilities</span>
         </div>
         <h2 className="text-4xl md:text-5xl font-outfit font-bold text-white mb-6">
           Same OpenClaw.{" "}
-          <span className="text-[#00E3AA]">Entirely New Experience.</span>
+          <span className="text-brand">Entirely New Experience.</span>
         </h2>
         <p className="text-xl text-zinc-400">
           ClawdFace bridges your custom LLM providers directly to LiveKit-powered interactive avatars.
@@ -74,9 +74,9 @@ export function FeaturesSection() {
             key={idx} 
             className="p-8 rounded-2xl bg-white/5 border border-white/10 hover:border-white/20 transition-all group overflow-hidden relative"
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-[#00E3AA]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="absolute inset-0 bg-gradient-to-br from-brand/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="relative z-10">
-              <div className="w-12 h-12 bg-[#00E3AA]/10 rounded-xl flex items-center justify-center mb-6">
+              <div className="w-12 h-12 bg-brand/10 rounded-xl flex items-center justify-center mb-6">
                 {feature.icon}
               </div>
               <h3 className="text-2xl font-bold text-white mb-3 tracking-tight">

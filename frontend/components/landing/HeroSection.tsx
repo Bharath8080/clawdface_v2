@@ -35,7 +35,7 @@ export function HeroSection() {
   }, []);
 
   return (
-    <section className="relative min-h-[88vh] flex items-center px-8 py-20 overflow-hidden bg-[#0d0d0d]">
+    <section className="relative min-h-[88vh] flex items-center px-8 py-20 overflow-hidden bg-surface">
       {/* Subtle background dots */}
       {DOTS.map((dot, i) => (
         <div
@@ -45,7 +45,7 @@ export function HeroSection() {
         />
       ))}
       {/* Faint green ambient glow bottom-left */}
-      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[#00E3AA]/8 rounded-full blur-[150px] pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-brand/8 rounded-full blur-[150px] pointer-events-none" />
 
       <div className="max-w-[1400px] mx-auto w-full flex flex-col lg:flex-row items-center gap-12 lg:gap-16 relative z-10">
         {/* ── Left column ── */}
@@ -57,7 +57,7 @@ export function HeroSection() {
             transition={{ duration: 0.45 }}
             className="flex items-center gap-3 mb-8"
           >
-            <span className="bg-[#1a2d24] text-[#82e8b2] px-3 py-1 rounded text-sm font-mono font-semibold border border-[#82e8b2]/20">
+            <span className="bg-brand-subtle text-brand-muted px-3 py-1 rounded text-sm font-mono font-semibold border border-brand-muted/20">
               OpenClaw
             </span>
             <span className="text-zinc-500 text-sm">→</span>
@@ -73,7 +73,7 @@ export function HeroSection() {
           >
             <span className="text-white block">Give Your</span>
             <span className="text-white block">Open Claw</span>
-            <span className="text-[#FF4747] block">A Face</span>
+            <span className="text-danger block">A Face</span>
           </motion.h1>
 
           {/* Description */}
@@ -97,12 +97,12 @@ export function HeroSection() {
             className="flex items-center gap-4"
           >
             <Link href={user ? "/dashboard" : "/handler/sign-up"}>
-              <button className="px-7 py-3.5 bg-[#00E3AA] text-black rounded-lg font-bold text-[15px] hover:bg-[#00cfA0] transition-colors">
+              <button className="px-7 py-3.5 bg-brand text-black rounded-lg font-bold text-[15px] hover:bg-brand-hover transition-colors">
                 {user ? "Dashboard" : "Get Started"}
               </button>
             </Link>
             <Link href="#how-it-works">
-              <button className="flex items-center gap-2.5 px-6 py-3.5 bg-[#1a1a1a] text-white border border-white/10 rounded-lg font-semibold text-[15px] hover:bg-[#222] transition-colors">
+              <button className="flex items-center gap-2.5 px-6 py-3.5 bg-surface-elevated text-white border border-white/10 rounded-lg font-semibold text-[15px] hover:bg-[#222] transition-colors">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
                   <path d="M8 5v14l11-7z" />
                 </svg>
@@ -119,7 +119,7 @@ export function HeroSection() {
           transition={{ duration: 0.6, delay: 0.15 }}
           className="w-full lg:w-[58%]"
         >
-          <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] overflow-hidden shadow-2xl">
+          <div className="rounded-2xl border border-white/10 bg-surface-elevated overflow-hidden shadow-2xl">
             {/* Card header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
               <span className="text-xs font-mono text-zinc-500 uppercase tracking-[0.15em]">
@@ -157,7 +157,7 @@ export function HeroSection() {
 
             {/* Avatar name footer */}
             <div className="px-5 py-4 border-t border-white/5 text-center">
-              <span className="text-[#00E3AA] font-semibold text-base">
+              <span className="text-brand font-semibold text-base">
                 {AVATARS[currentIdx].name}
               </span>
               <span className="text-zinc-400 text-base"> (Open Claw Agent)</span>

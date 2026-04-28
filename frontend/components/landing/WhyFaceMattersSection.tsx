@@ -29,7 +29,7 @@ const CARDS = [
 
 export function WhyFaceMattersSection() {
   return (
-    <section className="py-24 px-6 bg-[#050505]">
+    <section className="py-24 px-6 bg-canvas">
       <div className="max-w-7xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -56,7 +56,7 @@ export function WhyFaceMattersSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: idx * 0.1 }}
-              className="group rounded-2xl border border-white/10 bg-[#111] overflow-hidden hover:border-white/20 transition-all duration-300"
+              className="group rounded-2xl border border-white/10 bg-surface-card overflow-hidden hover:border-white/20 transition-all duration-300"
             >
               {/* Avatar image */}
               <div className="relative aspect-[4/3] overflow-hidden">
@@ -67,10 +67,10 @@ export function WhyFaceMattersSection() {
                   className="object-cover object-top group-hover:scale-105 transition-transform duration-500"
                   sizes="(max-width: 768px) 100vw, 33vw"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#111] via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-surface-card via-transparent to-transparent" />
                 {/* Live indicator */}
                 <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm px-2.5 py-1 rounded-full border border-white/10">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#00E3AA] animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse" />
                   <span className="text-[10px] text-white font-semibold uppercase tracking-wide">Live</span>
                 </div>
               </div>

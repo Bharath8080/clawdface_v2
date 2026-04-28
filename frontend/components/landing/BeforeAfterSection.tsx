@@ -21,7 +21,7 @@ const AFTER_ITEMS = [
 
 export function BeforeAfterSection() {
   return (
-    <section className="py-24 px-6 bg-[#0a0a0a]">
+    <section className="py-24 px-6 bg-surface-secondary">
       <div className="max-w-7xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -43,7 +43,7 @@ export function BeforeAfterSection() {
             initial={{ opacity: 0, x: -20 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
-            className="rounded-2xl border border-red-500/20 bg-[#111] overflow-hidden"
+            className="rounded-2xl border border-red-500/20 bg-surface-card overflow-hidden"
           >
             <div className="px-6 py-4 border-b border-red-500/10 bg-red-500/5 flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
@@ -56,7 +56,7 @@ export function BeforeAfterSection() {
             </div>
 
             {/* Chat mockup */}
-            <div className="p-4 border-b border-white/5 bg-[#0d0d0d]">
+            <div className="p-4 border-b border-white/5 bg-surface">
               <div className="space-y-2">
                 {["How do I reset my password?", "Please hold while I look that up...", "Sorry, I couldn't find that.", "Can you try again?"].map(
                   (msg, i) => (
@@ -96,15 +96,15 @@ export function BeforeAfterSection() {
             initial={{ opacity: 0, x: 20 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
-            className="rounded-2xl border border-[#00E3AA]/20 bg-[#111] overflow-hidden"
+            className="rounded-2xl border border-brand/20 bg-surface-card overflow-hidden"
           >
-            <div className="px-6 py-4 border-b border-[#00E3AA]/10 bg-[#00E3AA]/5 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-[#00E3AA]/20 flex items-center justify-center">
+            <div className="px-6 py-4 border-b border-brand/10 bg-brand/5 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-brand/20 flex items-center justify-center">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00E3AA" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
               </div>
-              <span className="text-[#00E3AA] font-bold text-sm uppercase tracking-widest">Clawd Face</span>
+              <span className="text-brand font-bold text-sm uppercase tracking-widest">Clawd Face</span>
             </div>
 
             {/* Avatar preview */}
@@ -116,22 +116,22 @@ export function BeforeAfterSection() {
                 className="object-cover object-top"
                 sizes="600px"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#111]/80 via-transparent to-transparent" />
-              <div className="absolute bottom-4 left-4 flex items-center gap-2 bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-full border border-[#00E3AA]/20">
-                <span className="w-2 h-2 rounded-full bg-[#00E3AA] animate-pulse" />
-                <span className="text-[#00E3AA] text-xs font-semibold">Live · Face-to-Face</span>
+              <div className="absolute inset-0 bg-gradient-to-t from-surface-card/80 via-transparent to-transparent" />
+              <div className="absolute bottom-4 left-4 flex items-center gap-2 bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-full border border-brand/20">
+                <span className="w-2 h-2 rounded-full bg-brand animate-pulse" />
+                <span className="text-brand text-xs font-semibold">Live · Face-to-Face</span>
               </div>
             </div>
 
             <div className="p-6 space-y-3">
               {AFTER_ITEMS.map((item, i) => (
                 <div key={i} className="flex items-start gap-3">
-                  <div className="w-5 h-5 rounded-full bg-[#00E3AA]/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <div className="w-5 h-5 rounded-full bg-brand/20 flex items-center justify-center flex-shrink-0 mt-0.5">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#00E3AA" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
                   </div>
-                  <span className={`text-sm ${i === 0 ? "text-[#00E3AA] font-semibold" : "text-zinc-300"}`}>
+                  <span className={`text-sm ${i === 0 ? "text-brand font-semibold" : "text-zinc-300"}`}>
                     {item}
                   </span>
                 </div>

@@ -9,7 +9,7 @@ export function Nav() {
   const stackApp = useStackApp();
 
   return (
-    <nav className="sticky top-0 inset-x-0 z-50 bg-[#0d0d0d] border-b border-white/10">
+    <nav className="sticky top-0 inset-x-0 z-50 bg-surface border-b border-white/10">
       <div className="max-w-[1400px] mx-auto px-8 h-[72px] flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
@@ -37,7 +37,7 @@ export function Nav() {
                 <motion.button
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
-                  className="bg-[#00E3AA] text-black px-6 py-2.5 rounded-lg text-[15px] font-bold"
+                  className="bg-brand text-black px-6 py-2.5 rounded-lg text-[15px] font-bold"
                 >
                   Dashboard
                 </motion.button>
@@ -65,7 +65,7 @@ export function Nav() {
                 <motion.button
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
-                  className="bg-[#00E3AA] text-black px-6 py-2.5 rounded-lg text-[15px] font-bold"
+                  className="bg-brand text-black px-6 py-2.5 rounded-lg text-[15px] font-bold"
                 >
                   Sign Up
                 </motion.button>

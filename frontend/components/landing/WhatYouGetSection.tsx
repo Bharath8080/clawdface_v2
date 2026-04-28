@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 
 export function WhatYouGetSection() {
   return (
-    <section className="py-24 px-6 bg-[#0a0a0a]">
+    <section className="py-24 px-6 bg-surface-secondary">
       <div className="max-w-7xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -28,7 +28,7 @@ export function WhatYouGetSection() {
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="md:row-span-2 rounded-2xl border border-white/10 bg-[#111] overflow-hidden group hover:border-[#00E3AA]/30 transition-all duration-300 relative"
+            className="md:row-span-2 rounded-2xl border border-white/10 bg-surface-card overflow-hidden group hover:border-brand/30 transition-all duration-300 relative"
           >
             <div className="relative h-72 md:h-80">
               <Image
@@ -38,10 +38,10 @@ export function WhatYouGetSection() {
                 className="object-cover object-top group-hover:scale-105 transition-transform duration-500"
                 sizes="400px"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#111] via-[#111]/30 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-surface-card via-surface-card/30 to-transparent" />
             </div>
             <div className="p-6">
-              <div className="w-10 h-10 rounded-xl bg-[#00E3AA]/10 border border-[#00E3AA]/20 flex items-center justify-center mb-4">
+              <div className="w-10 h-10 rounded-xl bg-brand/10 border border-brand/20 flex items-center justify-center mb-4">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00E3AA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="8" r="4" />
                   <path d="M6 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" />
@@ -60,7 +60,7 @@ export function WhatYouGetSection() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}
-            className="rounded-2xl border border-white/10 bg-[#111] p-6 group hover:border-purple-500/30 transition-all duration-300"
+            className="rounded-2xl border border-white/10 bg-surface-card p-6 group hover:border-purple-500/30 transition-all duration-300"
           >
             <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center mb-4">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#c084fc" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -94,7 +94,7 @@ export function WhatYouGetSection() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.2 }}
-            className="rounded-2xl border border-white/10 bg-[#111] p-6 group hover:border-blue-500/30 transition-all duration-300"
+            className="rounded-2xl border border-white/10 bg-surface-card p-6 group hover:border-blue-500/30 transition-all duration-300"
           >
             <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-4">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -114,7 +114,7 @@ export function WhatYouGetSection() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.3 }}
-            className="rounded-2xl border border-white/10 bg-[#111] p-6 group hover:border-yellow-500/30 transition-all duration-300"
+            className="rounded-2xl border border-white/10 bg-surface-card p-6 group hover:border-yellow-500/30 transition-all duration-300"
           >
             <div className="w-10 h-10 rounded-xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center mb-4">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -134,9 +134,9 @@ export function WhatYouGetSection() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.4 }}
-            className="rounded-2xl border border-white/10 bg-[#111] p-6 group hover:border-[#00E3AA]/30 transition-all duration-300"
+            className="rounded-2xl border border-white/10 bg-surface-card p-6 group hover:border-brand/30 transition-all duration-300"
           >
-            <div className="w-10 h-10 rounded-xl bg-[#00E3AA]/10 border border-[#00E3AA]/20 flex items-center justify-center mb-4">
+            <div className="w-10 h-10 rounded-xl bg-brand/10 border border-brand/20 flex items-center justify-center mb-4">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00E3AA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                 <line x1="16" y1="2" x2="16" y2="6" />

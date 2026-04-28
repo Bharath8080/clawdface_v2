@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 const PLATFORMS = [
   {
     name: "OpenClaw",
-    color: "bg-[#00E3AA]/20 border-[#00E3AA]/30",
+    color: "bg-brand/20 border-brand/30",
     icon: (
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00E3AA" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M12 2L2 7l10 5 10-5-10-5z" />
@@ -71,7 +71,7 @@ const PLATFORMS = [
 
 export function PlatformsSection() {
   return (
-    <section className="py-20 px-6 bg-[#0a0a0a] overflow-hidden">
+    <section className="py-20 px-6 bg-surface-secondary overflow-hidden">
       <div className="max-w-7xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}

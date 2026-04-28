@@ -22,7 +22,7 @@ export default async function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] text-[#E0E0E0] selection:bg-[#00E3AA] selection:text-black overflow-x-hidden">
+    <div className="min-h-screen bg-canvas text-[#E0E0E0] selection:bg-brand selection:text-black overflow-x-hidden">
       <Nav />
       <main className="flex flex-col gap-0">
         <HeroSection />

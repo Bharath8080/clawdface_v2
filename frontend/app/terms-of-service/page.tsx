@@ -3,7 +3,7 @@ import { Footer } from "@/components/landing/Footer";
 
 export default function TermsOfServicePage() {
   return (
-    <div className="min-h-screen bg-[#050505] text-[#E0E0E0] lg:font-inter selection:bg-[#82e8b2] selection:text-black overflow-x-hidden flex flex-col">
+    <div className="min-h-screen bg-canvas text-[#E0E0E0] lg:font-inter selection:bg-[#82e8b2] selection:text-black overflow-x-hidden flex flex-col">
       <Nav />
       <main className="flex-1 pt-32 pb-20 px-6 max-w-4xl mx-auto w-full relative z-10">
         <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white mb-10">Terms of Service</h1>
@@ -189,7 +189,7 @@ export default function TermsOfServicePage() {
 
           <h2 className="text-2xl font-bold text-white mt-12 mb-6">15. Contact Information</h2>
           <p className="mb-4">For questions about these Terms or to provide notice or intellectual property infringement claims:</p>
-          <p className="mb-8">Email: <a className="text-[#82e8b2] hover:text-[#6bd69e] hover:underline transition-colors" href="mailto:support@clawdface.io">support@clawdface.io</a></p>
+          <p className="mb-8">Email: <a className="text-brand-muted hover:text-[#6bd69e] hover:underline transition-colors" href="mailto:support@clawdface.io">support@clawdface.io</a></p>
           <p className="mb-8 mt-8 border-t border-white/10 pt-8 italic text-zinc-400">By using the ClawdFace Platform, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service.</p>
         </div>
       </main>

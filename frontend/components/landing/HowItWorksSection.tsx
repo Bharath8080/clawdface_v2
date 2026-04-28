@@ -26,7 +26,7 @@ const STEPS = [
 
 export function HowItWorksSection() {
   return (
-    <section id="how-it-works" className="py-24 px-6 bg-[#050505] scroll-mt-24">
+    <section id="how-it-works" className="py-24 px-6 bg-canvas scroll-mt-24">
       <div className="max-w-7xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -55,8 +55,8 @@ export function HowItWorksSection() {
                 transition={{ delay: idx * 0.15 }}
                 className="flex items-start gap-6 group"
               >
-                <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-[#00E3AA]/10 border border-[#00E3AA]/20 flex items-center justify-center group-hover:bg-[#00E3AA]/20 transition-colors">
-                  <span className="text-[#00E3AA] font-bold text-lg font-mono">{step.number}</span>
+                <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-brand/10 border border-brand/20 flex items-center justify-center group-hover:bg-brand/20 transition-colors">
+                  <span className="text-brand font-bold text-lg font-mono">{step.number}</span>
                 </div>
                 <div className="flex-1">
                   <h3 className="text-xl font-bold text-white mb-2">{step.title}</h3>
@@ -74,7 +74,7 @@ export function HowItWorksSection() {
             transition={{ delay: 0.2 }}
             className="w-full lg:w-1/2 flex justify-center"
           >
-            <div className="w-full max-w-md rounded-3xl overflow-hidden border border-white/10 bg-[#111] shadow-2xl relative">
+            <div className="w-full max-w-md rounded-3xl overflow-hidden border border-white/10 bg-surface-card shadow-2xl relative">
               <div className="relative aspect-[3/4]">
                 <Image
                   src="https://assets.trugen.ai/images/avatarImages/chole-wide.jpeg"
@@ -83,14 +83,14 @@ export function HowItWorksSection() {
                   className="object-cover object-top"
                   sizes="480px"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#111] via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-surface-card via-transparent to-transparent" />
               </div>
               {/* Status overlay */}
               <div className="absolute bottom-0 inset-x-0 p-6">
                 <div className="bg-black/60 backdrop-blur-md rounded-2xl p-4 border border-white/10">
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="w-3 h-3 rounded-full bg-[#00E3AA] animate-pulse" />
-                    <span className="text-[#00E3AA] text-sm font-semibold">Ready to Talk</span>
+                    <div className="w-3 h-3 rounded-full bg-brand animate-pulse" />
+                    <span className="text-brand text-sm font-semibold">Ready to Talk</span>
                   </div>
                   <p className="text-white text-sm font-medium mb-1">Chloe · AI Agent</p>
                   <p className="text-zinc-400 text-xs">OpenClaw Connected · ElevenLabs Voice · Vision Enabled</p>

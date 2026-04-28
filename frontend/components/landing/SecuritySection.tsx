@@ -11,8 +11,8 @@ const BADGES = [
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
       </svg>
     ),
-    accent: "border-[#00E3AA]/20 bg-[#00E3AA]/5",
-    iconBg: "bg-[#00E3AA]/10",
+    accent: "border-brand/20 bg-brand/5",
+    iconBg: "bg-brand/10",
   },
   {
     title: "ISO Compliant",
@@ -53,7 +53,7 @@ const BADGES = [
 
 export function SecuritySection() {
   return (
-    <section className="py-24 px-6 bg-[#050505]">
+    <section className="py-24 px-6 bg-canvas">
       <div className="max-w-7xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -61,11 +61,11 @@ export function SecuritySection() {
           viewport={{ once: true }}
           className="text-center mb-16"
         >
-          <div className="inline-flex items-center gap-2 bg-[#00E3AA]/10 border border-[#00E3AA]/20 px-4 py-2 rounded-full mb-6">
+          <div className="inline-flex items-center gap-2 bg-brand/10 border border-brand/20 px-4 py-2 rounded-full mb-6">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00E3AA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
             </svg>
-            <span className="text-[#00E3AA] text-sm font-semibold">Enterprise Ready</span>
+            <span className="text-brand text-sm font-semibold">Enterprise Ready</span>
           </div>
           <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
             Enterprise Grade Security

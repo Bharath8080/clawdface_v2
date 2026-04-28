@@ -40,13 +40,13 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between py-5 text-left gap-6 group"
       >
-        <span className={`text-base font-semibold transition-colors ${open ? "text-[#00E3AA]" : "text-white group-hover:text-[#00E3AA]"}`}>
+        <span className={`text-base font-semibold transition-colors ${open ? "text-brand" : "text-white group-hover:text-brand"}`}>
           {question}
         </span>
         <div
           className={`flex-shrink-0 w-8 h-8 rounded-full border flex items-center justify-center transition-all duration-300 ${
             open
-              ? "bg-[#00E3AA]/10 border-[#00E3AA]/30 rotate-45"
+              ? "bg-brand/10 border-brand/30 rotate-45"
               : "bg-white/5 border-white/10"
           }`}
         >
@@ -76,7 +76,7 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
 
 export function FAQSection() {
   return (
-    <section className="py-24 px-6 bg-[#050505]">
+    <section className="py-24 px-6 bg-canvas">
       <div className="max-w-3xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -100,7 +100,7 @@ export function FAQSection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ delay: 0.1 }}
-          className="rounded-2xl border border-white/10 bg-[#111] px-6 divide-y divide-white/5"
+          className="rounded-2xl border border-white/10 bg-surface-card px-6 divide-y divide-white/5"
         >
           {FAQS.map((faq, idx) => (
             <FAQItem key={idx} {...faq} />

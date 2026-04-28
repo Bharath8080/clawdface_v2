@@ -81,10 +81,10 @@ const LoggedIn = () => {
   }, [handleKeyDown]);
 
   return (
-    <div className="min-h-screen bg-[#050505] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-canvas flex items-center justify-center p-4">
       <div
         ref={logInRef}
-        className="w-full max-w-md bg-[#111111] border border-white/10 rounded-2xl p-8 flex flex-col gap-6"
+        className="w-full max-w-md bg-surface-card border border-white/10 rounded-2xl p-8 flex flex-col gap-6"
       >
         <div className="flex flex-col items-center gap-2 mb-2">
           <span className="text-2xl font-bold text-white tracking-tight">ClawdFace</span>
@@ -104,7 +104,7 @@ const LoggedIn = () => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Enter your email"
-            className="bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-[#00E3AA]/50 transition-colors"
+            className="bg-surface-elevated border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-brand/50 transition-colors"
           />
           {emailError && <span className="text-red-400 text-xs mt-1">{emailError}</span>}
         </div>
@@ -116,14 +116,14 @@ const LoggedIn = () => {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Enter your password"
-            className="bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-[#00E3AA]/50 transition-colors"
+            className="bg-surface-elevated border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-brand/50 transition-colors"
           />
           {passwordError && <span className="text-red-400 text-xs mt-1">{passwordError}</span>}
         </div>
 
         <Link
           href="/reset-password"
-          className="text-sm text-[#00E3AA] hover:underline self-start -mt-3"
+          className="text-sm text-brand hover:underline self-start -mt-3"
         >
           Forgot your password?
         </Link>
@@ -131,14 +131,14 @@ const LoggedIn = () => {
         <button
           onClick={handleLogin}
           disabled={loading}
-          className="w-full bg-[#00E3AA] text-black font-bold py-3 rounded-xl hover:bg-[#00E3AA]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-brand text-black font-bold py-3 rounded-xl hover:bg-brand/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? "Signing in..." : "Sign In"}
         </button>
 
         <span className="text-sm text-zinc-400 text-center">
           Don&apos;t have an account?{" "}
-          <Link href="/sign-up" className="text-[#00E3AA] hover:underline font-medium">
+          <Link href="/sign-up" className="text-brand hover:underline font-medium">
             Sign Up
           </Link>
         </span>
@@ -151,7 +151,7 @@ const LoggedIn = () => {
 
         <button
           onClick={async () => { await app.signInWithOAuth("google"); }}
-          className="w-full flex items-center justify-center gap-3 bg-[#1a1a1a] border border-white/10 text-white font-medium py-3 rounded-xl hover:bg-white/5 transition-colors"
+          className="w-full flex items-center justify-center gap-3 bg-surface-elevated border border-white/10 text-white font-medium py-3 rounded-xl hover:bg-white/5 transition-colors"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />

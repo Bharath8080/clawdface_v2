@@ -86,10 +86,10 @@ export default function InvoicesPage() {
       : `$${amount}`;
 
   return (
-    <div className="h-full overflow-y-auto bg-[#050505] custom-scrollbar">
+    <div className="h-full overflow-y-auto bg-canvas custom-scrollbar">
       {/* Background glow */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-[#00E3AA]/3 rounded-full blur-[120px]" />
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-brand/3 rounded-full blur-[120px]" />
       </div>
 
       <div className="relative z-10 max-w-4xl mx-auto px-6 py-10 pb-16">
@@ -102,7 +102,7 @@ export default function InvoicesPage() {
           className="mb-8"
         >
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-[11px] font-bold uppercase tracking-widest text-[#00E3AA] bg-[#00E3AA]/10 px-3 py-1 rounded-full border border-[#00E3AA]/20">
+            <span className="text-[11px] font-bold uppercase tracking-widest text-brand bg-brand/10 px-3 py-1 rounded-full border border-brand/20">
               Billing
             </span>
           </div>
@@ -172,7 +172,7 @@ export default function InvoicesPage() {
                   >
                     <td className="px-5 py-4 text-white font-medium">{inv.planName || "—"}</td>
                     <td className="px-5 py-4 text-[#9ca3af]">{formatDate(inv.paidOn)}</td>
-                    <td className="px-5 py-4 text-[#00E3AA] font-semibold">{formatAmount(inv.amount)}</td>
+                    <td className="px-5 py-4 text-brand font-semibold">{formatAmount(inv.amount)}</td>
                     <td className="px-5 py-4">
                       {inv.invoiceURL ? (
                         <a

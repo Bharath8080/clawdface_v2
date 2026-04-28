@@ -3,7 +3,7 @@ import Image from "next/image";
 
 export function Footer() {
   return (
-    <footer className="bg-[#050505] border-t border-white/5 overflow-hidden">
+    <footer className="bg-canvas border-t border-white/5 overflow-hidden">
       {/* Top links row */}
       <div className="max-w-7xl mx-auto px-6 py-14">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
@@ -25,17 +25,17 @@ export function Footer() {
             <h4 className="text-white font-semibold mb-5 text-sm uppercase tracking-wider">Product</h4>
             <ul className="space-y-3">
               <li>
-                <Link href="/#features" className="text-zinc-500 text-sm hover:text-[#00E3AA] transition-colors">
+                <Link href="/#features" className="text-zinc-500 text-sm hover:text-brand transition-colors">
                   Features
                 </Link>
               </li>
               <li>
-                <Link href="/#pricing" className="text-zinc-500 text-sm hover:text-[#00E3AA] transition-colors">
+                <Link href="/#pricing" className="text-zinc-500 text-sm hover:text-brand transition-colors">
                   Pricing
                 </Link>
               </li>
               <li>
-                <Link href="/#demo" className="text-zinc-500 text-sm hover:text-[#00E3AA] transition-colors">
+                <Link href="/#demo" className="text-zinc-500 text-sm hover:text-brand transition-colors">
                   Live Demo
                 </Link>
               </li>
@@ -46,17 +46,17 @@ export function Footer() {
             <h4 className="text-white font-semibold mb-5 text-sm uppercase tracking-wider">Legal</h4>
             <ul className="space-y-3">
               <li>
-                <Link href="/privacy-policy" className="text-zinc-500 text-sm hover:text-[#00E3AA] transition-colors">
+                <Link href="/privacy-policy" className="text-zinc-500 text-sm hover:text-brand transition-colors">
                   Privacy Policy
                 </Link>
               </li>
               <li>
-                <Link href="/terms-of-service" className="text-zinc-500 text-sm hover:text-[#00E3AA] transition-colors">
+                <Link href="/terms-of-service" className="text-zinc-500 text-sm hover:text-brand transition-colors">
                   Terms of Service
                 </Link>
               </li>
               <li>
-                <Link href="/#contact" className="text-zinc-500 text-sm hover:text-[#00E3AA] transition-colors">
+                <Link href="/#contact" className="text-zinc-500 text-sm hover:text-brand transition-colors">
                   Contact Us
                 </Link>
               </li>
@@ -66,7 +66,7 @@ export function Footer() {
 
         <div className="mt-12 pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4 text-zinc-600 text-xs">
           <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#00E3AA] animate-pulse" />
+            <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse" />
             <span>All systems operational</span>
           </div>
           <span>&copy; {new Date().getFullYear()} ClawdFace. All rights reserved.</span>
