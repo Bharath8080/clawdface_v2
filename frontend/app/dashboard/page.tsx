@@ -29,7 +29,6 @@ import Image from "next/image";
 import {
   createBotAction as createBot,
   updateLastConfigAction as updateLastConfig,
-  updateBotAction as updateBot,
   syncUserAction,
 } from "@/lib/database-actions";
 import { type AvatarItem, fetchAvatars } from "@/app/services/avatarService";
@@ -55,6 +54,20 @@ const stripSessionKey = (key: string) => {
   // Remove unique timestamp suffix (hyphen followed by 14 digits suffix like -20260314203015)
   clean = clean.replace(/-\d{14}$/, "");
   return clean;
+};
+
+const getBotAvatarId = (bot?: AgentBot | null) => {
+  const avatar = bot?.avatars?.[0];
+  return avatar?.avatar_key_id || avatar?.avatar_id || "";
+};
+
+const withPrimaryAvatar = (avatars: AgentBot["avatars"] | undefined, avatarId: string) => {
+  if (!avatarId) return avatars ?? [];
+  if (!avatars?.length) return [{ avatar_key_id: avatarId }];
+
+  const [primary, ...rest] = avatars;
+  const idField = primary.avatar_id && !primary.avatar_key_id ? "avatar_id" : "avatar_key_id";
+  return [{ ...primary, [idField]: avatarId }, ...rest];
 };
 
 import { AVATARS } from "@/lib/constants";
@@ -651,6 +664,7 @@ function ClientPage() {
   const [profileId, setProfileId] = useState<string | null>(null);
   const [isLoadingBots, setIsLoadingBots] = useState(false);
   const [editingBotId, setEditingBotId] = useState<string | null>(null);
+  const [editingAgent, setEditingAgent] = useState<AgentBot | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const selectedAgentIdRef = useRef<string | null>(null);
   const externalAgentIdRef = useRef<string | null>(null);
@@ -1075,7 +1089,7 @@ function ClientPage() {
       openclawUrl: bot.config.openclaw_url,
       gatewayToken: bot.config.gateway_token,
       sessionKey: bot.config.session_key ? stripSessionKey(bot.config.session_key) : "",
-      avatarId: bot.avatars[0]?.avatar_key_id ?? "",
+      avatarId: getBotAvatarId(bot),
       botName: bot.agent_name,
       thinkingEnabled: String(bot.config.thinking_enabled ?? true),
       thinkingDelay: String(bot.config.thinking_delay ?? 5.0),
@@ -1318,7 +1332,7 @@ function ClientPage() {
 
 
   const handleSaveBot = async () => {
-    if (!profileId) return;
+    if (!profileId && !editingBotId) return;
     setIsLoadingBots(true);
     try {
       const apiKey = localStorage.getItem("defaultApiKey") ?? "";
@@ -1328,20 +1342,48 @@ function ClientPage() {
       
       let botToUse;
       if (editingBotId) {
-        // Update existing bot in Supabase
-        botToUse = await updateBot(editingBotId, {
-          name: botName,
-          avatar_id: config.avatarId,
-          openclaw_url: config.openclawUrl,
-          gateway_token: config.gatewayToken,
-          session_key: config.sessionKey,
-          thinking_enabled: config.thinkingEnabled,
-          thinking_delay: config.thinkingDelay,
-        });
+        const agentToUpdate = editingAgent ?? bots.find(bot => bot.id === editingBotId);
+
+        if (!agentToUpdate) {
+          throw new Error("Unable to find the selected agent to update.");
+        }
+
+        if (apiKey) {
+          const agentPayload = {
+            agent_name: botName,
+            agent_system_prompt: agentToUpdate.agent_system_prompt ?? "",
+            default_system_prompt: agentToUpdate.default_system_prompt ?? false,
+            email: agentToUpdate.email || user?.primaryEmail || user?.displayName || "",
+            config: {
+              ...(agentToUpdate.config ?? {}),
+              openclaw_url: config.openclawUrl,
+              gateway_token: config.gatewayToken,
+              session_key: config.sessionKey,
+              thinking_enabled: config.thinkingEnabled === "true",
+              thinking_delay: parseFloat(config.thinkingDelay || "5.0"),
+            },
+            tools: agentToUpdate.tools ?? {},
+            avatars: withPrimaryAvatar(agentToUpdate.avatars, config.avatarId),
+            knowledge_base: agentToUpdate.knowledge_base ?? [],
+            mcp: agentToUpdate.mcp ?? [],
+            tool: agentToUpdate.tool ?? [],
+            integration: agentToUpdate.integration ?? [],
+            record: agentToUpdate.record ?? false,
+            callback_url: agentToUpdate.callback_url ?? "",
+            callback_events: agentToUpdate.callback_events ?? [],
+            is_public: agentToUpdate.is_public ?? true,
+            is_active: true,
+            type: agentToUpdate.type ?? "etev",
+            add_on: agentToUpdate.add_on ?? [],
+          };
+
+          const { error } = await updateAgent(apiKey, agentToUpdate.id, agentPayload);
+          if (error) throw new Error(error);
+        }
       } else {
         // Create new bot in Supabase
         botToUse = await createBot({
-          user_id: profileId,
+          user_id: profileId ?? "",
           name: botName,
           avatar_id: config.avatarId,
           openclaw_url: config.openclawUrl,
@@ -1354,7 +1396,7 @@ function ClientPage() {
       }
 
       // Sync with API
-      if (apiKey && botToUse?.agent_email) {
+      if (!editingBotId && apiKey && botToUse?.agent_email) {
         const agentPayload = {
           agent_name: botName,
           agent_system_prompt: "",
@@ -1374,16 +1416,13 @@ function ClientPage() {
           add_on: [],
         };
 
-        if (editingBotId) {
-          await updateAgent(apiKey, editingBotId, agentPayload);
-        } else {
-          await createAgent(apiKey, agentPayload);
-        }
+        await createAgent(apiKey, agentPayload);
       }
       
       // Refresh and reset
       await refreshBots();
       setEditingBotId(null);
+      setEditingAgent(null);
       setConfig(DEFAULTS);
       setActiveSession("Library");
     } catch (err: any) {
@@ -1405,6 +1444,7 @@ function ClientPage() {
             // Clear editing state when navigating via sidebar
             if (session !== "AddBot") {
               setEditingBotId(null);
+              setEditingAgent(null);
               // Only reset config if we're not moving to a call-related session
               if (session !== "DirectCall" && session !== "My Bot") {
                 setConfig(DEFAULTS);
@@ -1453,6 +1493,7 @@ function ClientPage() {
                 isEditing={!!editingBotId}
                 onCancelEdit={() => {
                   setEditingBotId(null);
+                  setEditingAgent(null);
                   setConfig(DEFAULTS);
                 }}
                 bots={activeSession === "My Bot" ? bots : []}
@@ -1468,6 +1509,7 @@ function ClientPage() {
                 }}
                 onBack={() => {
                   setEditingBotId(null);
+                  setEditingAgent(null);
                   setConfig(DEFAULTS);
                   setActiveSession("Library");
                 }}
@@ -1509,7 +1551,7 @@ function ClientPage() {
                     openclawUrl: bot.config.openclaw_url,
                     gatewayToken: bot.config.gateway_token,
                     sessionKey: stripSessionKey(bot.config.session_key || ""),
-                    avatarId: bot.avatars[0]?.avatar_key_id ?? "",
+                    avatarId: getBotAvatarId(bot),
                     botName: bot.agent_name,
                     thinkingEnabled: String(bot.config.thinking_enabled ?? true),
                     thinkingDelay: String(bot.config.thinking_delay ?? 5.0),
@@ -1519,11 +1561,12 @@ function ClientPage() {
                 }}
                 onEditBot={(bot) => {
                   setEditingBotId(bot.id);
+                  setEditingAgent(bot);
                   const editConfig = {
                     openclawUrl: bot.config.openclaw_url,
                     gatewayToken: bot.config.gateway_token,
                     sessionKey: stripSessionKey(bot.config.session_key || ""),
-                    avatarId: bot.avatars[0]?.avatar_key_id ?? "",
+                    avatarId: getBotAvatarId(bot),
                     botName: bot.agent_name,
                     thinkingEnabled: String(bot.config.thinking_enabled ?? true),
                     thinkingDelay: String(bot.config.thinking_delay ?? 5.0),
@@ -1703,7 +1746,7 @@ function SessionConfigForm({
                         openclawUrl: selected.config.openclaw_url,
                         gatewayToken: selected.config.gateway_token,
                         sessionKey: stripSessionKey(selected.config.session_key),
-                        avatarId: selected.avatars[0]?.avatar_key_id ?? "",
+                        avatarId: getBotAvatarId(selected),
                         botName: selected.agent_name,
                       };
                       setConfig(newConfig);
@@ -2396,7 +2439,8 @@ function BotLibraryView({
             className="grid grid-cols-1 min-[500px]:grid-cols-2 min-[1100px]:grid-cols-3 xl:grid-cols-3 gap-6 md:gap-8"
           >
             {bots.map((bot) => {
-              const avatar = avatars.find(a => a.id === (bot.avatars[0]?.avatar_key_id ?? ""));
+              const botAvatarId = getBotAvatarId(bot);
+              const avatar = avatars.find(a => a.id === botAvatarId);
               return (
                 <motion.div 
                   key={bot.id} 
@@ -2499,7 +2543,7 @@ function BotLibraryView({
                           </div>
                           <div className="flex flex-col">
                             <span className="text-[9px] text-neutral-600 font-bold uppercase tracking-tighter leading-none font-outfit">Avatar Id</span>
-                            <span className="text-[12px] text-neutral-300 font-jetbrains-mono font-medium truncate">{bot.avatars[0]?.avatar_key_id ?? "—"}</span>
+                            <span className="text-[12px] text-neutral-300 font-jetbrains-mono font-medium truncate">{botAvatarId || "—"}</span>
                           </div>
                         </div>
 
@@ -2551,7 +2595,7 @@ function BotLibraryView({
                               openclawUrl: bot.config.openclaw_url,
                               gatewayToken: bot.config.gateway_token,
                               sessionKey: "",
-                              avatarId: bot.avatars[0]?.avatar_key_id ?? "",
+                              avatarId: botAvatarId,
                               botName: bot.agent_name,
                             };
                             (window as any).openRecallWithConfig?.(newConfig);

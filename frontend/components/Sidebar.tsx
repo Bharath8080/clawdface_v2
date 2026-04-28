@@ -151,7 +151,8 @@ function QuickCallDropdown({ bots, avatars, onSelect, onClose, className = "bott
           </div>
         ) : (
           bots?.map((bot) => {
-            const avatar = avatars.find(a => a.id === (bot.avatars[0]?.avatar_key_id ?? ""));
+            const botAvatarId = bot.avatars[0]?.avatar_key_id || bot.avatars[0]?.avatar_id || "";
+            const avatar = avatars.find(a => a.id === botAvatarId);
             return (
               <button
                 key={bot.id}
@@ -185,7 +186,7 @@ function QuickCallDropdown({ bots, avatars, onSelect, onClose, className = "bott
 
 // ─── Main Sidebar ─────────────────────────────────────────────────────────────
 export function Sidebar({
-  activeSession, setActiveSession, isMobileMenuOpen, setIsMobileMenuOpen, bots = [], onQuickCall = () => {}
+  activeSession, setActiveSession, isMobileMenuOpen, setIsMobileMenuOpen, bots = [], onQuickCall = () => {}, avatars = AVATARS
 }: {
   activeSession: string;
   setActiveSession: (s: string) => void;
@@ -193,7 +194,7 @@ export function Sidebar({
   setIsMobileMenuOpen: (o: boolean) => void;
   bots?: AgentBot[];
   onQuickCall?: (bot: AgentBot) => void | Promise<void>;
-  avatars: AvatarItem[];
+  avatars?: AvatarItem[];
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
