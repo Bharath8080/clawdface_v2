@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import React, { useContext, useState } from "react";
 import { SubscriptionContext, SubscriptionContextProvider } from "@/app/context/subscriptionContext";
-import { PlanType } from "@/app/services/pricingPaymentService";
+import { ILicenseInfo, PlanType, updateAutoReload } from "@/app/services/pricingPaymentService";
 import usePayment from "@/app/hooks/usePayment";
 import { ContactUsModal } from "@/components/ContactUsModal";
 
@@ -54,11 +54,31 @@ const ArrowRightIcon = () => (
   </svg>
 );
 
+const PencilIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+  </svg>
+);
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function formatCredits(n: number): string {
   if (n >= 1000 && n % 1000 === 0) return `${n / 1000}K`;
   if (n >= 1000) return n.toLocaleString();
   return String(n);
+}
+
+function formatBillingDate(date?: string | null): string {
+  if (!date) return "Not available";
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return "Not available";
+  return parsed.toLocaleString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function getPlanMeta(plan: PlanType): {
@@ -276,6 +296,108 @@ function CreditCard({
 }
 
 // ─── Skeleton loader ──────────────────────────────────────────────────────────
+function PlanDetailsPanel({
+  licenseInfo,
+  currentPlanName,
+  onAutoReloadChange,
+  autoReloadLoading,
+  autoReloadError,
+}: {
+  licenseInfo: ILicenseInfo;
+  currentPlanName: string;
+  onAutoReloadChange: (enabled: boolean) => void;
+  autoReloadLoading: boolean;
+  autoReloadError: string | null;
+}) {
+  const isAutoReloadOn = !!licenseInfo?.autoReload;
+  const autoReloadSlug = licenseInfo?.autoReloadSlug || "20k_one_time";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.08, duration: 0.4 }}
+      className="mb-10 border border-white/15 bg-white/[0.035] px-6 py-5"
+    >
+      <div className="mb-4">
+        <h2 className="text-[15px] font-bold text-white tracking-tight">Plan details</h2>
+        <p className="mt-1 text-[12px] text-[#9ca3af]">
+          Renews on {formatBillingDate(licenseInfo?.expiresAt)}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 divide-y divide-white/10 border-t border-white/10 pt-5 md:grid-cols-3 md:divide-x md:divide-y-0">
+        <div className="pb-5 md:pb-0 md:pr-7">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="text-[14px] font-semibold text-white">Current Plan</span>
+            <span className="rounded-full bg-[#00E3AA] px-3 py-1 text-[11px] font-bold text-black">
+              {currentPlanName}
+            </span>
+          </div>
+          <p className="text-[12px] text-[#9ca3af]">Upgrade to get better rates</p>
+        </div>
+
+        <div className="py-5 md:px-7 md:py-0">
+          <h3 className="mb-4 text-[14px] font-semibold text-white">Billing cycle usage</h3>
+          <div className="space-y-3 text-[12px]">
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-[#9ca3af]">Credits available</span>
+              <span className="font-medium text-white/90">
+                {formatCredits(licenseInfo?.balanceCredit ?? 0)}/{formatCredits(licenseInfo?.totalCredit ?? 0)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-[#9ca3af]">Add-on credits</span>
+              <span className="font-medium text-white/90">
+                {formatCredits(licenseInfo?.purchasedCredit ?? 0)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="pt-5 md:pl-7 md:pt-0">
+          <div className="mb-3 flex items-start justify-between gap-4">
+            <h3 className="text-[14px] font-semibold text-white">Auto-reload credits</h3>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isAutoReloadOn}
+              disabled={autoReloadLoading}
+              onClick={() => onAutoReloadChange(!isAutoReloadOn)}
+              className={`relative h-6 w-11 shrink-0 rounded-full border transition-all duration-200 disabled:opacity-60 ${
+                isAutoReloadOn
+                  ? "border-[#00E3AA] bg-[#00E3AA]"
+                  : "border-white/15 bg-white/10"
+              }`}
+            >
+              <span
+                className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                  isAutoReloadOn ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
+          <p className="text-[12px] leading-relaxed text-[#9ca3af]">
+            {autoReloadSlug.replace(/_/g, " ")} will be reloaded automatically as add-on credits when the balance goes below 2000.
+          </p>
+          <button
+            type="button"
+            onClick={() => onAutoReloadChange(true)}
+            disabled={autoReloadLoading}
+            className="mt-3 inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#00E3AA] hover:text-[#00ffd0] disabled:opacity-60"
+          >
+            {autoReloadLoading ? <SpinnerIcon /> : <PencilIcon />}
+            Manage auto-reload
+          </button>
+          {autoReloadError && (
+            <p className="mt-2 text-[12px] text-red-400">{autoReloadError}</p>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 function PlanSkeleton() {
   return (
     <div className="flex flex-col p-7 rounded-2xl bg-white/[0.02] border border-white/8 gap-4 animate-pulse">
@@ -294,9 +416,11 @@ function PlanSkeleton() {
 
 // ─── Main inner component ─────────────────────────────────────────────────────
 function SubscriptionViewInner() {
-  const { allPricingPlans, licenseInfo, isLoading } = useContext(SubscriptionContext);
+  const { allPricingPlans, licenseInfo, setLicenseInfo, isLoading } = useContext(SubscriptionContext);
   const { paymentHandler, loading: paymentLoading, error: paymentError } = usePayment();
   const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [autoReloadLoading, setAutoReloadLoading] = useState(false);
+  const [autoReloadError, setAutoReloadError] = useState<string | null>(null);
 
   // Separate plan types from real API data
   const currentSlug = licenseInfo?.slug ?? "";
@@ -323,8 +447,39 @@ function SubscriptionViewInner() {
     .sort((a, b) => a.credits - b.credits);
 
   const currentPlanName = subscriptionPlans.find((p) => p.slug === currentSlug)?.displayName
+    ?? allPricingPlans.find((p) => p.slug === currentSlug)?.displayName
     ?? subscriptionPlans.find((p) => p.billingType === "free")?.displayName
     ?? "Free";
+
+  const handleAutoReloadChange = async (enabled: boolean) => {
+    const apiKey = typeof window !== "undefined"
+      ? localStorage.getItem("defaultApiKey")
+      : null;
+
+    if (!apiKey) {
+      setAutoReloadError("No API key found. Please refresh the page and try again.");
+      return;
+    }
+
+    const autoReloadSlug = licenseInfo?.autoReloadSlug || "20k_one_time";
+
+    setAutoReloadLoading(true);
+    setAutoReloadError(null);
+    const previous = licenseInfo;
+    setLicenseInfo({ ...licenseInfo, autoReload: enabled, autoReloadSlug });
+
+    const { error } = await updateAutoReload(apiKey, {
+      autoReload: enabled,
+      autoReloadSlug,
+    });
+
+    if (error) {
+      setLicenseInfo(previous);
+      setAutoReloadError(error);
+    }
+
+    setAutoReloadLoading(false);
+  };
 
   return (
     <div className="h-full overflow-y-auto bg-[#050505] custom-scrollbar">
@@ -366,43 +521,17 @@ function SubscriptionViewInner() {
           </motion.div>
         )}
 
-        {/* Current plan banner */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05, duration: 0.4 }}
-          className="mb-8 p-4 rounded-xl bg-white/[0.02] border border-white/8 flex items-center justify-between gap-4"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-[#9ca3af]">
-              <ZapIcon size={15} />
-            </div>
-            <div>
-              <span className="text-white text-sm font-semibold">
-                {isLoading ? "Loading..." : `${currentPlanName} Plan`}
-              </span>
-              <p className="text-[#6b7280] text-xs mt-0.5">
-                {isLoading
-                  ? "Fetching subscription..."
-                  : licenseInfo?.balanceCredit != null
-                    ? `${licenseInfo.balanceCredit.toLocaleString()} credits remaining`
-                    : "No active subscription"}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {licenseInfo?.expiresAt && (
-              <span className="text-[11px] text-[#6b7280] whitespace-nowrap hidden sm:block">
-                Renews {new Date(licenseInfo.expiresAt).toLocaleDateString()}
-              </span>
-            )}
-            <span className="text-[11px] font-semibold text-[#9ca3af] bg-white/5 px-3 py-1 rounded-full border border-white/8 whitespace-nowrap">
-              {isLoading ? "..." : isPaidPlan ? "Active" : "Free"}
-            </span>
-          </div>
-        </motion.div>
-
         {/* ── Subscription plan cards ── */}
+        {isPaidPlan && !isLoading && (
+          <PlanDetailsPanel
+            licenseInfo={licenseInfo}
+            currentPlanName={currentPlanName}
+            onAutoReloadChange={handleAutoReloadChange}
+            autoReloadLoading={autoReloadLoading}
+            autoReloadError={autoReloadError}
+          />
+        )}
+
         <motion.h2
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

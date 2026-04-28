@@ -126,6 +126,37 @@ export const getLicenseDetails = async (
   }
 };
 
+export const updateAutoReload = async (
+  apiKey: string,
+  body: { autoReload: boolean; autoReloadSlug: string }
+): Promise<{ data: unknown | null; status?: number; error: string | null }> => {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/v1/purchase/auto-reload`, {
+      headers: { "X-API-Key": apiKey, "Content-Type": "application/json" },
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    if (response.ok) {
+      const data = await response.json();
+      return { data, error: null };
+    } else {
+      const errorText = await response.text();
+      let errorMessage = "An error occurred";
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error || errorJson.message || errorText;
+      } catch {
+        errorMessage = errorText || "An error occurred";
+      }
+      return { data: null, status: response.status, error: errorMessage };
+    }
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : "Unknown error";
+    console.error("Error updating auto reload:", err);
+    return { data: null, error: errorMessage };
+  }
+};
+
 export const purchasePlan = async (
   apiKey: string,
   body: object
