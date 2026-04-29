@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
 
 // ── Feature row ────────────────────────────────────────────────────────────
 function Feature({ text }: { text: string }) {
@@ -63,6 +64,16 @@ const PLANS = [
 ];
 
 export function PricingSection() {
+  const router = useRouter();
+
+  const handleCta = (cta: string) => {
+    if (cta === "Get Started" || cta === "Upgrade to Pro") {
+      router.push("/sign-up");
+    } else if (cta === "Contact Sales") {
+      document.getElementById("contact")?.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
   return (
     <section id="pricing" className="py-14 md:py-24 px-6 bg-canvas relative overflow-hidden scroll-mt-24">
       {/* Ambient glow */}
@@ -161,6 +172,7 @@ export function PricingSection() {
 
               {/* CTA */}
               <button
+                onClick={() => handleCta(plan.cta)}
                 className={`mt-8 w-full py-3.5 rounded-2xl text-sm font-bold transition-all duration-200 active:scale-95 ${
                   plan.popular
                     ? "bg-brand text-black hover:bg-brand-hover hover:shadow-[0_0_20px_rgba(0,227,170,0.35)]"
