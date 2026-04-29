@@ -295,6 +295,64 @@ function CreditCard({
   );
 }
 
+// ─── Auto-Reload Plan Card ──────────────────────────────────────────────────
+function AutoReloadPlanCard({
+  plan,
+  isSelected,
+  onSelect,
+  isLoading,
+  index,
+}: {
+  plan: PlanType;
+  isSelected: boolean;
+  onSelect: (id: string) => void;
+  isLoading: boolean;
+  index: number;
+}) {
+  return (
+    <motion.button
+      type="button"
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.06, duration: 0.35, ease: "easeOut" }}
+      onClick={() => onSelect(plan.slug)}
+      disabled={isLoading}
+      aria-pressed={isSelected}
+      className={`flex flex-col items-center gap-4 p-5 rounded-2xl border transition-all duration-300 text-center disabled:opacity-60 ${
+        isSelected
+          ? "bg-white/[0.06] border-[#00E3AA]/40 shadow-[0_0_36px_-12px_rgba(0,227,170,0.35)]"
+          : "bg-white/[0.02] border-white/8 hover:border-[#00E3AA]/20 hover:bg-white/[0.03]"
+      }`}
+    >
+      <div className={`w-10 h-10 rounded-xl border flex items-center justify-center ${
+        isSelected
+          ? "bg-[#00E3AA]/15 border-[#00E3AA]/30 text-[#00E3AA]"
+          : "bg-white/5 border-white/10 text-white/60"
+      }`}>
+        <CreditStackIcon />
+      </div>
+      <div>
+        <div className="text-2xl font-bold text-white tracking-tight">
+          {formatCredits(plan.credits)}
+        </div>
+        <div className="text-xs text-[#6b7280] mt-0.5">credits</div>
+      </div>
+      <div className="text-[11px] text-[#4b5563] uppercase tracking-wider font-medium">
+        One-time
+      </div>
+      <div
+        className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+          isSelected
+            ? "bg-[#00E3AA] text-black"
+            : "bg-[#00E3AA]/10 text-[#00E3AA] border border-[#00E3AA]/20"
+        }`}
+      >
+        {isSelected ? "Selected" : "Select"}
+      </div>
+    </motion.button>
+  );
+}
+
 // ─── Auto-Reload Modal ────────────────────────────────────────────────────────
 function AutoReloadModal({
   open,
@@ -324,14 +382,19 @@ function AutoReloadModal({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 12 }}
         transition={{ duration: 0.25, ease: "easeOut" }}
-        className="relative z-10 w-full max-w-lg mx-4 rounded-2xl border border-white/10 bg-[#111111] shadow-2xl shadow-black/50"
+        className="relative z-10 w-full max-w-5xl mx-4 rounded-2xl border border-white/10 bg-[#111111] shadow-2xl shadow-black/50"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-white/8">
           <div>
-            <h3 className="text-[16px] font-bold text-white">Manage Auto-Reload</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-[16px] font-bold text-white">Auto-reload credits</h3>
+              <span className="text-[10px] font-bold text-[#00E3AA] bg-[#00E3AA]/10 border border-[#00E3AA]/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                Pro
+              </span>
+            </div>
             <p className="mt-1 text-[12px] text-[#9ca3af]">
-              Choose a credit pack to auto-reload when balance drops below 2,000
+              Pick a pack to auto-reload when balance drops below 2,000 credits.
             </p>
           </div>
           <button
@@ -345,62 +408,22 @@ function AutoReloadModal({
         </div>
 
         {/* Credit plan options */}
-        <div className="px-6 py-5 space-y-2.5 max-h-[60vh] overflow-y-auto custom-scrollbar">
+        <div className="px-6 py-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
           {creditPlans.length === 0 ? (
             <p className="text-center text-[13px] text-[#6b7280] py-6">No credit plans available.</p>
           ) : (
-            creditPlans.map((plan) => {
-              const isSelected = plan.slug === currentSlug;
-              return (
-                <button
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+              {creditPlans.map((plan, idx) => (
+                <AutoReloadPlanCard
                   key={plan.id}
-                  type="button"
-                  disabled={loading}
-                  onClick={() => onSelect(plan.slug)}
-                  className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl border transition-all duration-200 text-left disabled:opacity-60 ${
-                    isSelected
-                      ? "border-[#00E3AA]/40 bg-[#00E3AA]/10"
-                      : "border-white/8 bg-white/[0.02] hover:border-white/15 hover:bg-white/[0.05]"
-                  }`}
-                >
-                  {/* Icon */}
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                    isSelected
-                      ? "bg-[#00E3AA]/20 text-[#00E3AA]"
-                      : "bg-white/5 text-white/40"
-                  }`}>
-                    <CreditStackIcon />
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline gap-2">
-                      <span className={`text-[15px] font-bold ${
-                        isSelected ? "text-[#00E3AA]" : "text-white"
-                      }`}>
-                        {formatCredits(plan.credits)}
-                      </span>
-                      <span className="text-[12px] text-[#6b7280]">credits</span>
-                    </div>
-                    <p className="text-[11px] text-[#6b7280] mt-0.5">
-                      {plan.price > 0 ? `$${plan.price}` : "Free"} &middot; One-time reload
-                    </p>
-                  </div>
-
-                  {/* Selected indicator */}
-                  {isSelected && (
-                    <div className="w-5 h-5 rounded-full bg-[#00E3AA] flex items-center justify-center shrink-0">
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    </div>
-                  )}
-                  {!isSelected && (
-                    <div className="w-5 h-5 rounded-full border border-white/15 shrink-0" />
-                  )}
-                </button>
-              );
-            })
+                  plan={plan}
+                  index={idx}
+                  isSelected={plan.slug === currentSlug}
+                  onSelect={onSelect}
+                  isLoading={loading}
+                />
+              ))}
+            </div>
           )}
         </div>
 
@@ -427,6 +450,7 @@ function PlanDetailsPanel({
   autoReloadLoading,
   autoReloadError,
   creditPlans,
+  isProPlan,
 }: {
   licenseInfo: ILicenseInfo;
   currentPlanName: string;
@@ -435,6 +459,7 @@ function PlanDetailsPanel({
   autoReloadLoading: boolean;
   autoReloadError: string | null;
   creditPlans: PlanType[];
+  isProPlan: boolean;
 }) {
   const isAutoReloadOn = !!licenseInfo?.autoReload;
   const autoReloadSlug = licenseInfo?.autoReloadSlug || "";
@@ -452,14 +477,32 @@ function PlanDetailsPanel({
       transition={{ delay: 0.08, duration: 0.4 }}
       className="mb-10 border border-white/15 bg-white/[0.035] px-6 py-5"
     >
-      <div className="mb-4">
-        <h2 className="text-[15px] font-bold text-white tracking-tight">Plan details</h2>
-        <p className="mt-1 text-[12px] text-[#9ca3af]">
-          Renews on {formatBillingDate(licenseInfo?.expiresAt)}
-        </p>
+      <div className="mb-4 flex items-start justify-between">
+        <div>
+          <h2 className="text-[15px] font-bold text-white tracking-tight">Plan details</h2>
+          <p className="mt-1 text-[12px] text-[#9ca3af]">
+            Renews on {formatBillingDate(licenseInfo?.expiresAt)}
+          </p>
+        </div>
+        {licenseInfo?.stripeId && (
+          <button
+            onClick={async () => {
+              const apiKey = localStorage.getItem("defaultApiKey");
+              if (!apiKey) return;
+              const { getManageSubUrl } = await import("@/app/services/pricingPaymentService");
+              const { data } = await getManageSubUrl(apiKey);
+              if (data?.manageUrl) window.open(data.manageUrl, "_blank");
+            }}
+            className="text-sm text-[#00E3AA] hover:underline transition-colors whitespace-nowrap"
+          >
+            Manage subscription &rarr;
+          </button>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 divide-y divide-white/10 border-t border-white/10 pt-5 md:grid-cols-3 md:divide-x md:divide-y-0">
+      <div className={`grid grid-cols-1 divide-y divide-white/10 border-t border-white/10 pt-5 ${
+        isProPlan ? "md:grid-cols-3 md:divide-x md:divide-y-0" : "md:grid-cols-2 md:divide-x md:divide-y-0"
+      }`}>
         <div className="pb-5 md:pb-0 md:pr-7">
           <div className="mb-3 flex items-center gap-2">
             <span className="text-[14px] font-semibold text-white">Current Plan</span>
@@ -488,44 +531,46 @@ function PlanDetailsPanel({
           </div>
         </div>
 
-        <div className="pt-5 md:pl-7 md:pt-0">
-          <div className="mb-3 flex items-start justify-between gap-4">
-            <h3 className="text-[14px] font-semibold text-white">Auto-reload credits</h3>
+        {isProPlan && (
+          <div className="pt-5 md:pl-7 md:pt-0">
+            <div className="mb-3 flex items-start justify-between gap-4">
+              <h3 className="text-[14px] font-semibold text-white">Auto-reload credits</h3>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={isAutoReloadOn}
+                disabled={autoReloadLoading}
+                onClick={() => onAutoReloadChange(!isAutoReloadOn)}
+                className={`relative h-6 w-11 shrink-0 rounded-full border transition-all duration-200 disabled:opacity-60 ${
+                  isAutoReloadOn
+                    ? "border-[#00E3AA] bg-[#00E3AA]"
+                    : "border-white/15 bg-white/10"
+                }`}
+              >
+                <span
+                  className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                    isAutoReloadOn ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+            <p className="text-[12px] leading-relaxed text-[#9ca3af]">
+              {reloadLabel} will be reloaded automatically as add-on credits when the balance goes below 2000.
+            </p>
             <button
               type="button"
-              role="switch"
-              aria-checked={isAutoReloadOn}
+              onClick={onManageAutoReload}
               disabled={autoReloadLoading}
-              onClick={() => onAutoReloadChange(!isAutoReloadOn)}
-              className={`relative h-6 w-11 shrink-0 rounded-full border transition-all duration-200 disabled:opacity-60 ${
-                isAutoReloadOn
-                  ? "border-[#00E3AA] bg-[#00E3AA]"
-                  : "border-white/15 bg-white/10"
-              }`}
+              className="mt-3 inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#00E3AA] hover:text-[#00ffd0] disabled:opacity-60"
             >
-              <span
-                className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                  isAutoReloadOn ? "translate-x-5" : "translate-x-0"
-                }`}
-              />
+              {autoReloadLoading ? <SpinnerIcon /> : <PencilIcon />}
+              Manage auto-reload
             </button>
+            {autoReloadError && (
+              <p className="mt-2 text-[12px] text-red-400">{autoReloadError}</p>
+            )}
           </div>
-          <p className="text-[12px] leading-relaxed text-[#9ca3af]">
-            {reloadLabel} will be reloaded automatically as add-on credits when the balance goes below 2000.
-          </p>
-          <button
-            type="button"
-            onClick={onManageAutoReload}
-            disabled={autoReloadLoading}
-            className="mt-3 inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#00E3AA] hover:text-[#00ffd0] disabled:opacity-60"
-          >
-            {autoReloadLoading ? <SpinnerIcon /> : <PencilIcon />}
-            Manage auto-reload
-          </button>
-          {autoReloadError && (
-            <p className="mt-2 text-[12px] text-red-400">{autoReloadError}</p>
-          )}
-        </div>
+        )}
       </div>
     </motion.div>
   );
@@ -584,6 +629,9 @@ function SubscriptionViewInner() {
     ?? allPricingPlans.find((p) => p.slug === currentSlug)?.displayName
     ?? subscriptionPlans.find((p) => p.billingType === "free")?.displayName
     ?? "Free";
+
+  const isEnterprisePlan = currentSlug.includes("ente_ente") || currentPlanName.toLowerCase().includes("enterprise");
+  const isProPlan = !!isPaidPlan && !isEnterprisePlan;
 
   const handleAutoReloadToggle = async (enabled: boolean) => {
     const apiKey = typeof window !== "undefined"
@@ -696,16 +744,19 @@ function SubscriptionViewInner() {
               autoReloadLoading={autoReloadLoading}
               autoReloadError={autoReloadError}
               creditPlans={creditPlans}
+              isProPlan={isProPlan}
             />
 
-            <AutoReloadModal
-              open={autoReloadModalOpen}
-              onClose={() => setAutoReloadModalOpen(false)}
-              creditPlans={creditPlans}
-              currentSlug={licenseInfo?.autoReloadSlug || ""}
-              onSelect={handleAutoReloadPlanSelect}
-              loading={autoReloadLoading}
-            />
+            {isProPlan && (
+              <AutoReloadModal
+                open={autoReloadModalOpen}
+                onClose={() => setAutoReloadModalOpen(false)}
+                creditPlans={creditPlans}
+                currentSlug={licenseInfo?.autoReloadSlug || ""}
+                onSelect={handleAutoReloadPlanSelect}
+                loading={autoReloadLoading}
+              />
+            )}
           </>
         )}
 
@@ -776,28 +827,7 @@ function SubscriptionViewInner() {
           </>
         )}
 
-        {/* Manage subscription */}
-        {licenseInfo?.stripeId && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-            className="mb-8 text-center"
-          >
-            <button
-              onClick={async () => {
-                const apiKey = localStorage.getItem("defaultApiKey");
-                if (!apiKey) return;
-                const { getManageSubUrl } = await import("@/app/services/pricingPaymentService");
-                const { data } = await getManageSubUrl(apiKey);
-                if (data?.manageUrl) window.open(data.manageUrl, "_blank");
-              }}
-              className="text-sm text-[#00E3AA] hover:underline transition-colors"
-            >
-              Manage subscription &rarr;
-            </button>
-          </motion.div>
-        )}
+
 
         <ContactUsModal open={contactModalOpen} onClose={() => setContactModalOpen(false)} />
       </div>
