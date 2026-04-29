@@ -359,16 +359,23 @@ function AutoReloadModal({
   onClose,
   creditPlans,
   currentSlug,
-  onSelect,
+  onSave,
   loading,
 }: {
   open: boolean;
   onClose: () => void;
   creditPlans: PlanType[];
   currentSlug: string;
-  onSelect: (slug: string) => void;
+  onSave: (slug: string) => void;
   loading: boolean;
 }) {
+  const [selectedSlug, setSelectedSlug] = useState(currentSlug);
+
+  // Sync local selection when the modal opens or currentSlug changes
+  React.useEffect(() => {
+    if (open) setSelectedSlug(currentSlug || creditPlans[0]?.slug || "");
+  }, [open, currentSlug, creditPlans]);
+
   if (!open) return null;
 
   return (
@@ -418,8 +425,8 @@ function AutoReloadModal({
                   key={plan.id}
                   plan={plan}
                   index={idx}
-                  isSelected={plan.slug === currentSlug}
-                  onSelect={onSelect}
+                  isSelected={plan.slug === selectedSlug}
+                  onSelect={setSelectedSlug}
                   isLoading={loading}
                 />
               ))}
@@ -431,9 +438,18 @@ function AutoReloadModal({
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/8">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg text-[13px] font-medium text-white/60 hover:text-white hover:bg-white/8 transition-all"
+            disabled={loading}
+            className="px-4 py-2 rounded-lg text-[13px] font-medium text-white/60 hover:text-white hover:bg-white/8 transition-all disabled:opacity-60"
           >
             Cancel
+          </button>
+          <button
+            onClick={() => onSave(selectedSlug)}
+            disabled={loading || !selectedSlug}
+            className="px-5 py-2 rounded-lg text-[13px] font-semibold bg-[#00E3AA] text-black hover:bg-[#00E3AA]/90 active:scale-[0.98] transition-all disabled:opacity-60 flex items-center gap-1.5"
+          >
+            {loading && <SpinnerIcon />}
+            Save
           </button>
         </div>
       </motion.div>
@@ -592,12 +608,67 @@ function PlanSkeleton() {
   );
 }
 
+// ─── Disable Auto-Reload Confirmation Modal ─────────────────────────────────
+function DisableAutoReloadModal({
+  open,
+  onClose,
+  onConfirm,
+  loading,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  loading: boolean;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Modal */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 12 }}
+        transition={{ duration: 0.25, ease: "easeOut" }}
+        className="relative z-10 w-full max-w-md mx-4 rounded-2xl border border-white/10 bg-[#111111] shadow-2xl shadow-black/50 p-6"
+      >
+        <h3 className="text-[16px] font-bold text-white mb-2">Disable Auto-Reload</h3>
+        <p className="text-[13px] text-[#9ca3af] leading-relaxed mb-6">
+          Are you sure you want to disable auto-reload credits?
+        </p>
+
+        <div className="flex items-center justify-end gap-3">
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="px-4 py-2 rounded-lg text-[13px] font-medium text-white/70 hover:text-white hover:bg-white/8 transition-all disabled:opacity-60 flex items-center gap-1.5"
+          >
+            {loading && <SpinnerIcon />}
+            Yes, Disable
+          </button>
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="px-4 py-2 rounded-lg text-[13px] font-semibold bg-[#00E3AA] text-black hover:bg-[#00E3AA]/90 active:scale-[0.98] transition-all disabled:opacity-60"
+          >
+            No, Cancel
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 // ─── Main inner component ─────────────────────────────────────────────────────
 function SubscriptionViewInner() {
   const { allPricingPlans, licenseInfo, setLicenseInfo, isLoading } = useContext(SubscriptionContext);
   const { paymentHandler, loading: paymentLoading, error: paymentError } = usePayment();
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [autoReloadModalOpen, setAutoReloadModalOpen] = useState(false);
+  const [disableAutoReloadModalOpen, setDisableAutoReloadModalOpen] = useState(false);
   const [autoReloadLoading, setAutoReloadLoading] = useState(false);
   const [autoReloadError, setAutoReloadError] = useState<string | null>(null);
 
@@ -634,12 +705,24 @@ function SubscriptionViewInner() {
   const isProPlan = !!isPaidPlan && !isEnterprisePlan;
 
   const handleAutoReloadToggle = async (enabled: boolean) => {
+    if (!enabled) {
+      // Show confirmation modal when turning OFF
+      setDisableAutoReloadModalOpen(true);
+      return;
+    }
+
+    // Turning ON — open the credits modal so user picks a plan first
+    setAutoReloadModalOpen(true);
+  };
+
+  const confirmDisableAutoReload = async () => {
     const apiKey = typeof window !== "undefined"
       ? localStorage.getItem("defaultApiKey")
       : null;
 
     if (!apiKey) {
       setAutoReloadError("No API key found. Please refresh the page and try again.");
+      setDisableAutoReloadModalOpen(false);
       return;
     }
 
@@ -648,10 +731,10 @@ function SubscriptionViewInner() {
     setAutoReloadLoading(true);
     setAutoReloadError(null);
     const previous = licenseInfo;
-    setLicenseInfo({ ...licenseInfo, autoReload: enabled, autoReloadSlug });
+    setLicenseInfo({ ...licenseInfo, autoReload: false, autoReloadSlug });
 
     const { error } = await updateAutoReload(apiKey, {
-      autoReload: enabled,
+      autoReload: false,
       autoReloadSlug,
     });
 
@@ -661,6 +744,7 @@ function SubscriptionViewInner() {
     }
 
     setAutoReloadLoading(false);
+    setDisableAutoReloadModalOpen(false);
   };
 
   const handleAutoReloadPlanSelect = async (slug: string) => {
@@ -753,7 +837,7 @@ function SubscriptionViewInner() {
                 onClose={() => setAutoReloadModalOpen(false)}
                 creditPlans={creditPlans}
                 currentSlug={licenseInfo?.autoReloadSlug || ""}
-                onSelect={handleAutoReloadPlanSelect}
+                onSave={handleAutoReloadPlanSelect}
                 loading={autoReloadLoading}
               />
             )}
@@ -830,6 +914,12 @@ function SubscriptionViewInner() {
 
 
         <ContactUsModal open={contactModalOpen} onClose={() => setContactModalOpen(false)} />
+        <DisableAutoReloadModal
+          open={disableAutoReloadModalOpen}
+          onClose={() => setDisableAutoReloadModalOpen(false)}
+          onConfirm={confirmDisableAutoReload}
+          loading={autoReloadLoading}
+        />
       </div>
     </div>
   );
