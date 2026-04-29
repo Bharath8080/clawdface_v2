@@ -1,28 +1,43 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { useUser, useStackApp } from "@stackframe/stack";
+import { useEffect, useState } from "react";
 
 export function Nav() {
   const user = useUser();
   const stackApp = useStackApp();
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
-    <nav className="sticky top-0 inset-x-0 z-50 bg-surface border-b border-white/10">
-      <div className="max-w-[1400px] mx-auto px-8 h-[72px] flex items-center justify-between">
+    <motion.nav
+      className="sticky top-0 inset-x-0 z-50 transition-all duration-300"
+      animate={{
+        backgroundColor: scrolled ? "rgba(6,13,9,0.80)" : "rgba(6,13,9,0)",
+        borderBottomColor: scrolled ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0)",
+        backdropFilter: scrolled ? "blur(16px)" : "blur(0px)",
+        boxShadow: scrolled ? "0 4px 32px rgba(0,0,0,0.35)" : "none",
+      }}
+      style={{ borderBottomWidth: 1, borderBottomStyle: "solid" }}
+    >
+      <div className="max-w-7xl mx-auto px-6 h-[68px] flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
-          <div className="relative flex-shrink-0 w-16 h-12">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/clawdface-logo.svg" alt="ClawdFace" className="w-full h-full object-contain" />
-          </div>
-          <span className="font-bold text-xl text-white">Clawd</span>
-          <span className="font-bold text-xl text-red-500 -ml-1">Face</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/clawdface-logo.svg" alt="ClawdFace" className="w-14 h-12 object-contain shrink-0" />
+          <Image src="/icons/ClawdFace-main.svg" alt="ClawdFace" width={100} height={16} className="object-contain" />
         </Link>
 
         {/* Nav links */}
-        <div className="hidden md:flex items-center gap-10 text-[15px] font-medium text-zinc-400">
+        <div className="hidden md:flex items-center gap-8 text-[14px] font-medium text-zinc-400">
           <Link href="/#how-it-works" className="hover:text-white transition-colors">How It Works?</Link>
           <Link href="/#features" className="hover:text-white transition-colors">Features</Link>
           <Link href="/#pricing" className="hover:text-white transition-colors">Pricing</Link>
@@ -30,14 +45,14 @@ export function Nav() {
         </div>
 
         {/* Auth */}
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-4">
           {user ? (
             <>
               <Link href="/dashboard">
                 <motion.button
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
-                  className="bg-brand text-black px-6 py-2.5 rounded-lg text-[15px] font-bold"
+                  className="bg-brand text-black px-5 py-2 rounded-2xl text-[14px] font-bold"
                 >
                   Dashboard
                 </motion.button>
@@ -51,21 +66,21 @@ export function Nav() {
                     console.error(e);
                   }
                 }}
-                className="text-[15px] font-medium text-zinc-400 hover:text-white transition-colors"
+                className="text-[14px] font-medium text-zinc-400 hover:text-white transition-colors"
               >
                 Log Out
               </button>
             </>
           ) : (
             <>
-              <Link href="/log-in" className="text-[15px] font-medium text-zinc-300 hover:text-white transition-colors">
+              <Link href="/log-in" className="text-[14px] font-medium text-zinc-400 hover:text-white transition-colors">
                 Log In
               </Link>
               <Link href="/sign-up">
                 <motion.button
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
-                  className="bg-brand text-black px-6 py-2.5 rounded-lg text-[15px] font-bold"
+                  className="bg-brand text-black px-5 py-2 rounded-lg text-[14px] font-bold"
                 >
                   Sign Up
                 </motion.button>
@@ -74,6 +89,6 @@ export function Nav() {
           )}
         </div>
       </div>
-    </nav>
+    </motion.nav>
   );
 }

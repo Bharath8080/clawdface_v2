@@ -3,109 +3,155 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
+const CARD_BG = "#111113";
+
 const FAQS = [
   {
-    question: "Does ClawdFace give your bot a human-like avatar voice?",
+    question: "Does Clawd Face gives both human-like face and voice?",
     answer:
-      "Yes. ClawdFace integrates ElevenLabs for industry-leading neural voice synthesis. Your AI avatar speaks with natural tone, pacing, and emotion — completely indistinguishable from a human voice in most cases.",
+      "Yes! You can give it a natural voice and a friendly face to make interactions feel real.",
   },
   {
-    question: "Can I use ClawdFace agent for meetings?",
+    question: "Can my ClawdFace Agent join meetings?",
     answer:
       "Absolutely. ClawdFace avatars can join live video calls on Zoom, Google Meet, Microsoft Teams, and more. Your AI participant shows up with a face, speaks, and interacts just like a real attendee.",
   },
   {
-    question: "How does ClawdFace integrate with my existing bot?",
+    question: "How does the ClawdFace Agent handle emails?",
     answer:
-      "Zero code changes required. Paste your OpenClaw endpoint URL and API key into ClawdFace settings. We handle the WebRTC signaling, STT/TTS pipeline, and avatar rendering — your OpenClaw logic stays exactly as-is.",
+      "Your ClawdFace Agent gets its own email address. You can invite it to meetings or send it tasks directly, and it will respond and take action just like a human teammate.",
   },
   {
-    question: "Is ClawdFace free to start?",
+    question: "Is My Data Safe?",
     answer:
-      "Yes. Our free tier includes 10 minutes of total usage to test everything end-to-end. No credit card required. Upgrade to a paid plan when you&apos;re ready to go live with more minutes and concurrent sessions.",
+      "Yes. ClawdFace is GDPR, HIPAA, ISO 42001, and AICPA SOC 2 compliant. We never allow third-party AI providers to store or train on your data.",
   },
   {
-    question: "Can ClawdFace agents use tools and return assistant results?",
+    question: "Can my ClawdFace Agent see and respond visually?",
     answer:
-      "Yes. Because ClawdFace connects directly to your OpenClaw agent, it supports full tool use — web search, API calls, database queries, and any custom actions you've configured in your Clawdbot.",
+      "Yes. ClawdFace supports vision — your agent can see what's on screen or shared in a video call and respond contextually in real time.",
+  },
+  {
+    question: "What platforms can I use my AI on?",
+    answer:
+      "ClawdFace works on Zoom, Google Meet, Microsoft Teams, and directly on your website as an embedded avatar. More platform integrations are coming soon.",
   },
 ];
 
-function FAQItem({ question, answer }: { question: string; answer: string }) {
-  const [open, setOpen] = useState(false);
+function FAQItem({
+  index,
+  question,
+  answer,
+  defaultOpen = false,
+}: {
+  index: number;
+  question: string;
+  answer: string;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className="border-b border-white/5 last:border-0">
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay: index * 0.08 }}
+      className="rounded-2xl overflow-hidden"
+      style={{ background: CARD_BG, border: "1px solid rgba(255,255,255,0.07)" }}
+    >
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between py-5 text-left gap-6 group"
+        className="w-full flex items-center justify-between px-5 md:px-7 py-5 text-left gap-4"
       >
-        <span className={`text-base font-semibold transition-colors ${open ? "text-brand" : "text-white group-hover:text-brand"}`}>
-          {question}
+        <span className="text-white font-semibold text-base leading-snug">
+          {index + 1}. {question}
         </span>
-        <div
-          className={`flex-shrink-0 w-8 h-8 rounded-full border flex items-center justify-center transition-all duration-300 ${
-            open
-              ? "bg-brand/10 border-brand/30 rotate-45"
-              : "bg-white/5 border-white/10"
-          }`}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={open ? "#00E3AA" : "white"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
+        <div className="shrink-0">
+          {open ? (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="18 15 12 9 6 15" />
+            </svg>
+          ) : (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          )}
         </div>
       </button>
 
-      <AnimatePresence>
+      <AnimatePresence initial={false}>
         {open && (
           <motion.div
+            key="answer"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25 }}
+            transition={{ duration: 0.22 }}
             className="overflow-hidden"
           >
-            <p className="text-zinc-400 leading-relaxed pb-5 text-sm">{answer}</p>
+            <p className="text-zinc-400 text-sm leading-relaxed px-5 md:px-7 pb-6">
+              {answer}
+            </p>
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 }
 
 export function FAQSection() {
   return (
-    <section className="py-24 px-6 bg-canvas">
-      <div className="max-w-3xl mx-auto">
+    <section className="py-14 md:py-24 px-6 bg-canvas relative overflow-hidden">
+      {/* Ambient glow — right side reddish (matching screenshot) */}
+      <div className="pointer-events-none absolute top-1/3 right-0 w-[400px] h-[400px] rounded-full blur-[160px]"
+        style={{ background: "rgba(180,60,30,0.12)" }} />
+
+      {/* Scattered dots */}
+      {[
+        { top: "5%",  left: "2%"  }, { top: "20%", left: "5%"  },
+        { top: "55%", left: "3%"  }, { top: "80%", left: "7%"  },
+        { top: "10%", left: "93%" }, { top: "35%", left: "96%" },
+        { top: "65%", left: "94%" }, { top: "88%", left: "92%" },
+      ].map((d, i) => (
+        <div key={i} className="absolute w-1 h-1 rounded-full bg-white/10 pointer-events-none"
+          style={{ top: d.top, left: d.left }} />
+      ))}
+
+      <div className="relative z-10 max-w-3xl mx-auto">
+        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center mb-14"
+          className="text-center mb-12"
         >
-          <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-2 rounded-full mb-6">
-            <span className="text-zinc-400 text-sm font-semibold">Got Questions?</span>
+          <div className="inline-flex items-center px-4 py-1.5 rounded-md bg-brand-subtle border border-brand-muted/20 mb-6">
+            <span className="text-brand-muted text-sm font-mono font-semibold tracking-wide">
+              Question &amp; Answers
+            </span>
           </div>
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
+          <h2 className="text-3xl md:text-[54px] font-bold text-white mb-5 capitalize leading-tight">
             Frequently Asked Questions
           </h2>
-          <p className="text-xl text-zinc-400">
-            Everything you need to know about ClawdFace.
+          <p className="text-body text-base md:text-lg max-w-3xl mx-auto leading-7">
+            Explore how your AI works, what it can do, and how it fits seamlessly into your workflow—
+            everything you need to get started with confidence.
           </p>
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.1 }}
-          className="rounded-2xl border border-white/10 bg-surface-card px-6 divide-y divide-white/5"
-        >
+        {/* FAQ items */}
+        <div className="space-y-3">
           {FAQS.map((faq, idx) => (
-            <FAQItem key={idx} {...faq} />
+            <FAQItem
+              key={idx}
+              index={idx}
+              question={faq.question}
+              answer={faq.answer}
+              defaultOpen={idx === 0}
+            />
           ))}
-        </motion.div>
+        </div>
       </div>
     </section>
   );

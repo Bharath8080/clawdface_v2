@@ -1,93 +1,113 @@
+"use client";
+
+import Image from "next/image";
 import { motion } from "framer-motion";
 
-const features = [
+const FEATURES = [
   {
+    icon: "/icons/feature-avatar-icon.svg",
     title: "Realistic Human-to-AI Interactions",
-    description: "Experience hyper-realistic, human-like conversations with AI avatars that respond with natural expressions and fluid movement.",
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00E3AA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-        <circle cx="9" cy="7" r="4" />
-        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-      </svg>
-    ),
-    colSpan: "col-span-1 md:col-span-2",
+    description:
+      "Experience hyper-realistic, human-like conversations with AI avatars that respond with natural expressions and fluid movement",
   },
   {
+    icon: "/icons/feature-voice-icon.svg",
     title: "Precision Voice & Speed",
-    description: "Engineered with Deepgram for sub-300ms Speech-to-Text and ElevenLabs for industry-leading, high-fidelity neural voices.",
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00E3AA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-        <line x1="12" y1="19" x2="12" y2="23" />
-        <line x1="8" y1="23" x2="16" y2="23" />
-      </svg>
-    ),
-    colSpan: "col-span-1 md:col-span-1",
+    description:
+      "Engineered with Deepgram for sub-300ms Speech-to-Text and ElevenLabs for industry-leading, high-fidelity neural voices.",
   },
   {
+    icon: "/icons/feature-chat-icon.svg",
     title: "Beyond Text & Audio",
-    description: "Move past traditional text chatbots and voice-only assistants; engage with your AI through a life-like, immersive video presence.",
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00E3AA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M23 7l-7 5 7 5V7z" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-      </svg>
-    ),
-    colSpan: "col-span-1 md:col-span-1",
+    description:
+      "Move past traditional text chatbots and voice-only assistants; engage with your AI through a life-like, immersive video presence.",
   },
   {
+    icon: "/icons/feature-monitor-icon.svg",
     title: "Immersive Web Interaction",
-    description: "A state-of-the-art web platform built specifically for seamless, face-to-face avatar interactions without any complex setup.",
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00E3AA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
-        <line x1="2" y1="10" x2="22" y2="10" />
-        <path d="M7 21h10" />
-        <path d="M12 17v4" />
-      </svg>
-    ),
-    colSpan: "col-span-1 md:col-span-2",
+    description:
+      "A state-of-the-art web platform built specifically for seamless, face-to-face avatar interactions without any complex setup.",
   },
 ];
 
 export function FeaturesSection() {
   return (
-    <section id="features" className="py-24 px-6 relative overflow-hidden bg-surface-secondary">
-      <div className="mb-16 text-center max-w-3xl mx-auto">
-        <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-2 rounded-full mb-6">
-          <span className="text-zinc-400 text-sm font-semibold">Capabilities</span>
-        </div>
-        <h2 className="text-4xl md:text-5xl font-outfit font-bold text-white mb-6">
-          Same OpenClaw.{" "}
-          <span className="text-brand">Entirely New Experience.</span>
-        </h2>
-        <p className="text-xl text-zinc-400">
-          ClawdFace bridges your custom LLM providers directly to LiveKit-powered interactive avatars.
-        </p>
-      </div>
+    <section id="features" className="px-6 md:px-20 py-14 md:py-24 relative overflow-hidden scroll-mt-24">
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
-        {features.map((feature, idx) => (
-          <div 
-            key={idx} 
-            className="p-8 rounded-2xl bg-white/5 border border-white/10 hover:border-white/20 transition-all group overflow-hidden relative"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-brand/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            <div className="relative z-10">
-              <div className="w-12 h-12 bg-brand/10 rounded-xl flex items-center justify-center mb-6">
-                {feature.icon}
-              </div>
-              <h3 className="text-2xl font-bold text-white mb-3 tracking-tight">
-                {feature.title}
-              </h3>
-              <p className="text-zinc-400 leading-relaxed">
-                {feature.description}
-              </p>
+      {/* Scattered dots */}
+      {[
+        { top: "8%",  left: "8%"  }, { top: "22%", left: "12%" },
+        { top: "55%", left: "6%"  }, { top: "78%", left: "14%" },
+        { top: "10%", left: "88%" }, { top: "38%", left: "92%" },
+        { top: "68%", left: "90%" }, { top: "88%", left: "86%" },
+      ].map((d, i) => (
+        <div key={i} className="absolute w-0.5 h-0.5 rounded-full bg-zinc-600 pointer-events-none"
+          style={{ top: d.top, left: d.left }} />
+      ))}
+
+      <div className="relative z-10 max-w-[1104px] mx-auto flex flex-col items-center gap-10 md:gap-16">
+        {/* Heading */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="flex flex-col items-center gap-6 text-center"
+        >
+          <h2 className="text-3xl md:text-6xl font-bold max-w-[784px]">
+            <span className="text-white">Same OpenClaw. Entirely </span>
+            <span className="text-[#FF5C5C]">New Experience</span>
+            <span className="text-white">.</span>
+          </h2>
+          <p className="text-neutral-400 text-base md:text-lg font-normal max-w-[674px] leading-7">
+            ClawdFace bridges your custom LLM providers directly to LiveKit-powered
+            interactive avatars.
+          </p>
+        </motion.div>
+
+        {/* 2×2 grid */}
+        <div className="self-stretch flex flex-col gap-6">
+          {[FEATURES.slice(0, 2), FEATURES.slice(2, 4)].map((row, rowIdx) => (
+            <div key={rowIdx} className="flex flex-col md:flex-row gap-6">
+              {row.map((f, idx) => (
+                <motion.div
+                  key={idx}
+                  initial={{ opacity: 0, y: 24 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: (rowIdx * 2 + idx) * 0.1 }}
+                  whileHover={{ y: -5 }}
+                  className="flex-1 px-6 pt-6 pb-10 bg-gradient-to-br from-white/5 to-black rounded-2xl outline outline-[1.5px] outline-offset-[-1.5px] flex flex-col gap-3.5 cursor-default"
+                  style={{
+                    outlineColor: "rgba(255,255,255,0.08)",
+                    boxShadow: "inset 0px -16.5px 36.9px 0px rgba(255,255,255,0.04)",
+                    transition: "outline-color 0.3s ease, box-shadow 0.3s ease",
+                  }}
+                  onMouseEnter={e => {
+                    const el = e.currentTarget as HTMLDivElement;
+                    el.style.outlineColor = "rgba(255,255,255,0.22)";
+                    el.style.boxShadow = "inset 0px -16.5px 36.9px 0px rgba(255,255,255,0.04), 0 0 28px rgba(255,255,255,0.05), 0 8px 32px rgba(0,0,0,0.5)";
+                  }}
+                  onMouseLeave={e => {
+                    const el = e.currentTarget as HTMLDivElement;
+                    el.style.outlineColor = "rgba(255,255,255,0.08)";
+                    el.style.boxShadow = "inset 0px -16.5px 36.9px 0px rgba(255,255,255,0.04)";
+                  }}
+                >
+                  <div className="flex flex-col gap-5">
+                    {/* Icon pill */}
+                    <div
+                     
+                    >
+                      <Image src={f.icon} alt={f.title} width={50} height={50} className="object-contain" />
+                    </div>
+                    <h3 className="text-white text-xl md:text-2xl font-bold capitalize">{f.title}</h3>
+                    <p className="text-zinc-400 text-base font-normal leading-6">{f.description}</p>
+                  </div>
+                </motion.div>
+              ))}
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </section>
   );

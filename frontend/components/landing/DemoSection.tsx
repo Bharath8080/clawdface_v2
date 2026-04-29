@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 
 export function DemoSection() {
   return (
-    <section id="demo" className="py-20 px-8 bg-surface relative overflow-hidden">
+    <section id="demo" className="py-14 md:py-24 px-6 md:px-8 bg-canvas relative overflow-hidden">
       {/* Background dots */}
       {[
         { top: "10%", left: "3%" }, { top: "25%", left: "8%" },
@@ -70,8 +70,8 @@ export function DemoSection() {
 
             {/* You — PiP bottom-right */}
             <div
-              className="absolute bottom-5 right-5 rounded-2xl overflow-hidden"
-              style={{ width: 180, background: "#1e1e3a" }}
+              className="absolute bottom-5 right-5 rounded-2xl overflow-hidden w-[120px] md:w-[180px]"
+              style={{ background: "#1e1e3a" }}
             >
               <div className="px-3 pt-2.5 pb-1">
                 <span className="text-white text-xs font-semibold">You</span>
