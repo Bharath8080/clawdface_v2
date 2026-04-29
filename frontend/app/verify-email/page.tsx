@@ -26,12 +26,12 @@ export default function VerifyEmailPage() {
   }, [params, app, router]);
 
   return (
-    <div className="min-h-screen bg-[#050505] flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-[#111111] border border-white/10 rounded-2xl p-8 flex flex-col items-center gap-6 text-center">
+    <div className="min-h-screen bg-canvas flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-surface-card border border-white/10 rounded-2xl p-8 flex flex-col items-center gap-6 text-center">
 
         {status === "loading" && (
           <>
-            <svg className="animate-spin" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#00E3AA" strokeWidth="2">
+            <svg className="animate-spin text-brand" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="10" opacity="0.25" />
               <path d="M22 12a10 10 0 0 1-10 10" opacity="0.9" />
             </svg>
@@ -42,8 +42,8 @@ export default function VerifyEmailPage() {
 
         {status === "success" && (
           <>
-            <div className="w-16 h-16 bg-[#00E3AA]/10 border border-[#00E3AA]/20 rounded-full flex items-center justify-center">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00E3AA" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <div className="w-16 h-16 bg-brand/10 border border-brand/20 rounded-full flex items-center justify-center">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M5 13l4 4L19 7" />
               </svg>
             </div>
@@ -53,7 +53,7 @@ export default function VerifyEmailPage() {
             </p>
             <Link
               href="/log-in"
-              className="mt-2 bg-[#00E3AA] text-black font-bold py-2.5 px-8 rounded-xl hover:brightness-110 transition-all"
+              className="mt-2 bg-brand text-black font-bold py-2.5 px-8 rounded-xl hover:brightness-110 transition-all"
             >
               Sign In
             </Link>
@@ -74,7 +74,7 @@ export default function VerifyEmailPage() {
             </p>
             <Link
               href="/email-not-verified"
-              className="w-full bg-[#00E3AA] text-black font-bold py-2.5 rounded-xl hover:brightness-110 transition-all text-center"
+              className="w-full bg-brand text-black font-bold py-2.5 rounded-xl hover:brightness-110 transition-all text-center"
             >
               Resend Verification Email
             </Link>

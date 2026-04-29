@@ -5,7 +5,7 @@ import Link from "next/link";
 
 export default function PaymentCancelled() {
   return (
-    <div className="min-h-screen bg-[#050505] flex items-center justify-center p-4 overflow-hidden relative">
+    <div className="min-h-screen bg-canvas flex items-center justify-center p-4 overflow-hidden relative">
       {/* Background glows */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-[#a78bfa]/4 rounded-full blur-[140px]" />
@@ -71,7 +71,7 @@ export default function PaymentCancelled() {
             className="w-full flex flex-col gap-3"
           >
             <div className="flex items-start gap-3 text-left p-4 rounded-xl bg-white/[0.02] border border-white/5">
-              <svg className="w-4 h-4 text-[#00E3AA] mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-4 h-4 text-brand mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <p className="text-sm text-[#9ca3af] leading-relaxed">
@@ -96,7 +96,7 @@ export default function PaymentCancelled() {
             className="w-full flex flex-col gap-3"
           >
             <Link href="/dashboard" className="w-full">
-              <button className="w-full flex items-center justify-center gap-2 bg-[#00E3AA] text-black font-bold py-3.5 px-8 rounded-xl hover:bg-[#00E3AA]/90 active:scale-[0.98] transition-all duration-200 shadow-lg shadow-[#00E3AA]/20">
+              <button className="w-full flex items-center justify-center gap-2 bg-brand text-black font-bold py-3.5 px-8 rounded-xl hover:bg-brand/90 active:scale-[0.98] transition-all duration-200 shadow-lg shadow-brand/20">
                 View Plans
               </button>
             </Link>

@@ -1,7 +1,9 @@
 export interface AgentBot {
   id: string;
+  agent_id?: string;
   agent_name: string;
   agent_system_prompt: string;
+  default_system_prompt?: boolean;
   email: string;
   config: {
     openclaw_url: string;
@@ -9,13 +11,21 @@ export interface AgentBot {
     session_key: string;
     thinking_enabled: boolean;
     thinking_delay: number;
+    [key: string]: any;
   };
   tools: Record<string, any>;
-  avatars: Array<{ avatar_key_id: string }>;
+  avatars: Array<Record<string, any>>;
+  knowledge_base?: Array<Record<string, any>>;
+  mcp?: Array<Record<string, any>>;
+  tool?: Array<Record<string, any>>;
+  integration?: Array<Record<string, any>>;
+  record?: boolean;
+  callback_url?: string;
+  callback_events?: string[];
   is_active: boolean;
   is_public: boolean;
   type: string;
-  add_on: Array<{ type: string }>;
+  add_on: Array<Record<string, any>>;
   created_at?: string;
 }
 
@@ -29,7 +39,7 @@ export interface CreateAgentPayload {
   is_active: boolean;
   is_public: boolean;
   type: string;
-  add_on: Array<{ type: string }>;
+  add_on: Array<Record<string, any>>;
   knowledge_base?: Array<{ id: string; name: string }>;
   record?: boolean;
 }
@@ -51,11 +61,18 @@ export const createAgent = async (
       const data = await response.json();
       return { data, error: null };
     } else {
-      const errorText = await response.json();
+      const errorText = await response.text();
+      let errorMessage = "An error occurred";
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error || errorJson.message || errorText;
+      } catch {
+        errorMessage = errorText || "An error occurred";
+      }
       return {
         data: null,
         status: response.status,
-        error: `${errorText?.error || errorText?.message || "An error occurred"}`,
+        error: errorMessage,
       };
     }
   } catch (err: unknown) {
@@ -68,7 +85,7 @@ export const createAgent = async (
 export const updateAgent = async (
   apiKey: string,
   id: string,
-  body: Partial<CreateAgentPayload>
+  body: Record<string, any>
 ): Promise<{ data: any; status?: number; error: string | null }> => {
   try {
     const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/v1/agent/${id}`, {
@@ -83,11 +100,18 @@ export const updateAgent = async (
       const data = await response.json();
       return { data, error: null };
     } else {
-      const errorText = await response.json();
+      const errorText = await response.text();
+      let errorMessage = "An error occurred";
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error || errorJson.message || errorText;
+      } catch {
+        errorMessage = errorText || "An error occurred";
+      }
       return {
         data: null,
         status: response.status,
-        error: `${errorText?.error || errorText?.message || "An error occurred"}`,
+        error: errorMessage,
       };
     }
   } catch (err: unknown) {
@@ -107,8 +131,15 @@ export const deleteAgent = async (
       headers: { "X-API-Key": apiKey },
     });
     if (response.ok) return { error: null };
-    const errorText = await response.json();
-    return { error: `${errorText?.error || errorText?.message || "An error occurred"}` };
+    const errorText = await response.text();
+    let errorMessage = "An error occurred";
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorMessage = errorJson.error || errorJson.message || errorText;
+    } catch {
+      errorMessage = errorText || "An error occurred";
+    }
+    return { error: errorMessage };
   } catch (err: unknown) {
     return { error: err instanceof Error ? err.message : "Unknown error" };
   }
@@ -126,11 +157,18 @@ export const getAgents = async (
       const data = await response.json();
       return { data: data?.filter((el: any) => el?.is_active) ?? [], error: null };
     } else {
-      const errorText = await response.json();
+      const errorText = await response.text();
+      let errorMessage = "An error occurred";
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error || errorJson.message || errorText;
+      } catch {
+        errorMessage = errorText || "An error occurred";
+      }
       return {
         data: null,
         status: response.status,
-        error: `${errorText?.error || errorText?.message || "An error occurred"}`,
+        error: errorMessage,
       };
     }
   } catch (err: unknown) {

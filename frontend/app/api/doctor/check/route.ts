@@ -40,7 +40,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       status: response.status,
-      ok: response.ok
+      ok: response.ok,
+      server: response.headers.get("server")
     });
   } catch (error: any) {
     console.error("DOCTOR_API_ERROR:", error.message);

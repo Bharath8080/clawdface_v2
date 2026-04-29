@@ -22,19 +22,19 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   }
 
   return (
-    <main className="h-[100dvh] w-screen bg-[#050505] flex overflow-hidden font-[Inter] text-white">
+    <main className="h-[100dvh] w-screen bg-canvas flex overflow-hidden font-[Inter] text-white">
       <Sidebar
         activeSession=""
-        setActiveSession={() => router.push("/dashboard")}
+        setActiveSession={(session) => router.push(`/dashboard?session=${encodeURIComponent(session)}`)}
         isMobileMenuOpen={isMobileMenuOpen}
         setIsMobileMenuOpen={setIsMobileMenuOpen}
       />
 
       <div className="flex-1 h-full w-full overflow-hidden flex flex-col relative z-0">
         {/* Mobile Header */}
-        <div className="md:hidden flex items-center justify-between px-4 h-14 border-b border-white/5 bg-[#0A0A0A] shrink-0 z-10 shadow-sm">
+        <div className="md:hidden flex items-center justify-between px-4 h-14 border-b border-white/5 bg-surface-secondary shrink-0 z-10 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="w-7 h-7 shrink-0 relative flex items-center justify-center rounded-lg bg-[#00E3AA]/10 text-[#00E3AA]">
+            <div className="w-7 h-7 shrink-0 relative flex items-center justify-center rounded-lg bg-brand/10 text-brand">
               <Image src="/openclaw.png" alt="Logo" width={18} height={18} className="object-contain drop-shadow-[0_0_4px_rgba(0,227,170,0.5)]" />
             </div>
             <span className="text-white font-bold text-lg leading-none tracking-tight mt-1 font-outfit">ClawdFace</span>

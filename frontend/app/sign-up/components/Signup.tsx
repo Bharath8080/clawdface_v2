@@ -114,10 +114,10 @@ const Signup = () => {
 
   if (isSubmitted) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-[#111111] border border-white/10 rounded-2xl p-8 flex flex-col items-center gap-6 text-center">
-          <div className="w-16 h-16 bg-[#00E3AA]/10 rounded-full flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-[#00E3AA]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div className="min-h-screen bg-canvas flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-surface-card border border-white/10 rounded-2xl p-8 flex flex-col items-center gap-6 text-center">
+          <div className="w-16 h-16 bg-brand/10 rounded-full flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
@@ -129,7 +129,7 @@ const Signup = () => {
           </p>
           <button
             onClick={() => router.replace("/log-in")}
-            className="mt-2 bg-[#00E3AA] text-black font-bold py-3 px-8 rounded-xl hover:bg-[#00E3AA]/90 transition-colors"
+            className="mt-2 bg-brand text-black font-bold py-3 px-8 rounded-xl hover:bg-brand/90 transition-colors"
           >
             Back to Login
           </button>
@@ -139,8 +139,8 @@ const Signup = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-[#111111] border border-white/10 rounded-2xl p-8 flex flex-col gap-5">
+    <div className="min-h-screen bg-canvas flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-surface-card border border-white/10 rounded-2xl p-8 flex flex-col gap-5">
         <div className="flex flex-col items-center gap-2 mb-1">
           <span className="text-2xl font-bold text-white tracking-tight">ClawdFace</span>
           <span className="text-sm text-zinc-400">Create your account</span>
@@ -159,7 +159,7 @@ const Signup = () => {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Enter your name"
-            className="bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-[#00E3AA]/50 transition-colors"
+            className="bg-surface-elevated border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-brand/50 transition-colors"
           />
           {nameError && <span className="text-red-400 text-xs">{nameError}</span>}
         </div>
@@ -171,7 +171,7 @@ const Signup = () => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Enter your email"
-            className="bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-[#00E3AA]/50 transition-colors"
+            className="bg-surface-elevated border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-brand/50 transition-colors"
           />
           {emailError && <span className="text-red-400 text-xs">{emailError}</span>}
         </div>
@@ -183,7 +183,7 @@ const Signup = () => {
             value={companyName}
             onChange={(e) => setCompanyName(e.target.value)}
             placeholder="Enter company name"
-            className="bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-[#00E3AA]/50 transition-colors"
+            className="bg-surface-elevated border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-brand/50 transition-colors"
           />
           {companyNameError && <span className="text-red-400 text-xs">{companyNameError}</span>}
         </div>
@@ -195,7 +195,7 @@ const Signup = () => {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Enter password"
-            className="bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-[#00E3AA]/50 transition-colors"
+            className="bg-surface-elevated border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-brand/50 transition-colors"
           />
           {passwordError && <span className="text-red-400 text-xs">{passwordError}</span>}
         </div>
@@ -207,7 +207,7 @@ const Signup = () => {
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             placeholder="Confirm your password"
-            className="bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-[#00E3AA]/50 transition-colors"
+            className="bg-surface-elevated border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-brand/50 transition-colors"
           />
           {confirmPasswordError && <span className="text-red-400 text-xs">{confirmPasswordError}</span>}
         </div>
@@ -218,13 +218,13 @@ const Signup = () => {
               type="checkbox"
               checked={acceptedTerms}
               onChange={(e) => setAcceptedTerms(e.target.checked)}
-              className="mt-0.5 accent-[#00E3AA]"
+              className="mt-0.5 accent-brand"
             />
             <span className="text-sm text-zinc-400">
               I have read and accepted the{" "}
-              <Link href="/terms-of-service" target="_blank" className="text-[#00E3AA] hover:underline">Terms of use</Link>
+              <Link href="/terms-of-service" target="_blank" className="text-brand hover:underline">Terms of use</Link>
               {" "}and{" "}
-              <Link href="/privacy-policy" target="_blank" className="text-[#00E3AA] hover:underline">Privacy Policy</Link>
+              <Link href="/privacy-policy" target="_blank" className="text-brand hover:underline">Privacy Policy</Link>
             </span>
           </label>
           <label className="flex items-start gap-3 cursor-pointer">
@@ -232,7 +232,7 @@ const Signup = () => {
               type="checkbox"
               checked={acceptedNews}
               onChange={(e) => setAcceptedNews(e.target.checked)}
-              className="mt-0.5 accent-[#00E3AA]"
+              className="mt-0.5 accent-brand"
             />
             <span className="text-sm text-zinc-400">
               Keep me informed about products and services
@@ -243,14 +243,14 @@ const Signup = () => {
         <button
           onClick={handleSignUp}
           disabled={loading || !acceptedTerms}
-          className="w-full bg-[#00E3AA] text-black font-bold py-3 rounded-xl hover:bg-[#00E3AA]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-brand text-black font-bold py-3 rounded-xl hover:bg-brand/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? "Creating account..." : "Sign Up"}
         </button>
 
         <span className="text-sm text-zinc-400 text-center">
           Already have an account?{" "}
-          <Link href="/log-in" className="text-[#00E3AA] hover:underline font-medium">
+          <Link href="/log-in" className="text-brand hover:underline font-medium">
             Log in
           </Link>
         </span>
@@ -263,7 +263,7 @@ const Signup = () => {
 
         <button
           onClick={async () => { await app.signInWithOAuth("google"); }}
-          className="w-full flex items-center justify-center gap-3 bg-[#1a1a1a] border border-white/10 text-white font-medium py-3 rounded-xl hover:bg-white/5 transition-colors"
+          className="w-full flex items-center justify-center gap-3 bg-surface-elevated border border-white/10 text-white font-medium py-3 rounded-xl hover:bg-white/5 transition-colors"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />

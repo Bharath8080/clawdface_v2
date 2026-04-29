@@ -84,10 +84,10 @@ export default function ResetPasswordPage() {
   // ── Success: email sent ──────────────────────────────────────────────────
   if (emailSent) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-[#111111] border border-white/10 rounded-2xl p-8 flex flex-col items-center gap-6 text-center">
-          <div className="w-16 h-16 bg-[#00E3AA]/10 rounded-full flex items-center justify-center">
-            <svg className="h-8 w-8 text-[#00E3AA]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div className="min-h-screen bg-canvas flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-surface-card border border-white/10 rounded-2xl p-8 flex flex-col items-center gap-6 text-center">
+          <div className="w-16 h-16 bg-brand/10 rounded-full flex items-center justify-center">
+            <svg className="h-8 w-8 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
           </div>
@@ -99,7 +99,7 @@ export default function ResetPasswordPage() {
           </p>
           <Link
             href="/log-in"
-            className="mt-2 bg-[#00E3AA] text-black font-bold py-3 px-8 rounded-xl hover:bg-[#00E3AA]/90 transition-colors"
+            className="mt-2 bg-brand text-black font-bold py-3 px-8 rounded-xl hover:bg-brand/90 transition-colors"
           >
             Back to Login
           </Link>
@@ -111,10 +111,10 @@ export default function ResetPasswordPage() {
   // ── Success: password reset ──────────────────────────────────────────────
   if (resetDone) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-[#111111] border border-white/10 rounded-2xl p-8 flex flex-col items-center gap-6 text-center">
-          <div className="w-16 h-16 bg-[#00E3AA]/10 rounded-full flex items-center justify-center">
-            <svg className="h-8 w-8 text-[#00E3AA]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div className="min-h-screen bg-canvas flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-surface-card border border-white/10 rounded-2xl p-8 flex flex-col items-center gap-6 text-center">
+          <div className="w-16 h-16 bg-brand/10 rounded-full flex items-center justify-center">
+            <svg className="h-8 w-8 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
@@ -124,7 +124,7 @@ export default function ResetPasswordPage() {
           </p>
           <Link
             href="/log-in"
-            className="mt-2 bg-[#00E3AA] text-black font-bold py-3 px-8 rounded-xl hover:bg-[#00E3AA]/90 transition-colors"
+            className="mt-2 bg-brand text-black font-bold py-3 px-8 rounded-xl hover:bg-brand/90 transition-colors"
           >
             Sign In
           </Link>
@@ -136,8 +136,8 @@ export default function ResetPasswordPage() {
   // ── Set new password (came from email link) ──────────────────────────────
   if (code) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-[#111111] border border-white/10 rounded-2xl p-8 flex flex-col gap-6">
+      <div className="min-h-screen bg-canvas flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-surface-card border border-white/10 rounded-2xl p-8 flex flex-col gap-6">
           <div className="flex flex-col items-center gap-2 mb-2">
             <span className="text-2xl font-bold text-white tracking-tight">ClawdFace</span>
             <span className="text-sm text-zinc-400">Set your new password</span>
@@ -156,7 +156,7 @@ export default function ResetPasswordPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter new password"
-              className="bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-[#00E3AA]/50 transition-colors"
+              className="bg-surface-elevated border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-brand/50 transition-colors"
             />
             {passwordError && <span className="text-red-400 text-xs mt-1">{passwordError}</span>}
           </div>
@@ -168,20 +168,20 @@ export default function ResetPasswordPage() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Confirm new password"
-              className="bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-[#00E3AA]/50 transition-colors"
+              className="bg-surface-elevated border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-brand/50 transition-colors"
             />
           </div>
 
           <button
             onClick={handleReset}
             disabled={resetLoading}
-            className="w-full bg-[#00E3AA] text-black font-bold py-3 rounded-xl hover:bg-[#00E3AA]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-brand text-black font-bold py-3 rounded-xl hover:bg-brand/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {resetLoading ? "Updating..." : "Set New Password"}
           </button>
 
           <span className="text-sm text-zinc-400 text-center">
-            <Link href="/log-in" className="text-[#00E3AA] hover:underline font-medium">
+            <Link href="/log-in" className="text-brand hover:underline font-medium">
               Back to Login
             </Link>
           </span>
@@ -192,8 +192,8 @@ export default function ResetPasswordPage() {
 
   // ── Forgot password (enter email) ────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#050505] flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-[#111111] border border-white/10 rounded-2xl p-8 flex flex-col gap-6">
+    <div className="min-h-screen bg-canvas flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-surface-card border border-white/10 rounded-2xl p-8 flex flex-col gap-6">
         <div className="flex flex-col items-center gap-2 mb-2">
           <span className="text-2xl font-bold text-white tracking-tight">ClawdFace</span>
           <span className="text-sm text-zinc-400">Reset your password</span>
@@ -210,7 +210,7 @@ export default function ResetPasswordPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Enter your email"
-            className="bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-[#00E3AA]/50 transition-colors"
+            className="bg-surface-elevated border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-brand/50 transition-colors"
           />
           {emailError && <span className="text-red-400 text-xs mt-1">{emailError}</span>}
         </div>
@@ -218,14 +218,14 @@ export default function ResetPasswordPage() {
         <button
           onClick={handleSendEmail}
           disabled={sendLoading}
-          className="w-full bg-[#00E3AA] text-black font-bold py-3 rounded-xl hover:bg-[#00E3AA]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-brand text-black font-bold py-3 rounded-xl hover:bg-brand/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {sendLoading ? "Sending..." : "Send Reset Link"}
         </button>
 
         <span className="text-sm text-zinc-400 text-center">
           Remember your password?{" "}
-          <Link href="/log-in" className="text-[#00E3AA] hover:underline font-medium">
+          <Link href="/log-in" className="text-brand hover:underline font-medium">
             Sign In
           </Link>
         </span>

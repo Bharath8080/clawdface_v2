@@ -8,9 +8,10 @@ import { StackProvider, StackTheme } from "@stackframe/stack";
 import { stackServerApp } from "../stack";
 
 const inter = Inter({
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "500", "600", "700", "800", "900"],
   subsets: ["latin"],
   variable: "--font-inter",
+  display: "swap",
 });
 
 const outfit = Outfit({
@@ -26,9 +27,12 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "ClawdFace",
   icons: {
-    icon: "/openclaw.png",
-    shortcut: "/openclaw.png",
-    apple: "/openclaw.png",
+    icon: [
+      { url: "/clawdface-logo.svg", type: "image/svg+xml", sizes: "any" },
+      { url: "/logo.png", type: "image/png", sizes: "64x64" },
+    ],
+    shortcut: { url: "/clawdface-logo.svg", sizes: "any" },
+    apple: { url: "/logo.png", sizes: "180x180" },
   }
 };
 
