@@ -2398,7 +2398,7 @@ func HandleCreateKBConfig(w http.ResponseWriter, r *http.Request, apiKeyId strin
 		ext := strings.ToLower(filepath.Ext(fh.Filename))
 
 		// --- Upload original file to S3 ---
-		key := fmt.Sprintf("uploads/kb/%s/%s", namespace.String(), fh.Filename)
+		key := fmt.Sprintf("clawdface/uploads/kb/%s/%s", namespace.String(), fh.Filename)
 		url, err := SaveFileStreamToS3(file, bucket, key, region)
 		if err != nil {
 			WriteInternalServerError(w, fmt.Sprintf("Error uploading file to S3: %v", err))
@@ -2467,7 +2467,7 @@ func HandleCreateKBConfig(w http.ResponseWriter, r *http.Request, apiKeyId strin
 		if t != "" {
 			// Save manual entry as guid.txt into S3
 			filename := fmt.Sprintf("%s.txt", uuid.New().String())
-			key := fmt.Sprintf("uploads/kb/%s/%s", namespace.String(), filename)
+			key := fmt.Sprintf("clawdface/uploads/kb/%s/%s", namespace.String(), filename)
 			url, err := SaveStringToS3(t, bucket, key, region)
 			if err != nil {
 				WriteInternalServerError(w, "Failed to upload manual text to S3")
@@ -2523,7 +2523,7 @@ func HandleCreateKBConfig(w http.ResponseWriter, r *http.Request, apiKeyId strin
 		// Save url data as guid.txt into S3
 		filename := fmt.Sprintf("%s.txt", uuid.New().String())
 		data := string(decoded)
-		key := fmt.Sprintf("uploads/kb/%s/%s", namespace.String(), filename)
+		key := fmt.Sprintf("clawdface/uploads/kb/%s/%s", namespace.String(), filename)
 		url, err := SaveStringToS3(data, bucket, key, region)
 		if err != nil {
 			WriteInternalServerError(w, "Failed to upload manual text to S3")
@@ -2781,7 +2781,7 @@ func HandleAddDocToKBConfig(w http.ResponseWriter, r *http.Request, kbID, apiKey
 		defer file.Close()
 
 		ext := strings.ToLower(filepath.Ext(fh.Filename))
-		key := fmt.Sprintf("uploads/kb/%s/%s", namespace, fh.Filename)
+		key := fmt.Sprintf("clawdface/uploads/kb/%s/%s", namespace, fh.Filename)
 		url, err := SaveFileStreamToS3(file, bucket, key, region)
 		if err != nil {
 			WriteInternalServerError(w, fmt.Sprintf("Error uploading file to S3: %v", err))
@@ -2839,7 +2839,7 @@ func HandleAddDocToKBConfig(w http.ResponseWriter, r *http.Request, kbID, apiKey
 	for _, t := range r.MultipartForm.Value["text"] {
 		if t != "" {
 			filename := fmt.Sprintf("%s.txt", uuid.New().String())
-			key := fmt.Sprintf("uploads/kb/%s/%s", namespace, filename)
+			key := fmt.Sprintf("clawdface/uploads/kb/%s/%s", namespace, filename)
 			url, err := SaveStringToS3(t, bucket, key, region)
 			if err != nil {
 				WriteInternalServerError(w, "Failed to upload text to S3")
@@ -2894,7 +2894,7 @@ func HandleAddDocToKBConfig(w http.ResponseWriter, r *http.Request, kbID, apiKey
 		// Save url data as guid.txt into S3
 		filename := fmt.Sprintf("%s.txt", uuid.New().String())
 		data := string(decoded)
-		key := fmt.Sprintf("uploads/kb/%s/%s", namespace, filename)
+		key := fmt.Sprintf("clawdface/uploads/kb/%s/%s", namespace, filename)
 		url, err := SaveStringToS3(data, bucket, key, region)
 		if err != nil {
 			WriteInternalServerError(w, "Failed to upload manual text to S3")
@@ -3696,7 +3696,7 @@ func HandleCreateKBConfigRAG(w http.ResponseWriter, r *http.Request, apiKeyId st
 		id := uuid.New().String()
 		filename := fmt.Sprintf("%s.txt", id)
 
-		key := fmt.Sprintf("uploads/kbrag/%s/%s", namespace.String(), filename)
+		key := fmt.Sprintf("clawdface/uploads/kbrag/%s/%s", namespace.String(), filename)
 		url, err := SaveStringToS3(t, bucket, key, region)
 		if err != nil {
 			WriteInternalServerError(w, "Failed to upload text to S3: "+err.Error())
@@ -3742,7 +3742,7 @@ func HandleCreateKBConfigRAG(w http.ResponseWriter, r *http.Request, apiKeyId st
 		id := uuid.New().String()
 		filename := fmt.Sprintf("%s.txt", id)
 
-		key := fmt.Sprintf("uploads/kbrag/%s/%s", namespace.String(), filename)
+		key := fmt.Sprintf("clawdface/uploads/kbrag/%s/%s", namespace.String(), filename)
 		url, err := SaveStringToS3(string(decoded), bucket, key, region)
 		if err != nil {
 			WriteInternalServerError(w, "Failed to upload URL text to S3: "+err.Error())
@@ -3768,7 +3768,7 @@ func HandleCreateKBConfigRAG(w http.ResponseWriter, r *http.Request, apiKeyId st
 		}
 
 		id := uuid.New().String()
-		key := fmt.Sprintf("uploads/kbrag/%s/%s", namespace.String(), fh.Filename)
+		key := fmt.Sprintf("clawdface/uploads/kbrag/%s/%s", namespace.String(), fh.Filename)
 
 		url, err := SaveFileStreamToS3(file, bucket, key, region)
 
@@ -4033,7 +4033,7 @@ func HandleAddDocToKBConfigRAG(w http.ResponseWriter, r *http.Request, kbID, api
 		id := uuid.New().String()
 		filename := fmt.Sprintf("%s.txt", id)
 
-		key := fmt.Sprintf("uploads/kbrag/%s/%s", namespace, filename)
+		key := fmt.Sprintf("clawdface/uploads/kbrag/%s/%s", namespace, filename)
 		url, err := SaveStringToS3(t, bucket, key, region)
 		if err != nil {
 			WriteInternalServerError(w, "Failed to upload text to S3: "+err.Error())
@@ -4079,7 +4079,7 @@ func HandleAddDocToKBConfigRAG(w http.ResponseWriter, r *http.Request, kbID, api
 		id := uuid.New().String()
 		filename := fmt.Sprintf("%s.txt", id)
 
-		key := fmt.Sprintf("uploads/kbrag/%s/%s", namespace, filename)
+		key := fmt.Sprintf("clawdface/uploads/kbrag/%s/%s", namespace, filename)
 		url, err := SaveStringToS3(string(decoded), bucket, key, region)
 		if err != nil {
 			WriteInternalServerError(w, "Failed to upload URL text to S3: "+err.Error())
@@ -4105,7 +4105,7 @@ func HandleAddDocToKBConfigRAG(w http.ResponseWriter, r *http.Request, kbID, api
 		}
 
 		id := uuid.New().String()
-		key := fmt.Sprintf("uploads/kbrag/%s/%s", namespace, fh.Filename)
+		key := fmt.Sprintf("clawdface/uploads/kbrag/%s/%s", namespace, fh.Filename)
 
 		url, err := SaveFileStreamToS3(file, bucket, key, region)
 
@@ -12562,7 +12562,7 @@ func HandlePresentationGetUploadURL(w http.ResponseWriter, r *http.Request) {
 	for _, f := range req.Files {
 		mimeType := contentTypes[f.ContentType]
 		resourceId := uuid.New().String()
-		key := fmt.Sprintf("uploads/input/%s/%s/%s", presentationId, resourceId, f.Filename)
+		key := fmt.Sprintf("clawdface/uploads/input/%s/%s/%s", presentationId, resourceId, f.Filename)
 		s3URL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", bucket, region, key)
 
 		signedURL, err := GeneratePresignedUploadURL(bucket, region, key, mimeType, f.ContentLength, expiry)
@@ -12786,7 +12786,7 @@ func HandleAddPresentationResources(w http.ResponseWriter, r *http.Request, pres
 	for _, f := range req.Files {
 		mimeType := contentTypes[f.ContentType]
 		resourceId := uuid.New().String()
-		key := fmt.Sprintf("uploads/input/%s/%s/%s", presentationId, resourceId, f.Filename)
+		key := fmt.Sprintf("clawdface/uploads/input/%s/%s/%s", presentationId, resourceId, f.Filename)
 		s3URL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", bucket, region, key)
 
 		signedURL, err := GeneratePresignedUploadURL(bucket, region, key, mimeType, f.ContentLength, expiry)

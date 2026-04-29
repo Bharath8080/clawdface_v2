@@ -29,7 +29,7 @@ import (
 // DeleteS3Namespace deletes all files under the given namespace folder in S3
 func DeleteS3Namespace(bucket, namespace, region string) error {
 	// Build the prefix path
-	prefix := fmt.Sprintf("uploads/kb/%s/", namespace)
+	prefix := fmt.Sprintf("clawdface/uploads/kb/%s/", namespace)
 
 	// Load AWS config
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
@@ -76,8 +76,8 @@ func DeleteS3Namespace(bucket, namespace, region string) error {
 
 // DeleteS3Document deletes a single file from the given knowledge base namespace in S3
 func DeleteS3Document(bucket, namespace, fileName, region string) error {
-	// Build the file path (same structure as uploads/kb/{namespace}/{fileName})
-	key := fmt.Sprintf("uploads/kb/%s/%s", namespace, fileName)
+	// Build the file path (same structure as clawdface/uploads/kb/{namespace}/{fileName})
+	key := fmt.Sprintf("clawdface/uploads/kb/%s/%s", namespace, fileName)
 
 	// Load AWS config
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
@@ -408,7 +408,7 @@ func UploadFileToS3(filename, bucket, region string, file multipart.File) (strin
 
 // PreSignURL generates a presigned URL for downloading an S3 object
 func PreSignURL(bucket, s3URL, region string) (string, string, error) {
-	// Example s3URL: https://trugen.s3.us-east-2.amazonaws.com/uploads/kb/.../sample.txt
+	// Example s3URL: https://trugen.s3.us-east-2.amazonaws.com/clawdface/uploads/kb/.../sample.txt
 	parsed, err := url.Parse(s3URL)
 	if err != nil {
 		return "", "", fmt.Errorf("invalid S3 URL: %w", err)
@@ -421,7 +421,7 @@ func PreSignURL(bucket, s3URL, region string) (string, string, error) {
 		return "", "", fmt.Errorf("invalid S3 host format: %s", parsed.Host)
 	}
 	//bucket := parts[0]                        // trugen
-	key := strings.TrimLeft(parsed.Path, "/") // uploads/kb/.../sample.txt
+	key := strings.TrimLeft(parsed.Path, "/") // clawdface/uploads/kb/.../sample.txt
 
 	// Detect MIME type from file extension
 	mimeType := mime.TypeByExtension(path.Ext(key))
