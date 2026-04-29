@@ -1006,7 +1006,7 @@ function ClientPage() {
         context: {
           text: ""
         },
-        mode: "voa",
+        mode: "vtva",
         metadata: {
           active: "true"
         }
@@ -1156,7 +1156,7 @@ function ClientPage() {
           userName: email,
           userId: email,
           context: { text: "" },
-          mode: "voa",
+          mode: "vtva",
           metadata: { active: "false" }
         };
 
@@ -1257,7 +1257,7 @@ function ClientPage() {
               agentId: resolvedAgentId,
               userName: user?.displayName || email,
               userId: email,
-              mode: "voa",
+              mode: "vtva",
               context: { text: "" },
               metadata: { active: "false" },
             });
@@ -1302,7 +1302,7 @@ function ClientPage() {
             userName: email,
             userId: email,
             context: { text: "" },
-            mode: "voa",
+            mode: "vtva",
             metadata: { active: "false" }
           })
         );
@@ -1435,7 +1435,7 @@ function ClientPage() {
           avatars: [{ avatar_key_id: config.avatarId }],
           is_active: true,
           is_public: false,
-          type: "voa",
+          type: "vtva",
           add_on: [],
         };
 
