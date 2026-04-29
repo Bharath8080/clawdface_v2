@@ -25,7 +25,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     <main className="h-[100dvh] w-screen bg-canvas flex overflow-hidden font-[Inter] text-white">
       <Sidebar
         activeSession=""
-        setActiveSession={() => router.push("/dashboard")}
+        setActiveSession={(session) => router.push(`/dashboard?session=${encodeURIComponent(session)}`)}
         isMobileMenuOpen={isMobileMenuOpen}
         setIsMobileMenuOpen={setIsMobileMenuOpen}
       />
