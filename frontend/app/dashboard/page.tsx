@@ -254,7 +254,7 @@ const RecallUrlModal = ({
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="w-full max-w-lg bg-[#0A0A0A] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+            className="w-full max-w-lg bg-surface-secondary border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
           >
             <div className="p-6 border-b border-white/5 flex items-center justify-between">
               <h3 className="text-xl font-bold text-white flex items-center gap-2">
@@ -272,7 +272,7 @@ const RecallUrlModal = ({
                   type="text"
                   value={roomName}
                   onChange={(e) => setRoomName(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-mono text-white focus:outline-none focus:border-[#00E3AA]/50 transition-colors"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-mono text-white focus:outline-none focus:border-brand/50 transition-colors"
                 />
               </div>
               <div className="space-y-2">
@@ -285,7 +285,7 @@ const RecallUrlModal = ({
                   />
                   <button
                     onClick={handleCopy}
-                    className="absolute bottom-3 right-3 px-4 py-2 bg-[#00E3AA] hover:bg-[#00c996] text-black text-xs font-bold rounded-lg transition-all shadow-lg active:scale-95"
+                    className="absolute bottom-3 right-3 px-4 py-2 bg-brand hover:bg-brand-hover text-black text-xs font-bold rounded-lg transition-all shadow-lg active:scale-95"
                   >
                     {copied ? "Copied!" : "Copy URL"}
                   </button>
@@ -401,11 +401,11 @@ function DoctorView({ bots, onHealthUpdate }: { bots: AgentBot[], onHealthUpdate
   };
 
   return (
-    <div className="absolute inset-0 overflow-y-auto p-6 md:p-10 custom-scrollbar bg-[#050505] z-10">
+    <div className="absolute inset-0 overflow-y-auto p-6 md:p-10 custom-scrollbar bg-canvas z-10">
       <div className="max-w-4xl mx-auto pb-20">
         <header className="mb-10">
           <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
-            <ActivityIcon size={32} className="text-[#00E3AA]" />
+            <ActivityIcon size={32} className="text-brand" />
             Gateway Doctor
           </h1>
           <p className="text-[#6b7280] mt-2 text-sm">Diagnose and fix connectivity between ClawdFace and your OpenClaw Gateway.</p>
@@ -413,13 +413,13 @@ function DoctorView({ bots, onHealthUpdate }: { bots: AgentBot[], onHealthUpdate
 
         <div className="space-y-6">
           {/* URL Input Card */}
-          <div className="bg-[#0A0A0A] border border-white/5 rounded-3xl p-8 shadow-2xl overflow-hidden relative">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-[#00E3AA]/5 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2" />
+          <div className="bg-surface-secondary border border-white/5 rounded-3xl p-8 shadow-2xl overflow-hidden relative">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-brand/5 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2" />
             
             <label className="text-xs font-bold text-neutral-500 uppercase tracking-widest block mb-4 relative z-10">Target Gateway URL</label>
             <div className="flex flex-col md:flex-row gap-4 relative z-10">
               <div className="relative flex-1 group">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-600 group-focus-within:text-[#00E3AA] transition-colors">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-600 group-focus-within:text-brand transition-colors">
                   <LinkIcon size={18} />
                 </div>
                 <input
@@ -427,13 +427,13 @@ function DoctorView({ bots, onHealthUpdate }: { bots: AgentBot[], onHealthUpdate
                   placeholder="https://your-ngrok-id.ngrok-free.app"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-white font-medium focus:outline-none focus:border-[#00E3AA]/40 transition-all placeholder:text-neutral-700"
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-white font-medium focus:outline-none focus:border-brand/40 transition-all placeholder:text-neutral-700"
                 />
               </div>
               <button
                 onClick={runDiagnostics}
                 disabled={status === "checking"}
-                className="px-8 py-4 bg-[#00E3AA] hover:bg-[#00ffd0] disabled:bg-neutral-800 disabled:text-neutral-500 text-black font-bold rounded-2xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 min-w-[200px]"
+                className="px-8 py-4 bg-brand hover:bg-[#00ffd0] disabled:bg-neutral-800 disabled:text-neutral-500 text-black font-bold rounded-2xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 min-w-[200px]"
               >
                 {status === "checking" ? (
                   <>
@@ -470,8 +470,8 @@ function DoctorView({ bots, onHealthUpdate }: { bots: AgentBot[], onHealthUpdate
                   <CheckIcon size={24} />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-bold text-[#00E3AA] mb-2 font-outfit">Gateway Operational</h3>
-                  <p className="text-[15px] text-[#00E3AA]/70 font-medium leading-relaxed">
+                  <h3 className="text-lg font-bold text-brand mb-2 font-outfit">Gateway Operational</h3>
+                  <p className="text-[15px] text-brand/70 font-medium leading-relaxed">
                     Diagnostics passed! Your OpenClaw gateway is active and the Chat Completions endpoint is correctly enabled.
                   </p>
                 </div>
@@ -498,10 +498,10 @@ function DoctorView({ bots, onHealthUpdate }: { bots: AgentBot[], onHealthUpdate
                   </div>
                 </div>
 
-                <div className="bg-[#111] border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
+                <div className="bg-surface-card border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
                   <div className="p-6 border-b border-white/5 bg-white/[0.02]">
                     <h4 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
-                      <TerminalIcon size={16} className="text-[#00E3AA]" />
+                      <TerminalIcon size={16} className="text-brand" />
                       Resolution Steps
                     </h4>
                   </div>
@@ -560,7 +560,7 @@ const CopyableCommand = ({ command }: { command: string }) => {
   };
   return (
     <div className="group relative flex items-center justify-between bg-black/40 border border-white/5 rounded-xl p-3.5 transition-all hover:bg-black/60 shadow-inner">
-      <code className="text-[15px] font-mono text-[#00E3AA] break-all pr-10 font-medium leading-tight">{command}</code>
+      <code className="text-[15px] font-mono text-brand break-all pr-10 font-medium leading-tight">{command}</code>
       <button 
         onClick={handleCopy}
         className="absolute right-3 p-2 rounded-lg hover:bg-white/5 text-neutral-500 hover:text-white transition-all active:scale-90 border border-transparent hover:border-white/10"
@@ -568,7 +568,7 @@ const CopyableCommand = ({ command }: { command: string }) => {
       >
         {copied ? (
           <motion.div initial={{ scale: 0.5 }} animate={{ scale: 1 }}>
-            <CheckIcon size={16} className="text-[#00E3AA]" />
+            <CheckIcon size={16} className="text-brand" />
           </motion.div>
         ) : (
           <CopyIcon size={16} />
@@ -594,7 +594,7 @@ function HealthAlertNotification({
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
       className="fixed bottom-8 right-8 z-[100] max-w-md w-full"
     >
-      <div className="bg-[#0A0A0A]/80 backdrop-blur-xl border border-red-500/20 rounded-2xl p-5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden relative group">
+      <div className="bg-surface-secondary/80 backdrop-blur-xl border border-red-500/20 rounded-2xl p-5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden relative group">
         <div className="absolute top-0 left-0 w-1 h-full bg-red-500/60" />
         
         <div className="flex gap-4">
@@ -1321,8 +1321,8 @@ function ClientPage() {
 
   if (!authChecked) {
     return (
-      <div className="h-screen w-screen bg-[#0A0A0A] flex items-center justify-center">
-        <svg className="animate-spin" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00E3AA" strokeWidth="2">
+      <div className="h-screen w-screen bg-surface-secondary flex items-center justify-center">
+        <svg className="animate-spin text-brand" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="12" cy="12" r="10" opacity="0.25"/>
           <path d="M22 12a10 10 0 0 1-10 10" opacity="0.9"/>
         </svg>
@@ -1436,7 +1436,7 @@ function ClientPage() {
 
   return (
     <AvatarsContext.Provider value={avatars}>
-    <main data-lk-theme="default" className="h-[100dvh] w-screen bg-[#050505] flex overflow-hidden font-[Inter] text-white">
+    <main data-lk-theme="default" className="h-[100dvh] w-screen bg-canvas flex overflow-hidden font-[Inter] text-white">
         <Sidebar
           activeSession={activeSession}
           setActiveSession={(session) => {
@@ -1460,9 +1460,9 @@ function ClientPage() {
 
       <div className="flex-1 h-full w-full overflow-hidden flex flex-col relative z-0">
         {/* Mobile Header */}
-        <div className="md:hidden flex items-center justify-between px-4 h-14 border-b border-white/5 bg-[#0A0A0A] shrink-0 z-10 shadow-sm transition-all duration-300">
+        <div className="md:hidden flex items-center justify-between px-4 h-14 border-b border-white/5 bg-surface-secondary shrink-0 z-10 shadow-sm transition-all duration-300">
           <div className="flex items-center gap-3">
-            <div className="w-7 h-7 shrink-0 relative flex items-center justify-center rounded-lg bg-[#00E3AA]/10 text-[#00E3AA]">
+            <div className="w-7 h-7 shrink-0 relative flex items-center justify-center rounded-lg bg-brand/10 text-brand">
               <Image src="/openclaw.png" alt="Logo" width={18} height={18} className="object-contain drop-shadow-[0_0_4px_rgba(0,227,170,0.5)]" />
             </div>
             <span className="text-white font-bold text-lg leading-none tracking-tight mt-1 font-outfit">ClawdFace</span>
@@ -1592,10 +1592,10 @@ function ClientPage() {
                 />
               )
             ) : (
-              <div className="flex flex-col items-center justify-center h-full text-neutral-400 bg-[#050505] p-6">
-                <div className="text-center space-y-4 max-w-md p-8 border border-white/5 rounded-2xl bg-[#0A0A0A] shadow-2xl relative overflow-hidden">
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-[#00E3AA]/5 rounded-full blur-3xl mix-blend-screen pointer-events-none" />
-                  <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6 text-[#00E3AA] relative z-10">
+              <div className="flex flex-col items-center justify-center h-full text-neutral-400 bg-canvas p-6">
+                <div className="text-center space-y-4 max-w-md p-8 border border-white/5 rounded-2xl bg-surface-secondary shadow-2xl relative overflow-hidden">
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-brand/5 rounded-full blur-3xl mix-blend-screen pointer-events-none" />
+                  <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6 text-brand relative z-10">
                     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>
                     </svg>
@@ -1606,7 +1606,7 @@ function ClientPage() {
                   </p>
                   <button
                     onClick={() => setActiveSession("My Bot")}
-                    className="relative z-10 mt-6 px-5 py-2.5 bg-[#00E3AA]/10 hover:bg-[#00E3AA]/20 text-[#00E3AA] rounded-lg font-medium transition-all duration-300 text-sm border border-[#00E3AA]/20"
+                    className="relative z-10 mt-6 px-5 py-2.5 bg-brand/10 hover:bg-brand/20 text-brand rounded-lg font-medium transition-all duration-300 text-sm border border-brand/20"
                   >
                     Return to My Bot
                   </button>
@@ -1694,7 +1694,7 @@ function SessionConfigForm({
     <div className="flex flex-col gap-1.5">
       <label className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#6b7280] flex items-center gap-1.5">
         <span className="text-[#9ca3af]">{icon}</span>
-        {label} <span className="text-[#00E3AA] ml-0.5">*</span>
+        {label} <span className="text-brand ml-0.5">*</span>
       </label>
       <div className="relative group">
         <input
@@ -1703,7 +1703,7 @@ function SessionConfigForm({
           value={(config as any)[id]}
           onChange={(e) => setConfig({ ...config, [id]: e.target.value })}
           placeholder={placeholder}
-          className="w-full bg-[#0d0d0d] border border-[#242424] hover:border-[#00E3AA]/40 rounded-xl py-3 px-4 text-[14px] text-white focus:outline-none focus:border-[#00E3AA] transition-all placeholder:text-[#3a3a3a]"
+          className="w-full bg-surface border border-[#242424] hover:border-brand/40 rounded-xl py-3 px-4 text-[14px] text-white focus:outline-none focus:border-brand transition-all placeholder:text-[#3a3a3a]"
         />
       </div>
     </div>
@@ -1729,11 +1729,11 @@ function SessionConfigForm({
           </p>
         </div>
 
-        <div className={`bg-[#111111] border border-[#1f1f1f] rounded-2xl p-5 flex flex-col gap-4 shadow-2xl mx-auto`}>
+        <div className={`bg-surface-card border border-[#1f1f1f] rounded-2xl p-5 flex flex-col gap-4 shadow-2xl mx-auto`}>
           {!isEditing && bots.length > 0 && (
             <div className="flex flex-col gap-1.5 pb-4 border-b border-[#1f1f1f]">
-              <label className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#00E3AA] flex items-center gap-1.5">
-                <LibraryIcon size={14} className="text-[#00E3AA]" />
+              <label className="text-[12px] font-semibold uppercase tracking-[0.08em] text-brand flex items-center gap-1.5">
+                <LibraryIcon size={14} className="text-brand" />
                 Quick Fill from Library
               </label>
                 <select
@@ -1752,7 +1752,7 @@ function SessionConfigForm({
                       setConfig(newConfig);
                     }
                   }}
-                  className="w-full bg-[#0d0d0d] border border-[#00E3AA]/30 rounded-xl py-3 px-4 text-[14px] text-white focus:outline-none focus:border-[#00E3AA] transition-all cursor-pointer font-medium"
+                  className="w-full bg-surface border border-brand/30 rounded-xl py-3 px-4 text-[14px] text-white focus:outline-none focus:border-brand transition-all cursor-pointer font-medium"
                   defaultValue=""
                 >
                   <option value="" disabled>Select a bot to fill fields...</option>
@@ -1778,11 +1778,11 @@ function SessionConfigForm({
               <div className="flex flex-col gap-1.5">
                 <label className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#6b7280] flex items-center gap-1.5">
                   <span className="text-[#9ca3af]"><UserIcon size={14} /></span>
-                  Avatar <span className="text-[#00E3AA] ml-0.5">*</span>
+                  Avatar <span className="text-brand ml-0.5">*</span>
                 </label>
                 <button
                   onClick={onOpenPicker}
-                  className="group relative w-full h-80 rounded-xl bg-[#0d0d0d] border-2 border-dashed border-[#242424] hover:border-[#00E3AA]/40 transition-all duration-300 overflow-hidden flex flex-col items-center justify-center gap-2"
+                  className="group relative w-full h-80 rounded-xl bg-surface border-2 border-dashed border-[#242424] hover:border-brand/40 transition-all duration-300 overflow-hidden flex flex-col items-center justify-center gap-2"
                 >
                   {selectedAvatar ? (
                     <>
@@ -1795,12 +1795,12 @@ function SessionConfigForm({
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                       <div className="relative z-10 flex flex-col items-center gap-1">
                         <span className="text-white font-bold text-sm tracking-tight">{selectedAvatar.name}</span>
-                        <span className="text-[11px] text-[#00E3AA] font-medium uppercase tracking-wider">Change Avatar</span>
+                        <span className="text-[11px] text-brand font-medium uppercase tracking-wider">Change Avatar</span>
                       </div>
                     </>
                   ) : (
                     <>
-                      <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-[#4b5563] group-hover:text-[#00E3AA] group-hover:bg-[#00E3AA]/10 transition-colors">
+                      <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-[#4b5563] group-hover:text-brand group-hover:bg-brand/10 transition-colors">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                         </svg>
@@ -1815,7 +1815,7 @@ function SessionConfigForm({
                 <div className="flex items-center justify-between">
                   <div className="flex flex-col gap-0.5">
                     <label className="text-[12px] font-bold uppercase tracking-[0.1em] text-neutral-400 flex items-center gap-2">
-                      <SmileIcon size={14} className="text-[#00E3AA]" />
+                      <SmileIcon size={14} className="text-brand" />
                       Dynamic Thinking
                     </label>
                     <p className="text-[10px] text-neutral-600 font-medium">Auto-trigger filler phrases</p>
@@ -1827,7 +1827,7 @@ function SessionConfigForm({
                       checked={config.thinkingEnabled === "true"}
                       onChange={(e) => setConfig({ ...config, thinkingEnabled: e.target.checked ? "true" : "false" })}
                     />
-                    <div className="w-11 h-5 bg-neutral-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-5 after:transition-all peer-checked:bg-[#00E3AA]"></div>
+                    <div className="w-11 h-5 bg-neutral-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-5 after:transition-all peer-checked:bg-brand"></div>
                   </label>
                 </div>
 
@@ -1855,7 +1855,7 @@ function SessionConfigForm({
                                   setConfig({ ...config, thinkingDelay: (current - 0.5).toFixed(1) });
                                 }
                               }}
-                              className="w-8 h-8 flex items-center justify-center rounded-md bg-white/5 hover:bg-white/10 active:scale-95 transition-all text-[#00E3AA] border border-white/5"
+                              className="w-8 h-8 flex items-center justify-center rounded-md bg-white/5 hover:bg-white/10 active:scale-95 transition-all text-brand border border-white/5"
                             >
                               <span className="text-lg font-bold">−</span>
                             </button>
@@ -1881,7 +1881,7 @@ function SessionConfigForm({
                                   setConfig({ ...config, thinkingDelay: (current + 0.5).toFixed(1) });
                                 }
                               }}
-                              className="w-8 h-8 flex items-center justify-center rounded-md bg-white/5 hover:bg-white/10 active:scale-95 transition-all text-[#00E3AA] border border-white/5"
+                              className="w-8 h-8 flex items-center justify-center rounded-md bg-white/5 hover:bg-white/10 active:scale-95 transition-all text-brand border border-white/5"
                             >
                               <span className="text-lg font-bold">+</span>
                             </button>
@@ -1899,7 +1899,7 @@ function SessionConfigForm({
                     onClick={handleConnect}
                     disabled={isConnecting || !config.openclawUrl || !config.gatewayToken}
                     className="w-full py-3.5 rounded-xl font-bold text-[15px] tracking-wide transition-all duration-200
-                      bg-[#00E3AA] text-black hover:bg-[#00c994] active:scale-[0.98]
+                      bg-brand text-black hover:bg-[#00c994] active:scale-[0.98]
                       disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100
                       shadow-[0_0_24px_rgba(0,227,170,0.25)] hover:shadow-[0_0_32px_rgba(0,227,170,0.35)]
                       flex items-center justify-center gap-2"
@@ -1976,7 +1976,7 @@ function CreditModal({
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="w-full max-w-md bg-[#0a0a0a] rounded-3xl border border-white/5 shadow-2xl overflow-hidden relative p-8 text-center"
+        className="w-full max-w-md bg-surface-secondary rounded-3xl border border-white/5 shadow-2xl overflow-hidden relative p-8 text-center"
       >
         <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1995,7 +1995,7 @@ function CreditModal({
               onClose();
               router.push("/dashboard/settings/billing-and-subscription");
             }}
-            className="w-full py-4 bg-[#00E3AA] hover:bg-[#00c994] text-black font-bold rounded-2xl transition-all shadow-[0_0_20px_rgba(0,227,170,0.2)] active:scale-[0.98]"
+            className="w-full py-4 bg-brand hover:bg-[#00c994] text-black font-bold rounded-2xl transition-all shadow-[0_0_20px_rgba(0,227,170,0.2)] active:scale-[0.98]"
           >
             Go to Payments
           </button>
@@ -2039,9 +2039,9 @@ function AvatarPickerModal({
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="w-full max-w-5xl h-[85vh] bg-[#0a0a0a] rounded-3xl border border-white/5 shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col relative"
+        className="w-full max-w-5xl h-[85vh] bg-surface-secondary rounded-3xl border border-white/5 shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col relative"
       >
-        <div className="px-6 py-5 border-b border-white/5 flex items-center justify-between bg-[#111111]/50">
+        <div className="px-6 py-5 border-b border-white/5 flex items-center justify-between bg-surface-card/50">
           <div>
             <h2 className="text-xl font-bold text-white">Add Avatar</h2>
             <p className="text-[#6b7280] text-xs mt-0.5">Select an identity for your interaction</p>
@@ -2069,8 +2069,8 @@ function AvatarPickerModal({
                   <div className="absolute bottom-3 left-3"><span className="text-[10px] text-white font-bold uppercase tracking-wider">PRO</span></div>
                   <div className="absolute bottom-3 right-3"><span className="text-[10px] text-white/70 font-mono">id:{avatar.id}</span></div>
                   {tempId === avatar.id && (
-                    <div className="absolute inset-0 bg-[#00E3AA]/10 flex items-center justify-center backdrop-blur-[1px]">
-                      <div className="w-10 h-10 rounded-full bg-[#00E3AA] text-black flex items-center justify-center shadow-xl ring-4 ring-[#00E3AA]/20">
+                    <div className="absolute inset-0 bg-brand/10 flex items-center justify-center backdrop-blur-[1px]">
+                      <div className="w-10 h-10 rounded-full bg-brand text-black flex items-center justify-center shadow-xl ring-4 ring-brand/20">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                       </div>
                     </div>
@@ -2080,9 +2080,9 @@ function AvatarPickerModal({
             ))}
           </div>
         </div>
-        <div className="px-6 py-5 border-t border-white/5 flex items-center justify-between bg-[#111111]/50">
+        <div className="px-6 py-5 border-t border-white/5 flex items-center justify-between bg-surface-card/50">
           <button onClick={onClose} className="px-6 py-2.5 text-sm font-semibold text-[#9ca3af] hover:text-white transition-colors">Cancel</button>
-          <button onClick={() => { onSelect(tempId); onClose(); }} className="px-8 py-2.5 rounded-xl bg-[#00E3AA] text-black font-bold text-sm tracking-wide shadow-lg hover:bg-[#00c994] transition-all">Save Selection</button>
+          <button onClick={() => { onSelect(tempId); onClose(); }} className="px-8 py-2.5 rounded-xl bg-brand text-black font-bold text-sm tracking-wide shadow-lg hover:bg-[#00c994] transition-all">Save Selection</button>
         </div>
       </motion.div>
     </div>
@@ -2093,11 +2093,11 @@ function AvatarPickerModal({
 function AvatarGallery() {
   const avatars = useAvatars();
   return (
-    <div className="absolute inset-0 overflow-y-auto p-6 md:p-10 custom-scrollbar bg-[#050505] z-10">
+    <div className="absolute inset-0 overflow-y-auto p-6 md:p-10 custom-scrollbar bg-canvas z-10">
       <div className="max-w-6xl mx-auto pb-20">
         <header className="mb-10 text-center md:text-left">
           <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
-            <SmileIcon size={32} className="text-[#00E3AA]" />
+            <SmileIcon size={32} className="text-brand" />
             Stock Avatars
           </h1>
           <p className="text-[#6b7280] mt-2">Design your AI companions with advanced customization</p>
@@ -2186,7 +2186,7 @@ function ActiveVoiceAssistantView({ onConnectButtonClicked }: { onConnectButtonC
       initial={{ opacity: 0 }} 
       animate={{ opacity: 1 }} 
       exit={{ opacity: 0 }} 
-      className="absolute inset-0 flex h-full w-full bg-[#050505] overflow-hidden z-20"
+      className="absolute inset-0 flex h-full w-full bg-canvas overflow-hidden z-20"
     >
       <main className="flex-1 h-full flex flex-col relative bg-[#000000]">
         <div className="flex-1 flex items-center justify-center p-12">
@@ -2256,7 +2256,7 @@ function SimpleVoiceAssistant({
   };
 
   return (
-    <div className="h-screen w-full bg-[#050505]">
+    <div className="h-screen w-full bg-canvas">
       <AnimatePresence mode="wait">
         {!["listening", "thinking", "speaking", "idle"].includes(agentState) ? (
           <SessionConfigForm
@@ -2386,7 +2386,7 @@ function BotLibraryView({
   };
 
   return (
-    <div className="absolute inset-0 overflow-y-auto p-6 md:p-12 custom-scrollbar bg-[#050505] z-10">
+    <div className="absolute inset-0 overflow-y-auto p-6 md:p-12 custom-scrollbar bg-canvas z-10">
       <div className="max-w-7xl mx-auto pb-24">
         <motion.header 
           initial={{ opacity: 0, y: -20 }}
@@ -2395,11 +2395,11 @@ function BotLibraryView({
         >
           <div className="space-y-1">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-2xl bg-[#00E3AA]/10 flex items-center justify-center border border-[#00E3AA]/20 shadow-[0_0_20px_rgba(0,227,170,0.1)]">
-                <LibraryIcon size={22} className="text-[#00E3AA]" />
+              <div className="w-10 h-10 rounded-2xl bg-brand/10 flex items-center justify-center border border-brand/20 shadow-[0_0_20px_rgba(0,227,170,0.1)]">
+                <LibraryIcon size={22} className="text-brand" />
               </div>
               <h1 className="text-3xl font-bold text-white tracking-tight font-outfit">
-                Bot <span className="text-[#00E3AA]">Library</span>
+                Bot <span className="text-brand">Library</span>
               </h1>
             </div>
             <p className="text-neutral-500 font-medium text-sm tracking-wide ml-1 font-outfit">
@@ -2409,7 +2409,7 @@ function BotLibraryView({
           
           <button 
             onClick={onRefresh} 
-            className="group p-3 rounded-2xl bg-white/[0.03] hover:bg-[#00E3AA]/10 text-neutral-500 hover:text-[#00E3AA] transition-all border border-white/5 hover:border-[#00E3AA]/30 shadow-xl"
+            className="group p-3 rounded-2xl bg-white/[0.03] hover:bg-brand/10 text-neutral-500 hover:text-brand transition-all border border-white/5 hover:border-brand/30 shadow-xl"
           >
             <RefreshCwIcon size={20} className="group-hover:rotate-180 transition-transform duration-500" />
           </button>
@@ -2422,12 +2422,12 @@ function BotLibraryView({
             className="flex flex-col items-center justify-center py-32 border border-white/5 rounded-[2.5rem] bg-gradient-to-b from-white/[0.03] to-transparent backdrop-blur-3xl shadow-2xl"
           >
             <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center text-neutral-700 mb-8 border border-white/5 relative overflow-hidden group">
-              <div className="absolute inset-0 bg-gradient-to-tr from-[#00E3AA]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="absolute inset-0 bg-gradient-to-tr from-brand/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
               <LibraryIcon size={40} />
             </div>
             <h3 className="text-2xl font-bold text-white tracking-tight">Your vault is empty</h3>
             <p className="text-neutral-500 text-[15px] mt-3 max-w-sm text-center font-medium">
-              Create and save your first AI companion from the <span className="text-[#00E3AA]">&quot;Add Bot&quot;</span> lab to see them listed here.
+              Create and save your first AI companion from the <span className="text-brand">&quot;Add Bot&quot;</span> lab to see them listed here.
             </p>
           </motion.div>
         ) : (
@@ -2447,10 +2447,10 @@ function BotLibraryView({
                   variants={cardVariants}
                   whileHover={{ y: -12, scale: 1.02, transition: { type: "spring", stiffness: 260, damping: 25 } }}
                   onClick={() => onSelectBot(bot)} 
-                  className="group relative rounded-[2rem] bg-[#0a0a0a]/80 backdrop-blur-xl border border-white/5 hover:border-[#00E3AA]/40 transition-[border-color,box-shadow,background-color] duration-300 overflow-hidden cursor-pointer flex flex-col shadow-2xl hover:shadow-[#00E3AA]/20"
+                  className="group relative rounded-[2rem] bg-surface-secondary/80 backdrop-blur-xl border border-white/5 hover:border-brand/40 transition-[border-color,box-shadow,background-color] duration-300 overflow-hidden cursor-pointer flex flex-col shadow-2xl hover:shadow-brand/20"
                 >
                   {/* Decorative background glow */}
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-[#00E3AA]/5 rounded-full blur-[60px] pointer-events-none group-hover:bg-[#00E3AA]/20 transition-all duration-300" />
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-brand/5 rounded-full blur-[60px] pointer-events-none group-hover:bg-brand/20 transition-all duration-300" />
                   
                   <div className="relative aspect-[16/10] w-full overflow-hidden bg-black/40">
                     {avatar ? (
@@ -2494,13 +2494,13 @@ function BotLibraryView({
                       })()}
                     </div>
                     
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/20 to-transparent opacity-90" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-surface-secondary via-surface-secondary/20 to-transparent opacity-90" />
                     
                     {/* Floating Controls */}
                     <div className="absolute top-4 right-4 flex gap-2 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-200">
                       <button 
                         onClick={(e) => { e.stopPropagation(); onEditBot(bot); }} 
-                        className="p-2.5 rounded-xl bg-black/40 backdrop-blur-xl border border-white/10 text-white/50 hover:text-white hover:bg-[#00E3AA]/20 hover:border-[#00E3AA]/40 transition-all"
+                        className="p-2.5 rounded-xl bg-black/40 backdrop-blur-xl border border-white/10 text-white/50 hover:text-white hover:bg-brand/20 hover:border-brand/40 transition-all"
                         title="Edit Configuration"
                       >
                         <SettingsIcon size={16} />
@@ -2516,11 +2516,11 @@ function BotLibraryView({
 
                     {/* Bot Name Badge (Bottom Left) */}
                     <div className="absolute bottom-4 left-6">
-                      <h3 className="text-xl font-bold text-white tracking-tight group-hover:text-[#00E3AA] transition-colors duration-200 font-outfit">
+                      <h3 className="text-xl font-bold text-white tracking-tight group-hover:text-brand transition-colors duration-200 font-outfit">
                         {bot.agent_name || "Unnamed Bot"}
                       </h3>
                       <div className="flex items-center gap-1.5 mt-1">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#00E3AA] shadow-[0_0_8px_rgba(0,227,170,0.6)]" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-brand shadow-[0_0_8px_rgba(0,227,170,0.6)]" />
                         <span className="text-[9px] text-neutral-400 font-semibold uppercase tracking-wider font-outfit">Configured Identity</span>
                       </div>
                     </div>
@@ -2549,12 +2549,12 @@ function BotLibraryView({
 
                         {/* Email Info */}
                         {bot.email && (
-                          <div className="flex items-center justify-between group/email py-2 px-3 rounded-xl bg-[#00E3AA]/5 border border-[#00E3AA]/10 hover:border-[#00E3AA]/30 transition-all shadow-inner relative">
+                          <div className="flex items-center justify-between group/email py-2 px-3 rounded-xl bg-brand/5 border border-brand/10 hover:border-brand/30 transition-all shadow-inner relative">
                             <div className="flex items-center gap-3 min-w-0">
-                              <div className="w-6 h-6 rounded-lg bg-[#00E3AA]/10 flex items-center justify-center text-[#00E3AA] shrink-0">
+                              <div className="w-6 h-6 rounded-lg bg-brand/10 flex items-center justify-center text-brand shrink-0">
                                 <MailIcon size={12} />
                               </div>
-                              <span className="text-[12px] text-[#00E3AA] font-bold font-jetbrains-mono truncate lowercase tracking-tight">
+                              <span className="text-[12px] text-brand font-bold font-jetbrains-mono truncate lowercase tracking-tight">
                                 {bot.email}
                               </span>
                             </div>
@@ -2567,7 +2567,7 @@ function BotLibraryView({
                               }}
                               className={`p-1.5 rounded-lg transition-all ${
                                 copiedEmail === bot.email
-                                  ? "text-[#00E3AA] bg-[#00E3AA]/20 opacity-100"
+                                  ? "text-brand bg-brand/20 opacity-100"
                                   : "text-neutral-500 hover:text-white transition-all opacity-0 group-hover/email:opacity-100"
                               }`}
                             >
@@ -2606,7 +2606,7 @@ function BotLibraryView({
                           <span className="group-hover/recall:scale-110 transition-transform block"><LinkIcon size={16} /></span>
                         </button>
                         
-                        <button className="h-10 px-5 rounded-xl bg-[#00E3AA] hover:bg-[#00ffd0] text-black text-[12px] font-bold uppercase tracking-widest transition-all transform hover:scale-[1.02] active:scale-95 shadow-[0_4px_12px_rgba(0,227,170,0.2)] flex items-center gap-2 shrink-0 whitespace-nowrap">
+                        <button className="h-10 px-5 rounded-xl bg-brand hover:bg-[#00ffd0] text-black text-[12px] font-bold uppercase tracking-widest transition-all transform hover:scale-[1.02] active:scale-95 shadow-[0_4px_12px_rgba(0,227,170,0.2)] flex items-center gap-2 shrink-0 whitespace-nowrap">
                           Connect
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
                             <polygon points="5 3 19 12 5 21 5 3"/>
@@ -2637,11 +2637,11 @@ function ConversationsListView({
 }) {
   const avatars = useAvatars();
   return (
-    <div className="absolute inset-0 overflow-y-auto p-6 md:p-10 custom-scrollbar bg-[#050505] z-10">
+    <div className="absolute inset-0 overflow-y-auto p-6 md:p-10 custom-scrollbar bg-canvas z-10">
       <div className="max-w-6xl mx-auto pb-20">
         <header className="mb-10">
           <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
-            <RefreshCwIcon size={32} className="text-[#00E3AA]" />
+            <RefreshCwIcon size={32} className="text-brand" />
             Conversations
           </h1>
           <p className="text-[#6b7280] mt-2 text-sm">Review past interactions and transcripts</p>
@@ -2649,7 +2649,7 @@ function ConversationsListView({
 
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
-            <RefreshCwIcon className="animate-spin text-[#00E3AA]" size={32} />
+            <RefreshCwIcon className="animate-spin text-brand" size={32} />
           </div>
         ) : conversations.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-white/5 rounded-3xl bg-white/[0.02]">
@@ -2658,7 +2658,7 @@ function ConversationsListView({
             <p className="text-[#6b7280] text-[13px] mt-1 max-w-xs text-center">Your interaction history will appear here after your first call.</p>
           </div>
         ) : (
-          <div className="bg-[#0d0d0d] border border-white/5 rounded-2xl overflow-hidden">
+          <div className="bg-surface border border-white/5 rounded-2xl overflow-hidden">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-white/5 bg-white/5">
@@ -2717,7 +2717,7 @@ function ConversationsListView({
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <button className="px-4 py-1.5 rounded-lg bg-white/5 hover:bg-[#00E3AA]/20 hover:text-[#00E3AA] transition-all text-[12px] font-semibold text-white/70">View History</button>
+                        <button className="px-4 py-1.5 rounded-lg bg-white/5 hover:bg-brand/20 hover:text-brand transition-all text-[12px] font-semibold text-white/70">View History</button>
                       </td>
                     </tr>
                   );
@@ -2740,7 +2740,7 @@ function ConversationDetailView({
   onBack: () => void;
 }) {
   return (
-    <div className="absolute inset-0 overflow-y-auto p-6 md:p-10 custom-scrollbar bg-[#050505] z-10">
+    <div className="absolute inset-0 overflow-y-auto p-6 md:p-10 custom-scrollbar bg-canvas z-10">
       <div className="max-w-4xl mx-auto pb-20">
         <header className="mb-10 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -2765,7 +2765,7 @@ function ConversationDetailView({
           {Array.isArray(conversation.transcript) && conversation.transcript.length > 0 ? (
             conversation.transcript.map((msg: any, idx: number) => (
               <div key={idx} className={`flex ${msg.isAgent ? 'justify-start' : 'justify-end'}`}>
-                <div className={`max-w-[80%] rounded-2xl p-4 ${msg.isAgent ? 'bg-white/5 border border-white/10 text-white' : 'bg-[#00E3AA]/10 border border-[#00E3AA]/20 text-white'}`}>
+                <div className={`max-w-[80%] rounded-2xl p-4 ${msg.isAgent ? 'bg-white/5 border border-white/10 text-white' : 'bg-brand/10 border border-brand/20 text-white'}`}>
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-[10px] font-bold uppercase tracking-wider opacity-50">{msg.isAgent ? 'Agent' : 'User'}</span>
                     <span className="text-[10px] opacity-30">{new Date(msg.timestamp).toLocaleTimeString()}</span>
@@ -2789,25 +2789,25 @@ const AIGlowingOrb = () => {
     <div className="relative w-40 h-40 mb-10 flex items-center justify-center">
       {/* Massive subtle outer pulse */}
       <motion.div
-        className="absolute w-full h-full rounded-full bg-[#00E3AA]/10 blur-[40px]"
+        className="absolute w-full h-full rounded-full bg-brand/10 blur-[40px]"
         animate={{ scale: [1, 2, 1], opacity: [0.3, 0.6, 0.3] }}
         transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
       />
       {/* Secondary breathing ring */}
       <motion.div
-        className="absolute w-32 h-32 rounded-full border border-[#00E3AA]/30"
+        className="absolute w-32 h-32 rounded-full border border-brand/30"
         animate={{ scale: [1, 1.4, 1], opacity: [0.8, 0, 0.8] }}
         transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
       />
       {/* Rotational aura */}
       <motion.div
-        className="absolute w-28 h-28 rounded-full bg-gradient-to-tr from-[#00E3AA]/40 to-transparent blur-xl"
+        className="absolute w-28 h-28 rounded-full bg-gradient-to-tr from-brand/40 to-transparent blur-xl"
         animate={{ rotate: [0, 360] }}
         transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
       />
       {/* Inner pulsing core */}
       <motion.div
-        className="absolute w-20 h-20 rounded-full bg-gradient-to-br from-white via-[#00E3AA] to-[#00A080] shadow-[0_0_50px_rgba(0,227,170,1)] flex items-center justify-center"
+        className="absolute w-20 h-20 rounded-full bg-gradient-to-br from-white via-brand to-[#00A080] shadow-[0_0_50px_rgba(0,227,170,1)] flex items-center justify-center"
         animate={{ scale: [1, 1.15, 1] }}
         transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
       >
@@ -2909,7 +2909,7 @@ function DirectCallDashboard({
         </div>
       ) : (
         <div className="flex flex-col items-center space-y-12">
-          <div className="w-56 h-56 rounded-full p-1.5 border-2 border-[#00E3AA]/30 shadow-[0_0_40px_rgba(0,227,170,0.15)] relative">
+          <div className="w-56 h-56 rounded-full p-1.5 border-2 border-brand/30 shadow-[0_0_40px_rgba(0,227,170,0.15)] relative">
             <div className="w-full h-full rounded-full overflow-hidden relative">
               <Image 
                 src={selectedAvatar.image} 
@@ -2918,12 +2918,12 @@ function DirectCallDashboard({
                 className="object-cover"
               />
             </div>
-            <div className="absolute bottom-4 right-4 w-6 h-6 rounded-full bg-[#00E3AA] border-4 border-[#0A0A0A] shadow-lg animate-pulse" />
+            <div className="absolute bottom-4 right-4 w-6 h-6 rounded-full bg-brand border-4 border-[#0A0A0A] shadow-lg animate-pulse" />
           </div>
 
           <button
             onClick={handleStartCall}
-            className="group relative px-12 py-5 bg-[#00E3AA] hover:bg-[#00c994] text-black font-bold text-xl rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-[0_20px_40px_-12px_rgba(0,227,170,0.4)] flex items-center gap-3"
+            className="group relative px-12 py-5 bg-brand hover:bg-[#00c994] text-black font-bold text-xl rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-[0_20px_40px_-12px_rgba(0,227,170,0.4)] flex items-center gap-3"
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
               <polygon points="5 3 19 12 5 21 5 3"/>
@@ -2939,8 +2939,8 @@ function DirectCallDashboard({
 export default function Page() {
   return (
     <Suspense fallback={
-      <div className="h-screen w-screen bg-[#0A0A0A] flex items-center justify-center">
-        <svg className="animate-spin" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00E3AA" strokeWidth="2">
+      <div className="h-screen w-screen bg-surface-secondary flex items-center justify-center">
+        <svg className="animate-spin text-brand" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="12" cy="12" r="10" opacity="0.25"/>
           <path d="M22 12a10 10 0 0 1-10 10" opacity="0.9"/>
         </svg>

@@ -22,6 +22,8 @@ const DOTS = [
   { top: "12%", left: "55%" }, { top: "85%", left: "60%" }, { top: "35%", left: "70%" },
 ];
 
+// ... imports remain the same
+
 export function HeroSection() {
   const user = useUser();
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -35,8 +37,8 @@ export function HeroSection() {
   }, []);
 
   return (
-    <section className="relative min-h-[88vh] flex items-center px-8 py-20 overflow-hidden bg-[#0d0d0d]">
-      {/* Subtle background dots */}
+    <section className="relative min-h-[90vh] flex items-center px-6 py-24 overflow-hidden bg-[#0a0a0a]">
+      {/* Scattered background dots */}
       {DOTS.map((dot, i) => (
         <div
           key={i}
@@ -44,36 +46,44 @@ export function HeroSection() {
           style={{ top: dot.top, left: dot.left }}
         />
       ))}
-      {/* Faint green ambient glow bottom-left */}
-      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[#00E3AA]/8 rounded-full blur-[150px] pointer-events-none" />
+      
+      {/* Green ambient glow */}
+      <div className="absolute top-[10%] left-[-10%] w-[700px] h-[700px] rounded-full pointer-events-none"
+        style={{ background: "radial-gradient(circle, rgba(0,227,170,0.15) 0%, rgba(0,227,170,0.05) 50%, transparent 75%)" }} />
+      <div className="absolute top-[30%] left-[5%] w-[400px] h-[400px] rounded-full pointer-events-none"
+        style={{ background: "radial-gradient(circle, rgba(0,227,170,0.1) 0%, transparent 70%)" }} />
+      {/* Orange accent glow */}
+      <div className="absolute top-[40%] left-[20%] w-[280px] h-[280px] rounded-full pointer-events-none"
+        style={{ background: "radial-gradient(circle, rgba(255,92,92,0.18) 0%, rgba(255,92,92,0.06) 50%, transparent 75%)" }} />
 
-      <div className="max-w-[1400px] mx-auto w-full flex flex-col lg:flex-row items-center gap-12 lg:gap-16 relative z-10">
+      <div className="max-w-7xl mx-auto w-full flex flex-col lg:flex-row items-center gap-12 lg:gap-16 relative z-10">
         {/* ── Left column ── */}
-        <div className="w-full lg:w-[42%] flex flex-col items-start">
+        <div className="w-full lg:w-[48%] flex flex-col items-start">
           {/* Badge */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45 }}
-            className="flex items-center gap-3 mb-8"
+            className="flex items-center gap-3 mb-10"
           >
-            <span className="bg-[#1a2d24] text-[#82e8b2] px-3 py-1 rounded text-sm font-mono font-semibold border border-[#82e8b2]/20">
+            <span className="bg-[#1a2f2a] text-[#00e3aa] px-3 py-1.5 rounded-md text-xs font-mono font-medium border border-[#00e3aa]/20">
               OpenClaw
             </span>
-            <span className="text-zinc-500 text-sm">→</span>
-            <span className="text-zinc-400 text-sm font-mono tracking-wide">Interactive Avatars</span>
+            <span className="text-zinc-600 text-sm">→</span>
+            <span className="text-zinc-500 text-sm font-mono tracking-wide">Interactive Avatars</span>
           </motion.div>
 
-          {/* Headline */}
+          {/* Headline - ALL CAPS */}
           <motion.h1
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, delay: 0.1 }}
-            className="text-[clamp(3.5rem,7vw,5.5rem)] font-black tracking-tight leading-[0.95] uppercase mb-8"
+            className="text-[clamp(3rem,6vw,5rem)] font-black tracking-tight leading-[0.9] mb-8"
           >
-            <span className="text-white block">Give Your</span>
-            <span className="text-white block">Open Claw</span>
-            <span className="text-[#FF4747] block">A Face</span>
+            <span className="text-white block uppercase">Give Your</span>
+            <span className="text-white block uppercase">Open Claw</span>
+            {/* Coral/Salmon color for "A FACE" */}
+            <span className="block uppercase" style={{ color: "#ff6b6b" }}>A Face</span>
           </motion.h1>
 
           {/* Description */}
@@ -81,7 +91,7 @@ export function HeroSection() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, delay: 0.2 }}
-            className="text-[15px] text-zinc-400 mb-10 max-w-[480px] leading-[1.7]"
+            className="text-[15px] text-zinc-400 mb-10 max-w-[500px] leading-[1.7]"
           >
             Your bot handles text. We handle the face and voice. Install the skill, verify your API
             key, and call your Clawdbot like a video call. It sees you, hears you speak, reads the
@@ -94,16 +104,16 @@ export function HeroSection() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, delay: 0.3 }}
-            className="flex items-center gap-4"
+            className="flex items-center flex-wrap gap-4"
           >
             <Link href={user ? "/dashboard" : "/handler/sign-up"}>
-              <button className="px-7 py-3.5 bg-[#00E3AA] text-black rounded-lg font-bold text-[15px] hover:bg-[#00cfA0] transition-colors">
+              <button className="px-7 py-3.5 bg-[#00e3aa] text-black rounded-lg font-bold text-[15px] hover:bg-[#00c995] transition-colors">
                 {user ? "Dashboard" : "Get Started"}
               </button>
             </Link>
             <Link href="#how-it-works">
               <button className="flex items-center gap-2.5 px-6 py-3.5 bg-[#1a1a1a] text-white border border-white/10 rounded-lg font-semibold text-[15px] hover:bg-[#222] transition-colors">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M8 5v14l11-7z" />
                 </svg>
                 Watch It Work
@@ -117,23 +127,23 @@ export function HeroSection() {
           initial={{ opacity: 0, x: 24 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6, delay: 0.15 }}
-          className="w-full lg:w-[58%]"
+          className="w-full lg:w-[52%]"
         >
-          <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] overflow-hidden shadow-2xl">
+          <div className="p-6 bg-neutral-900 rounded-2xl outline outline-1 outline-offset-[-1px] outline-zinc-800 flex flex-col gap-6 shadow-2xl">
             {/* Card header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
-              <span className="text-xs font-mono text-zinc-500 uppercase tracking-[0.15em]">
+            <div className="flex items-center justify-between">
+              <span className="text-zinc-400 text-sm md:text-base font-semibold font-mono uppercase tracking-wide">
                 Real Time Interaction
               </span>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-red-500/80" />
-                <div className="w-3 h-3 rounded-full bg-yellow-400/80" />
-                <div className="w-3 h-3 rounded-full bg-green-500/80" />
+              <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
+                <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
               </div>
             </div>
 
             {/* Avatar image */}
-            <div className="relative" style={{ aspectRatio: "16/9" }}>
+            <div className="relative w-full h-56 sm:h-72 md:h-96 rounded-lg overflow-hidden">
               <AnimatePresence initial={false}>
                 <motion.div
                   key={currentIdx}
@@ -148,7 +158,7 @@ export function HeroSection() {
                     alt={AVATARS[currentIdx].name}
                     fill
                     className="object-cover object-top"
-                    sizes="(max-width: 1024px) 100vw, 800px"
+                    sizes="(max-width: 1024px) 100vw, 600px"
                     priority
                   />
                 </motion.div>
@@ -156,11 +166,11 @@ export function HeroSection() {
             </div>
 
             {/* Avatar name footer */}
-            <div className="px-5 py-4 border-t border-white/5 text-center">
-              <span className="text-[#00E3AA] font-semibold text-base">
+            <div>
+              <span className="text-teal-500 text-lg font-semibold">
                 {AVATARS[currentIdx].name}
               </span>
-              <span className="text-zinc-400 text-base"> (Open Claw Agent)</span>
+              <span className="text-neutral-400 text-lg font-semibold"> (Open Claw Agent)</span>
             </div>
           </div>
         </motion.div>

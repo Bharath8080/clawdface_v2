@@ -3,7 +3,7 @@ import { Footer } from "@/components/landing/Footer";
 
 export default function PrivacyPolicyPage() {
   return (
-    <div className="min-h-screen bg-[#050505] text-[#E0E0E0] lg:font-inter selection:bg-[#82e8b2] selection:text-black overflow-x-hidden flex flex-col">
+    <div className="min-h-screen bg-canvas text-[#E0E0E0] lg:font-inter selection:bg-[#82e8b2] selection:text-black overflow-x-hidden flex flex-col">
       <Nav />
       <main className="flex-1 pt-32 pb-20 px-6 max-w-4xl mx-auto w-full relative z-10">
         <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white mb-10">Privacy Policy</h1>
@@ -188,16 +188,16 @@ export default function PrivacyPolicyPage() {
 
           <h2 className="text-2xl font-bold text-white mt-12 mb-6">International Users</h2>
           <h3 className="text-[15px] font-semibold text-white mb-2">European Users (GDPR)</h3>
-          <p className="mb-6">Additional rights and protections apply under GDPR. Contact our Data Protection Officer at <a className="text-[#82e8b2] hover:text-[#6bd69e] hover:underline transition-colors" href="mailto:privacy@clawdface.io">privacy@clawdface.io</a> to exercise rights.</p>
+          <p className="mb-6">Additional rights and protections apply under GDPR. Contact our Data Protection Officer at <a className="text-brand-muted hover:text-[#6bd69e] hover:underline transition-colors" href="mailto:privacy@clawdface.io">privacy@clawdface.io</a> to exercise rights.</p>
 
           <h3 className="text-[15px] font-semibold text-white mt-8 mb-2">California Users (CCPA)</h3>
           <p className="mb-8">California residents have rights under the CCPA. Please refer to our California Privacy Notice for details.</p>
 
           <h2 className="text-2xl font-bold text-white mt-12 mb-6">Contact Us</h2>
           <ul className="list-disc pl-5 mb-8 space-y-3 marker:text-zinc-500">
-            <li><strong className="text-white">Privacy Questions:</strong> <a className="text-[#82e8b2] hover:text-[#6bd69e] hover:underline transition-colors" href="mailto:privacy@clawdface.io">privacy@clawdface.io</a></li>
-            <li><strong className="text-white">General Support:</strong> <a className="text-[#82e8b2] hover:text-[#6bd69e] hover:underline transition-colors" href="mailto:support@clawdface.io">support@clawdface.io</a></li>
-            <li><strong className="text-white">Data Protection Officer (EU/UK):</strong> <a className="text-[#82e8b2] hover:text-[#6bd69e] hover:underline transition-colors" href="mailto:privacy@clawdface.io">privacy@clawdface.io</a></li>
+            <li><strong className="text-white">Privacy Questions:</strong> <a className="text-brand-muted hover:text-[#6bd69e] hover:underline transition-colors" href="mailto:privacy@clawdface.io">privacy@clawdface.io</a></li>
+            <li><strong className="text-white">General Support:</strong> <a className="text-brand-muted hover:text-[#6bd69e] hover:underline transition-colors" href="mailto:support@clawdface.io">support@clawdface.io</a></li>
+            <li><strong className="text-white">Data Protection Officer (EU/UK):</strong> <a className="text-brand-muted hover:text-[#6bd69e] hover:underline transition-colors" href="mailto:privacy@clawdface.io">privacy@clawdface.io</a></li>
           </ul>
         </div>
       </main>

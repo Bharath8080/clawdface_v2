@@ -62,8 +62,8 @@ function AvatarContent() {
   if (!agentVideoTrack) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-black text-white gap-4">
-        <div className="w-12 h-12 border-4 border-[#00E3AA] border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-xl font-medium text-[#00E3AA]">Waiting for Avatar...</p>
+        <div className="w-12 h-12 border-4 border-brand border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-xl font-medium text-brand">Waiting for Avatar...</p>
         <p className="text-sm text-gray-500">
           {remoteParticipants.length === 0
             ? "Agent hasn't joined this room yet. Please start a session from the main app first."

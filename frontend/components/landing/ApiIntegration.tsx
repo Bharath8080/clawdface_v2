@@ -29,7 +29,7 @@ export function ApiIntegration() {
             ))}
           </ul>
           
-          <button className="text-[#00E3AA] font-semibold hover:text-white transition-colors flex items-center gap-2">
+          <button className="text-brand font-semibold hover:text-white transition-colors flex items-center gap-2">
             Read the Architecture Documentation
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="5" y1="12" x2="19" y2="12" />
@@ -39,8 +39,8 @@ export function ApiIntegration() {
         </div>
 
         <div className="w-full lg:w-1/2">
-          <div className="bg-[#050505] rounded-xl border border-white/10 shadow-2xl overflow-hidden">
-            <div className="flex items-center px-4 py-3 border-b border-white/5 bg-[#0a0a0a]">
+          <div className="bg-canvas rounded-xl border border-white/10 shadow-2xl overflow-hidden">
+            <div className="flex items-center px-4 py-3 border-b border-white/5 bg-surface-secondary">
               <div className="flex gap-2">
                 <div className="w-3 h-3 rounded-full bg-red-500/20 border border-red-500/50" />
                 <div className="w-3 h-3 rounded-full bg-yellow-500/20 border border-yellow-500/50" />
@@ -49,7 +49,7 @@ export function ApiIntegration() {
               <p className="ml-4 text-xs font-mono text-zinc-500">payload.json</p>
             </div>
             <div className="p-6 overflow-x-auto">
-              <pre className="text-sm font-mono text-[#00E3AA]">
+              <pre className="text-sm font-mono text-brand">
 {`{
   "openclawUrl": "https://api.yourdomain.com",
   "gatewayToken": "YOUR_OPENCLAW_TOKEN",

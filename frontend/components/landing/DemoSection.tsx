@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 
 export function DemoSection() {
   return (
-    <section id="demo" className="py-20 px-8 bg-[#0d0d0d] relative overflow-hidden">
+    <section id="demo" className="py-14 md:py-24 px-6 md:px-8 bg-canvas relative overflow-hidden">
       {/* Background dots */}
       {[
         { top: "10%", left: "3%" }, { top: "25%", left: "8%" },
@@ -28,7 +28,7 @@ export function DemoSection() {
           className="text-4xl md:text-5xl font-black text-white text-center mb-12"
         >
           See Clawd Face In{" "}
-          <span className="text-[#00E3AA]">Action</span>
+          <span className="text-brand">Action</span>
         </motion.h2>
 
         {/* App window */}
@@ -60,18 +60,18 @@ export function DemoSection() {
           {/* Video area */}
           <div className="relative bg-black" style={{ aspectRatio: "16/8" }}>
             {/* Main video (dark/agent area) */}
-            <div className="absolute inset-0 bg-[#0a0a0a]" />
+            <div className="absolute inset-0 bg-surface-secondary" />
 
             {/* Bottom-left agent label */}
             <div className="absolute bottom-5 left-5 flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#00E3AA] animate-pulse" />
+              <span className="w-2.5 h-2.5 rounded-full bg-brand animate-pulse" />
               <span className="text-white text-sm font-medium">Clawd - Your Agent</span>
             </div>
 
             {/* You — PiP bottom-right */}
             <div
-              className="absolute bottom-5 right-5 rounded-2xl overflow-hidden"
-              style={{ width: 180, background: "#1e1e3a" }}
+              className="absolute bottom-5 right-5 rounded-2xl overflow-hidden w-[120px] md:w-[180px]"
+              style={{ background: "#1e1e3a" }}
             >
               <div className="px-3 pt-2.5 pb-1">
                 <span className="text-white text-xs font-semibold">You</span>

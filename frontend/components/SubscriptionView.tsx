@@ -6,6 +6,7 @@ import { SubscriptionContext, SubscriptionContextProvider } from "@/app/context/
 import { ILicenseInfo, PlanType, updateAutoReload } from "@/app/services/pricingPaymentService";
 import usePayment from "@/app/hooks/usePayment";
 import { ContactUsModal } from "@/components/ContactUsModal";
+import { colors } from "@/lib/colors";
 
 // ─── Icons ──────────────────────────────────────────────────────────────────
 const CheckIcon = () => (
@@ -90,13 +91,13 @@ function getPlanMeta(plan: PlanType): {
 } {
   const slug = plan.slug ?? "";
   if (slug.includes("free") || plan.billingType === "free") {
-    return { accent: "#9ca3af", icon: <ZapIcon />, popular: false, isEnterprise: false, isFree: true };
+    return { accent: colors.muted, icon: <ZapIcon />, popular: false, isEnterprise: false, isFree: true };
   }
   if (slug.includes("ente_ente") || plan.name === "Enterprise") {
-    return { accent: "#a78bfa", icon: <BuildingIcon />, popular: false, isEnterprise: true, isFree: false };
+    return { accent: colors.enterprise, icon: <BuildingIcon />, popular: false, isEnterprise: true, isFree: false };
   }
   // Pro (or any paid subscription)
-  return { accent: "#00E3AA", icon: <CrownIcon />, popular: true, isEnterprise: false, isFree: false };
+  return { accent: colors.brand, icon: <CrownIcon />, popular: true, isEnterprise: false, isFree: false };
 }
 
 function getAllFeatures(plan: PlanType): string[] {
@@ -143,13 +144,13 @@ function PlanCard({
       transition={{ delay: index * 0.08, duration: 0.4, ease: "easeOut" }}
       className={`relative flex flex-col p-7 rounded-2xl border transition-all duration-300
         ${popular
-          ? "bg-white/[0.05] border-[#00E3AA]/30 shadow-[0_0_48px_-12px_rgba(0,227,170,0.2)]"
+          ? "bg-white/[0.05] border-brand/30 shadow-[0_0_48px_-12px_rgba(0,227,170,0.2)]"
           : "bg-white/[0.02] border-white/8 hover:border-white/15 hover:bg-white/[0.03]"
         }`}
     >
       {/* Popular badge */}
       {popular && !isCurrent && (
-        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-[#00E3AA] text-black px-4 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider whitespace-nowrap">
+        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-brand text-black px-4 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider whitespace-nowrap">
           Most Popular
         </div>
       )}
@@ -177,12 +178,12 @@ function PlanCard({
                 {plan.price === 0 ? "Free" : `$${plan.price}`}
               </span>
               {plan.price > 0 && (
-                <span className="text-[#6b7280] text-sm">/ month</span>
+                <span className="text-gray-500 text-sm">/ month</span>
               )}
             </>
           )}
         </div>
-        <p className="text-[#9ca3af] text-sm leading-relaxed">{plan.description}</p>
+        <p className="text-gray-400 text-sm leading-relaxed">{plan.description}</p>
       </div>
 
       {/* Stats row */}
@@ -192,7 +193,7 @@ function PlanCard({
             <span className="text-white font-bold text-sm leading-none">
               {plan.credits > 0 ? formatCredits(plan.credits) : "—"}
             </span>
-            <span className="text-[#6b7280] text-[10px] mt-1 leading-tight">credits / mo</span>
+            <span className="text-gray-500 text-[10px] mt-1 leading-tight">credits / mo</span>
           </div>
           <div className="flex flex-col items-center justify-center gap-0.5 px-2 text-center">
             <span className="text-white font-bold text-sm leading-none">
@@ -200,7 +201,7 @@ function PlanCard({
                 ? plan.concurrentSessions >= 60 ? "∞" : plan.concurrentSessions
                 : "—"}
             </span>
-            <span className="text-[#6b7280] text-[10px] mt-1 leading-tight">concurrent</span>
+            <span className="text-gray-500 text-[10px] mt-1 leading-tight">concurrent</span>
           </div>
           <div className="flex flex-col items-center justify-center gap-0.5 px-2 text-center">
             <span className="text-white font-bold text-sm leading-none">
@@ -208,7 +209,7 @@ function PlanCard({
                 ? plan.maxSessionDuration >= 120 ? "∞" : `${plan.maxSessionDuration}m`
                 : "—"}
             </span>
-            <span className="text-[#6b7280] text-[10px] mt-1 leading-tight">per session</span>
+            <span className="text-gray-500 text-[10px] mt-1 leading-tight">per session</span>
           </div>
         </div>
       )}
@@ -224,7 +225,7 @@ function PlanCard({
               <span className="mt-0.5 shrink-0" style={{ color: accent }}>
                 <CheckIcon />
               </span>
-              <span className="text-sm text-[#d1d5db] leading-snug">{f}</span>
+              <span className="text-sm text-gray-300 leading-snug">{f}</span>
             </div>
           ))}
         </div>
@@ -238,10 +239,10 @@ function PlanCard({
           ${isCurrent
             ? "bg-white/5 text-white/30 cursor-not-allowed border border-white/8"
             : isEnterprise
-              ? "bg-[#a78bfa]/15 text-[#a78bfa] border border-[#a78bfa]/25 hover:bg-[#a78bfa]/25 active:scale-[0.98]"
+              ? "bg-enterprise/15 text-enterprise border border-enterprise/25 hover:bg-enterprise/25 active:scale-[0.98]"
               : isFree
                 ? "bg-white/8 text-white border border-white/10 hover:bg-white/12 active:scale-[0.98]"
-                : "bg-[#00E3AA] text-black hover:bg-[#00E3AA]/90 active:scale-[0.98] shadow-lg shadow-[#00E3AA]/15"
+                : "bg-brand text-black hover:bg-brand/90 active:scale-[0.98] shadow-lg shadow-brand/15"
           }`}
       >
         {isLoading && !isCurrent ? <SpinnerIcon /> : null}
@@ -269,24 +270,24 @@ function CreditCard({
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.06, duration: 0.35, ease: "easeOut" }}
-      className="flex flex-col items-center gap-4 p-5 rounded-2xl bg-white/[0.02] border border-white/8 hover:border-[#00E3AA]/20 hover:bg-white/[0.03] transition-all duration-300 group"
+      className="flex flex-col items-center gap-4 p-5 rounded-2xl bg-white/[0.02] border border-white/8 hover:border-brand/20 hover:bg-white/[0.03] transition-all duration-300 group"
     >
-      <div className="w-10 h-10 rounded-xl bg-[#00E3AA]/10 border border-[#00E3AA]/20 flex items-center justify-center text-[#00E3AA]">
+      <div className="w-10 h-10 rounded-xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand">
         <CreditStackIcon />
       </div>
       <div className="text-center">
         <div className="text-2xl font-bold text-white tracking-tight">
           {formatCredits(plan.credits)}
         </div>
-        <div className="text-xs text-[#6b7280] mt-0.5">credits</div>
+        <div className="text-xs text-gray-500 mt-0.5">credits</div>
       </div>
-      <div className="text-[11px] text-[#4b5563] uppercase tracking-wider font-medium">
+      <div className="text-[11px] text-gray-600 uppercase tracking-wider font-medium">
         One-time
       </div>
       <button
         onClick={() => onBuy(plan.slug)}
         disabled={isLoading}
-        className="w-full py-2.5 rounded-xl text-sm font-semibold bg-[#00E3AA]/10 text-[#00E3AA] border border-[#00E3AA]/20 hover:bg-[#00E3AA]/20 active:scale-[0.97] transition-all duration-200 flex items-center justify-center gap-1.5 disabled:opacity-50"
+        className="w-full py-2.5 rounded-xl text-sm font-semibold bg-brand/10 text-brand border border-brand/20 hover:bg-brand/20 active:scale-[0.97] transition-all duration-200 flex items-center justify-center gap-1.5 disabled:opacity-50"
       >
         {isLoading ? <SpinnerIcon /> : null}
         Add Credits
@@ -778,11 +779,11 @@ function SubscriptionViewInner() {
   };
 
   return (
-    <div className="h-full overflow-y-auto bg-[#050505] custom-scrollbar">
+    <div className="h-full overflow-y-auto bg-canvas custom-scrollbar">
       {/* Background glows */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-[#00E3AA]/4 rounded-full blur-[120px]" />
-        <div className="absolute top-2/3 right-1/4 w-[300px] h-[300px] bg-[#a78bfa]/3 rounded-full blur-[100px]" />
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-brand/4 rounded-full blur-[120px]" />
+        <div className="absolute top-2/3 right-1/4 w-[300px] h-[300px] bg-enterprise/3 rounded-full blur-[100px]" />
       </div>
 
       <div className="relative z-10 max-w-5xl mx-auto px-6 py-10 pb-16">
@@ -790,14 +791,14 @@ function SubscriptionViewInner() {
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="mb-8">
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-[11px] font-bold uppercase tracking-widest text-[#00E3AA] bg-[#00E3AA]/10 px-3 py-1 rounded-full border border-[#00E3AA]/20">
+            <span className="text-[11px] font-bold uppercase tracking-widest text-brand bg-brand/10 px-3 py-1 rounded-full border border-brand/20">
               Billing
             </span>
           </div>
           <h1 className="text-3xl font-bold text-white font-outfit mb-2 tracking-tight">
             {isLoading ? "Subscription" : isPaidPlan ? `You're on ${currentPlanName}` : "Choose Your Plan"}
           </h1>
-          <p className="text-[#6b7280] text-[15px] max-w-2xl">
+          <p className="text-gray-500 text-[15px] max-w-2xl">
             {isLoading
               ? "Loading your subscription..."
               : isPaidPlan
@@ -848,7 +849,7 @@ function SubscriptionViewInner() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.1 }}
-          className="text-[13px] text-center font-semibold text-[#6b7280] uppercase tracking-widest mb-5"
+          className="text-[13px] text-center font-semibold text-gray-500 uppercase tracking-widest mb-5"
         >
           Subscription Plans
         </motion.h2>
@@ -885,14 +886,14 @@ function SubscriptionViewInner() {
               className="mb-5"
             >
               <div className="flex items-center gap-3 mb-1">
-                <h2 className="text-[13px] font-semibold text-[#6b7280] uppercase tracking-widest">
+                <h2 className="text-[13px] font-semibold text-gray-500 uppercase tracking-widest">
                   Add Credits
                 </h2>
-                <span className="text-[10px] font-bold text-[#00E3AA] bg-[#00E3AA]/10 border border-[#00E3AA]/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                <span className="text-[10px] font-bold text-brand bg-brand/10 border border-brand/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
                   Pro
                 </span>
               </div>
-              <p className="text-[#4b5563] text-sm">
+              <p className="text-gray-600 text-sm">
                 Top up your account with additional credits — no subscription change required.
               </p>
             </motion.div>
@@ -910,7 +911,6 @@ function SubscriptionViewInner() {
             </div>
           </>
         )}
-
 
 
         <ContactUsModal open={contactModalOpen} onClose={() => setContactModalOpen(false)} />

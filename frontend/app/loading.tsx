@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 
 export default function Loading() {
   return (
-    <div className="min-h-screen w-full bg-[#050505] flex flex-col items-center justify-center gap-6">
+    <div className="min-h-screen w-full bg-canvas flex flex-col items-center justify-center gap-6">
       <div className="relative">
         {/* Outer glowing ring */}
         <motion.div
@@ -17,7 +17,7 @@ export default function Loading() {
             repeat: Infinity,
             ease: "easeInOut",
           }}
-          className="absolute inset-0 rounded-full bg-[#00E3AA]/20 blur-xl"
+          className="absolute inset-0 rounded-full bg-brand/20 blur-xl"
         />
         
         {/* Main loader */}
@@ -29,7 +29,7 @@ export default function Loading() {
               repeat: Infinity,
               ease: "linear",
             }}
-            className="w-full h-full rounded-full border-t-2 border-r-2 border-[#00E3AA]"
+            className="w-full h-full rounded-full border-t-2 border-r-2 border-brand"
           />
           
           {/* Inner pulse */}
@@ -42,7 +42,7 @@ export default function Loading() {
               repeat: Infinity,
               ease: "easeInOut",
             }}
-            className="absolute inset-4 rounded-full bg-[#00E3AA]"
+            className="absolute inset-4 rounded-full bg-brand"
           />
         </div>
       </div>

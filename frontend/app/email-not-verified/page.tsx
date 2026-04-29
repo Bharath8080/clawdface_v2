@@ -40,9 +40,9 @@ export default function EmailNotVerifiedPage() {
 
   if (isSubmitted) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-[#111111] border border-white/10 rounded-2xl p-8 flex flex-col items-center gap-6 text-center">
-          <div className="w-16 h-16 bg-[#00E3AA]/10 border border-[#00E3AA]/20 rounded-full flex items-center justify-center">
+      <div className="min-h-screen bg-canvas flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-surface-card border border-white/10 rounded-2xl p-8 flex flex-col items-center gap-6 text-center">
+          <div className="w-16 h-16 bg-brand/10 border border-brand/20 rounded-full flex items-center justify-center">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00E3AA" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M5 13l4 4L19 7" />
             </svg>
@@ -54,7 +54,7 @@ export default function EmailNotVerifiedPage() {
           </p>
           <Link
             href="/log-in"
-            className="mt-2 bg-[#00E3AA] text-black font-bold py-2.5 px-8 rounded-xl hover:brightness-110 transition-all"
+            className="mt-2 bg-brand text-black font-bold py-2.5 px-8 rounded-xl hover:brightness-110 transition-all"
           >
             Back to Login
           </Link>
@@ -64,8 +64,8 @@ export default function EmailNotVerifiedPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-[#111111] border border-white/10 rounded-2xl p-8 flex flex-col items-center gap-6 text-center">
+    <div className="min-h-screen bg-canvas flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-surface-card border border-white/10 rounded-2xl p-8 flex flex-col items-center gap-6 text-center">
         <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10" />
@@ -87,7 +87,7 @@ export default function EmailNotVerifiedPage() {
         <button
           onClick={handleResend}
           disabled={sending}
-          className="w-full bg-[#00E3AA] text-black font-bold py-2.5 rounded-xl hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-brand text-black font-bold py-2.5 rounded-xl hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {sending ? "Sending..." : "Send Verification Email"}
         </button>

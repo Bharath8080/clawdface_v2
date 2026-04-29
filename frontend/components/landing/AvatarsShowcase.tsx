@@ -54,7 +54,7 @@ export function AvatarsShowcase() {
               onClick={() => setActiveAvatar(avatar)}
               className={`p-4 rounded-xl border text-left transition-all flex items-center justify-between ${
                 activeAvatar.id === avatar.id 
-                  ? "bg-white/10 border-[#00E3AA] shadow-[0_0_20px_rgba(0,227,170,0.15)]" 
+                  ? "bg-white/10 border-brand shadow-[0_0_20px_rgba(0,227,170,0.15)]" 
                   : "bg-white/5 border-white/10 hover:bg-white/10"
               }`}
             >
@@ -63,8 +63,8 @@ export function AvatarsShowcase() {
                 <p className="text-zinc-400 text-sm">{avatar.role}</p>
               </div>
               {activeAvatar.id === avatar.id && (
-                <div className="w-8 h-8 rounded-full bg-[#00E3AA]/20 flex items-center justify-center">
-                  <div className="w-3 h-3 rounded-full bg-[#00E3AA] animate-pulse" />
+                <div className="w-8 h-8 rounded-full bg-brand/20 flex items-center justify-center">
+                  <div className="w-3 h-3 rounded-full bg-brand animate-pulse" />
                 </div>
               )}
             </button>
@@ -78,7 +78,7 @@ export function AvatarsShowcase() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4 }}
-            className="w-full rounded-2xl overflow-hidden bg-[#0A0A0A] border border-white/10 relative shadow-2xl"
+            className="w-full rounded-2xl overflow-hidden bg-surface-secondary border border-white/10 relative shadow-2xl"
             style={{ aspectRatio: "16/9" }}
           >
             <Image
@@ -92,7 +92,7 @@ export function AvatarsShowcase() {
             
             <div className="absolute inset-x-0 bottom-0 p-6 flex items-end justify-between">
               <div className="flex items-center gap-4">
-                <button className="w-14 h-14 rounded-full bg-[#00E3AA] hover:bg-[#00c996] transition-colors flex items-center justify-center text-black shadow-lg">
+                <button className="w-14 h-14 rounded-full bg-brand hover:bg-brand-hover transition-colors flex items-center justify-center text-black shadow-lg">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M23 7l-7 5 7 5V7z" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
                   </svg>
@@ -101,8 +101,8 @@ export function AvatarsShowcase() {
                   <p className="text-white font-semibold flex items-center gap-2">
                     {activeAvatar.name}
                   </p>
-                  <p className="text-[#00E3AA] text-sm flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-[#00E3AA] animate-pulse" />
+                  <p className="text-brand text-sm flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-brand animate-pulse" />
                     OpenClaw Agent Connected
                   </p>
                 </div>

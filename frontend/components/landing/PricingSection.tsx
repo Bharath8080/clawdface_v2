@@ -1,47 +1,61 @@
 "use client";
 
+import Image from "next/image";
 import { motion } from "framer-motion";
 
-const plans = [
+// ── Feature row ────────────────────────────────────────────────────────────
+function Feature({ text }: { text: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <Image src="/icons/healthicons_yes.svg" alt="check" width={20} height={20} className="shrink-0 object-contain" />
+      <span className="text-zinc-300 text-sm">{text}</span>
+    </div>
+  );
+}
+
+const PLANS = [
   {
-    name: "Free",
+    name: "Basic",
+    icon: "/icons/Frame 18.svg",
+    description: "Perfect for testing and small projects.",
     price: "Free",
-    description: "Perfect for testing and small projects",
+    priceUnit: null,
     features: [
-      { text: "10 minutes total usage", included: true },
-      { text: "1 user concurrency", included: true },
-      { text: "Intended for trial usage", included: true },
-      { text: "Standard TTS/STT", included: true },
-      { text: "Strict monthly limits", included: false },
+      "10 minutes total usage",
+      "All Avatars",
+      "Intended for trial usage",
     ],
     cta: "Get Started",
     popular: false,
   },
   {
     name: "Paid",
+    icon: "/icons/Frame 16.svg",
+    description: "For creators and growing business",
     price: "$9",
-    subtext: "~ ₹900 / month",
-    description: "For creators and growing businesses",
+    priceUnit: "/ per month",
     features: [
-      { text: "30 minutes max call duration", included: true },
-      { text: "3-4 user concurrency", included: true },
-      { text: "Priority STT/TTS (ElevenLabs/Deepgram)", included: true },
-      { text: "Full avatar customization", included: true },
-      { text: "Advanced turn detection", included: true },
+      "30 minutes max call duration",
+      "Additonal Usage : 0.10/Min",
+      "Priority STT/TTS (ElevenLabs/Deepgram)",
+      "Full avatar customization",
+      "Advanced turn detection",
     ],
     cta: "Upgrade to Pro",
     popular: true,
   },
   {
     name: "Enterprise",
-    price: "Custom",
+    icon: "/icons/Frame 18.svg",
     description: "Fully configurable for high-scale clients",
+    price: "Custom",
+    priceUnit: null,
     features: [
-      { text: "Unlimited concurrency", included: true },
-      { text: "Unlimited custom actions", included: true },
-      { text: "Dedicated infrastructure", included: true },
-      { text: "Custom white-label options", included: true },
-      { text: "Fully configurable per client", included: true },
+      "Unlimited Concurrency",
+      "Unlimited custom actions",
+      "Dedicated infrastructure",
+      "Custom white-label options",
+      "Fully configurable per client",
     ],
     cta: "Contact Sales",
     popular: false,
@@ -50,89 +64,113 @@ const plans = [
 
 export function PricingSection() {
   return (
-    <section id="pricing" className="py-24 lg:py-32 px-6 bg-[#050505] relative overflow-hidden">
-      {/* Background Glow */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#00E3AA]/5 rounded-full blur-[120px] pointer-events-none" />
+    <section id="pricing" className="py-14 md:py-24 px-6 bg-canvas relative overflow-hidden scroll-mt-24">
+      {/* Ambient glow */}
+      <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-brand/5 rounded-full blur-[140px]" />
 
-      <div className="max-w-7xl mx-auto relative z-10">
-        <div className="text-center mb-16">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-          >
-            <h2 className="text-4xl md:text-6xl font-outfit font-bold text-white mb-6">
-              Choose Your Plan
-            </h2>
-          </motion.div>
-          <motion.p 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="text-xl text-zinc-300 max-w-2xl mx-auto"
-          >
-            Flexible plans designed to scale with your AI interactions. <br className="hidden md:block" />
-            No hidden fees, no complicated setup.
-          </motion.p>
-        </div>
+      {/* Scattered dots */}
+      {[
+        { top: "6%",  left: "2%"  }, { top: "20%", left: "5%"  },
+        { top: "60%", left: "3%"  }, { top: "82%", left: "7%"  },
+        { top: "8%",  left: "94%" }, { top: "35%", left: "96%" },
+        { top: "70%", left: "95%" }, { top: "88%", left: "93%" },
+      ].map((d, i) => (
+        <div key={i} className="absolute w-1 h-1 rounded-full bg-white/10 pointer-events-none"
+          style={{ top: d.top, left: d.left }} />
+      ))}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {plans.map((plan, idx) => (
+      <div className="relative z-10 max-w-5xl mx-auto">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="text-center mb-16"
+        >
+          <div className="inline-flex items-center px-4 py-1.5 rounded-md bg-brand-subtle border border-brand-muted/20 mb-6">
+            <span className="text-brand-muted text-sm font-mono font-semibold tracking-wide">
+              Pricing &amp; Plans
+            </span>
+          </div>
+          <h2 className="text-3xl md:text-[56px] font-bold text-white mb-5 capitalize">
+            Choose Your Plan
+          </h2>
+          <p className="text-body text-base md:text-lg max-w-lg mx-auto leading-7">
+            Flexible plans designed to scale with your AI interactions.
+            <br />No hidden fees, no complicated setup.
+          </p>
+        </motion.div>
+
+        {/* Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {PLANS.map((plan, idx) => (
             <motion.div
               key={idx}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 24 }}
               whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
               transition={{ delay: idx * 0.1 }}
-              className={`relative p-8 rounded-3xl border transition-all duration-300 ${
-                plan.popular 
-                  ? "bg-white/[0.05] border-[#00E3AA]/30 shadow-[0_0_40px_-15px_rgba(0,227,170,0.2)]" 
-                  : "bg-white/[0.02] border-white/10"
-              }`}
+              className="flex flex-col rounded-3xl p-7 group transition-all duration-300 cursor-default"
+              whileHover={{ y: -6 }}
+              style={{
+                background: plan.popular ? "#0b1a14" : "#111113",
+                border: plan.popular
+                  ? "1px solid rgba(0,227,170,0.2)"
+                  : "1px solid rgba(255,255,255,0.07)",
+                boxShadow: "none",
+                transition: "box-shadow 0.3s ease, border-color 0.3s ease",
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLDivElement).style.boxShadow = plan.popular
+                  ? "0 0 40px rgba(0,227,170,0.12), 0 8px 32px rgba(0,0,0,0.4)"
+                  : "0 0 24px rgba(255,255,255,0.04), 0 8px 32px rgba(0,0,0,0.4)";
+                (e.currentTarget as HTMLDivElement).style.borderColor = plan.popular
+                  ? "rgba(0,227,170,0.45)"
+                  : "rgba(255,255,255,0.18)";
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLDivElement).style.boxShadow = "none";
+                (e.currentTarget as HTMLDivElement).style.borderColor = plan.popular
+                  ? "rgba(0,227,170,0.2)"
+                  : "rgba(255,255,255,0.07)";
+              }}
             >
-              {plan.popular && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-[#00E3AA] text-black px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
-                  Most Popular
-                </div>
-              )}
-
-              <div className="mb-8">
-                <h3 className="text-2xl font-bold text-white mb-2">{plan.name}</h3>
-                <div className="flex items-baseline gap-1 mb-2">
-                  <span className="text-5xl font-bold text-white">{plan.price}</span>
-                  {plan.price !== "Custom" && plan.price !== "Free" && <span className="text-zinc-500">/month</span>}
-                </div>
-                {plan.subtext && (
-                  <p className="text-sm text-[#00E3AA] font-medium mb-4">{plan.subtext}</p>
-                )}
-                <p className="text-zinc-300 text-sm">{plan.description}</p>
+              <div className="mb-5">
+                <Image src={plan.icon} alt="avatar" width={40} height={40} className="object-contain" />
               </div>
 
-              <div className="space-y-4 mb-10">
-                {plan.features.map((feature, fIdx) => (
-                  <div key={fIdx} className="flex items-start gap-3">
-                    <div className={`mt-1 flex-shrink-0 rounded-full p-0.5 ${feature.included ? "text-[#00E3AA]" : "text-zinc-600"}`}>
-                      {feature.included ? (
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                      ) : (
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                          <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                        </svg>
-                      )}
-                    </div>
-                    <span className={`text-sm ${feature.included ? "text-zinc-200" : "text-zinc-500 line-through"}`}>
-                      {feature.text}
-                    </span>
-                  </div>
+              {/* Name + description */}
+              <h3 className="text-white text-xl font-bold mb-1 leading-snug">{plan.name}</h3>
+              <p className="text-zinc-500 text-sm mb-6 leading-snug">{plan.description}</p>
+
+              {/* Price */}
+              <div className="flex items-baseline gap-2 mb-7">
+                <span className="text-white font-black text-5xl leading-none">{plan.price}</span>
+                {plan.priceUnit && (
+                  <span className="text-zinc-500 text-sm">{plan.priceUnit}</span>
+                )}
+              </div>
+
+              {/* Features */}
+              <p className="text-white text-sm font-semibold mb-4">What you will get</p>
+              <div className="space-y-3 flex-1">
+                {plan.features.map((f, i) => (
+                  <Feature key={i} text={f} />
                 ))}
               </div>
 
-              <button 
-                className={`w-full py-4 rounded-xl font-bold transition-all ${
+              {/* CTA */}
+              <button
+                className={`mt-8 w-full py-3.5 rounded-2xl text-sm font-bold transition-all duration-200 active:scale-95 ${
                   plan.popular
-                    ? "bg-[#00E3AA] text-black hover:scale-[1.02] active:scale-95 shadow-lg shadow-[#00E3AA]/20"
-                    : "bg-white/10 text-white hover:bg-white/20"
+                    ? "bg-brand text-black hover:bg-brand-hover hover:shadow-[0_0_20px_rgba(0,227,170,0.35)]"
+                    : "text-white hover:bg-white/15 hover:shadow-[0_0_16px_rgba(255,255,255,0.06)]"
                 }`}
+                style={
+                  !plan.popular
+                    ? { background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)" }
+                    : undefined
+                }
               >
                 {plan.cta}
               </button>

@@ -23,7 +23,7 @@ export function PerformanceMetrics() {
   ];
 
   return (
-    <section className="py-16 lg:py-24 px-6 border-y border-white/5 bg-gradient-to-b from-transparent to-[#00E3AA]/5">
+    <section className="py-16 lg:py-24 px-6 border-y border-white/5 bg-gradient-to-b from-transparent to-brand/5">
       <div className="max-w-7xl mx-auto w-full">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-outfit font-bold text-white mb-4">
@@ -36,8 +36,8 @@ export function PerformanceMetrics() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {metrics.map((metric, idx) => (
-            <div key={idx} className="text-center p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-[#00E3AA]/50 transition-colors">
-              <div className="text-3xl font-bold text-[#00E3AA] mb-2 font-mono">
+            <div key={idx} className="text-center p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-brand/50 transition-colors">
+              <div className="text-3xl font-bold text-brand mb-2 font-mono">
                 {metric.value}
               </div>
               <div className="text-lg font-semibold text-white mb-2 font-outfit">

@@ -1,89 +1,84 @@
 import Link from "next/link";
-import Image from "next/image";
 
 export function Footer() {
   return (
-    <footer className="bg-[#050505] border-t border-white/5 overflow-hidden">
-      {/* Top links row */}
-      <div className="max-w-7xl mx-auto px-6 py-14">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
-          <div className="col-span-1 md:col-span-2">
-            <Link href="/" className="flex items-center gap-2 mb-5 hover:opacity-80 transition-opacity w-fit">
-              <div className="w-9 h-9 relative flex-shrink-0">
-                <Image src="/openclaw.png" alt="ClawdFace" fill className="object-contain" />
-              </div>
-              <span className="font-bold text-xl text-zinc-400 line-through decoration-2">Clawd</span>
-              <span className="font-bold text-xl text-red-500">Face</span>
+    <footer className="overflow-hidden bg-gradient-to-b from-zinc-950 to-emerald-400">
+      {/* ── Top section ─────────────────────────────────────────────────── */}
+      <div className="max-w-[1312px] mx-auto px-6 md:px-10 py-10 md:py-16 flex flex-col gap-10">
+        {/* Brand + nav row */}
+        <div className="flex flex-col md:flex-row justify-between items-start gap-12">
+          {/* Brand */}
+          <div className="flex-1 flex flex-col gap-6">
+            <Link href="/" className="flex items-center gap-2 w-fit hover:opacity-80 transition-opacity">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/clawdface-logo.svg" alt="ClawdFace" className="w-14 h-11 object-contain shrink-0" />
+              <span className="text-2xl font-semibold capitalize">
+                <span className="text-white">Clawd</span>
+                <span className="text-emerald-400">Face</span>
+              </span>
             </Link>
-            <p className="text-zinc-500 text-sm max-w-xs leading-relaxed">
-              The bridge between your OpenClaw logic and lifelike interactive avatars. Professional
-              video presence for any AI agent.
+            <p className="w-96 max-w-full text-neutral-400 text-base font-normal">
+              The bridge between your OpenClaw logic and lifelike interactive avatars. Professional video
+              presence for any AI agent.
             </p>
           </div>
 
-          <div>
-            <h4 className="text-white font-semibold mb-5 text-sm uppercase tracking-wider">Product</h4>
-            <ul className="space-y-3">
-              <li>
-                <Link href="/#features" className="text-zinc-500 text-sm hover:text-[#00E3AA] transition-colors">
-                  Features
+          {/* Nav columns */}
+          <div className="flex gap-12 md:gap-28">
+            {/* Product */}
+            <div className="flex flex-col gap-4">
+              <span className="text-white text-base font-medium">Product</span>
+              {[
+                { label: "Features",   href: "/#features" },
+                { label: "Pricing",    href: "/#pricing"  },
+                { label: "Live Demos", href: "/#demo"     },
+              ].map((l) => (
+                <Link key={l.label} href={l.href} className="text-neutral-400 text-base font-medium hover:text-white transition-colors">
+                  {l.label}
                 </Link>
-              </li>
-              <li>
-                <Link href="/#pricing" className="text-zinc-500 text-sm hover:text-[#00E3AA] transition-colors">
-                  Pricing
-                </Link>
-              </li>
-              <li>
-                <Link href="/#demo" className="text-zinc-500 text-sm hover:text-[#00E3AA] transition-colors">
-                  Live Demo
-                </Link>
-              </li>
-            </ul>
-          </div>
+              ))}
+            </div>
 
-          <div>
-            <h4 className="text-white font-semibold mb-5 text-sm uppercase tracking-wider">Legal</h4>
-            <ul className="space-y-3">
-              <li>
-                <Link href="/privacy-policy" className="text-zinc-500 text-sm hover:text-[#00E3AA] transition-colors">
-                  Privacy Policy
+            {/* Legal */}
+            <div className="flex flex-col gap-4">
+              <span className="text-white text-base font-medium">Legal</span>
+              {[
+                { label: "Privacy Policy",   href: "/privacy-policy"   },
+                { label: "Terms of Service", href: "/terms-of-service" },
+                { label: "Contact",          href: "/#contact"         },
+              ].map((l) => (
+                <Link key={l.label} href={l.href} className="text-neutral-400 text-base font-medium hover:text-white transition-colors">
+                  {l.label}
                 </Link>
-              </li>
-              <li>
-                <Link href="/terms-of-service" className="text-zinc-500 text-sm hover:text-[#00E3AA] transition-colors">
-                  Terms of Service
-                </Link>
-              </li>
-              <li>
-                <Link href="/#contact" className="text-zinc-500 text-sm hover:text-[#00E3AA] transition-colors">
-                  Contact Us
-                </Link>
-              </li>
-            </ul>
+              ))}
+            </div>
           </div>
         </div>
 
-        <div className="mt-12 pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4 text-zinc-600 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#00E3AA] animate-pulse" />
-            <span>All systems operational</span>
+        {/* Divider + bottom bar */}
+        <div className="flex flex-col gap-10">
+          <div className="border-t border-white/10" />
+          <div className="flex flex-col md:flex-row justify-between items-center flex-wrap gap-4">
+            <div className="p-2 flex items-center gap-2.5">
+              <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+              <span className="text-zinc-400 text-base font-medium">Systems Operational</span>
+            </div>
+            <span className="text-white/80 text-base font-normal">© ClawdFace. All rights reserved.</span>
           </div>
-          <span>&copy; {new Date().getFullYear()} ClawdFace. All rights reserved.</span>
         </div>
       </div>
 
-      {/* Large bottom branding */}
-      <div className="border-t border-white/5 px-6 pb-4 pt-6 flex items-end justify-between gap-4 overflow-hidden">
-        <div
-          className="text-[clamp(3rem,10vw,9rem)] font-black text-white/5 leading-none select-none tracking-tight whitespace-nowrap"
+      {/* ── Mascot + wordmark ───────────────────────────────────────────── */}
+      <div className="flex justify-center items-center gap-2 md:gap-10">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/clawdface-logo.svg" alt="ClawdFace mascot" className="w-28 h-24 md:w-64 md:h-52 object-contain shrink-0" />
+        <span
+          className="font-bold text-emerald-400 select-none leading-none whitespace-nowrap"
+          style={{ fontSize: "clamp(36px, 10vw, 186px)" }}
           aria-hidden="true"
         >
           ClawdFace
-        </div>
-        <div className="flex-shrink-0 w-20 h-20 relative opacity-20 mb-2">
-          <Image src="/openclaw.png" alt="" fill className="object-contain" aria-hidden="true" />
-        </div>
+        </span>
       </div>
     </footer>
   );
