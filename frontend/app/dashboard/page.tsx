@@ -1608,7 +1608,7 @@ function ClientPage() {
                     onClick={() => setActiveSession("My Bot")}
                     className="relative z-10 mt-6 px-5 py-2.5 bg-brand/10 hover:bg-brand/20 text-brand rounded-lg font-medium transition-all duration-300 text-sm border border-brand/20"
                   >
-                    Return to My Bot
+                    Return to My Agent
                   </button>
                 </div>
               </div>
@@ -1624,7 +1624,7 @@ function ClientPage() {
             setConfig({ 
               ...config, 
               avatarId: id,
-              botName: (!config.botName || config.botName === "Bot" || config.botName === "My Bot") 
+              botName: (!config.botName || config.botName === "Bot" || config.botName === "My Bot" || config.botName === "Agent" || config.botName === "My Agent") 
                 ? (avatars.find(a => a.id === id)?.name || "")
                 : config.botName
             });
@@ -1720,11 +1720,11 @@ function SessionConfigForm({
       <div className="w-full max-w-[620px] mx-auto px-6 py-8">
         <div className="mb-6 text-center">
           <h2 className="text-[22px] font-bold text-white tracking-tight">
-            {isEditing ? "Edit Bot Configuration" : (isSavingBot ? "Save Bot to Library" : "Quick Call")}
+            {isEditing ? "Edit Agent Configuration" : (isSavingBot ? "Save Agent to Library" : "Quick Call")}
           </h2>
           <p className="text-[#6b7280] text-[13px] mt-1">
             {isEditing 
-              ? "Update your bot settings below" 
+              ? "Update your agent settings below" 
               : "Manual configuration for a one-time connection"}
           </p>
         </div>
@@ -1755,7 +1755,7 @@ function SessionConfigForm({
                   className="w-full bg-surface border border-brand/30 rounded-xl py-3 px-4 text-[14px] text-white focus:outline-none focus:border-brand transition-all cursor-pointer font-medium"
                   defaultValue=""
                 >
-                  <option value="" disabled>Select a bot to fill fields...</option>
+                  <option value="" disabled>Select an agent to fill fields...</option>
                   {bots.map(bot => {
                     const date = bot.created_at ? new Date(bot.created_at) : null;
                     const timestamp = date ? `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear().toString().slice(-2)} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}` : "";
@@ -1773,7 +1773,7 @@ function SessionConfigForm({
                 {field("openclawUrl",  "URL",     <LinkIcon />,   "http://localhost:18789")}
                 {field("gatewayToken", "Token",    <KeyIcon />,    "Enter token")}
               </div>
-              {field("botName",      "Bot Name",         <UserIcon />,   "Enter a custom name for this bot")}
+              {field("botName",      "Agent Name",         <UserIcon />,   "Enter a custom name for this agent")}
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#6b7280] flex items-center gap-1.5">
@@ -1941,7 +1941,7 @@ function SessionConfigForm({
                       <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>
                     </svg>
                   )}
-                  {isEditing ? "Update Bot Configuration" : "Save as new Bot"}
+                  {isEditing ? "Update Agent Configuration" : "Save as new Agent"}
                 </button>
                 {isEditing && (
                   <button
@@ -2356,7 +2356,7 @@ function BotLibraryView({
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm("Are you sure you want to delete this bot?")) return;
+    if (!confirm("Are you sure you want to delete this agent?")) return;
     setIsDeleting(id);
     const apiKey = localStorage.getItem("defaultApiKey") ?? "";
     await deleteAgent(apiKey, id);
@@ -2399,7 +2399,7 @@ function BotLibraryView({
                 <LibraryIcon size={22} className="text-brand" />
               </div>
               <h1 className="text-3xl font-bold text-white tracking-tight font-outfit">
-                Bot <span className="text-brand">Library</span>
+                Agent <span className="text-brand">Library</span>
               </h1>
             </div>
             <p className="text-neutral-500 font-medium text-sm tracking-wide ml-1 font-outfit">
@@ -2427,7 +2427,7 @@ function BotLibraryView({
             </div>
             <h3 className="text-2xl font-bold text-white tracking-tight">Your vault is empty</h3>
             <p className="text-neutral-500 text-[15px] mt-3 max-w-sm text-center font-medium">
-              Create and save your first AI companion from the <span className="text-brand">&quot;Add Bot&quot;</span> lab to see them listed here.
+              Create and save your first AI companion from the <span className="text-brand">&quot;Add Agent&quot;</span> lab to see them listed here.
             </p>
           </motion.div>
         ) : (
@@ -2508,16 +2508,16 @@ function BotLibraryView({
                       <button 
                         onClick={(e) => handleDelete(bot.id, e)} 
                         className="p-2.5 rounded-xl bg-black/40 backdrop-blur-xl border border-white/10 text-white/50 hover:text-red-500 hover:bg-red-500/10 hover:border-red-500/40 transition-all"
-                        title="Delete Bot"
+                        title="Delete Agent"
                       >
                         {isDeleting === bot.id ? <RefreshCwIcon size={16} className="animate-spin" /> : <TrashIcon size={16} />}
                       </button>
                     </div>
 
-                    {/* Bot Name Badge (Bottom Left) */}
+                    {/* Agent Name Badge (Bottom Left) */}
                     <div className="absolute bottom-4 left-6">
                       <h3 className="text-xl font-bold text-white tracking-tight group-hover:text-brand transition-colors duration-200 font-outfit">
-                        {bot.agent_name || "Unnamed Bot"}
+                        {bot.agent_name || "Unnamed Agent"}
                       </h3>
                       <div className="flex items-center gap-1.5 mt-1">
                         <div className="w-1.5 h-1.5 rounded-full bg-brand shadow-[0_0_8px_rgba(0,227,170,0.6)]" />
@@ -2663,7 +2663,7 @@ function ConversationsListView({
               <thead>
                 <tr className="border-b border-white/5 bg-white/5">
                   <th className="px-6 py-4 text-[12px] font-bold uppercase tracking-wider text-[#6b7280]">Status</th>
-                  <th className="px-6 py-4 text-[12px] font-bold uppercase tracking-wider text-[#6b7280]">Bot Detail</th>
+                  <th className="px-6 py-4 text-[12px] font-bold uppercase tracking-wider text-[#6b7280]">Agent Detail</th>
                   <th className="px-6 py-4 text-[12px] font-bold uppercase tracking-wider text-[#6b7280]">Duration</th>
                   <th className="px-6 py-4 text-[12px] font-bold uppercase tracking-wider text-[#6b7280]">Date/Time</th>
                   <th className="px-6 py-4 text-[12px] font-bold uppercase tracking-wider text-[#6b7280]">Action</th>
@@ -2899,7 +2899,7 @@ function DirectCallDashboard({
             animate={{ opacity: 1, y: 0 }}
             className="text-2xl font-bold text-white mt-8 tracking-wide flex items-center"
           >
-            {isValidating ? "Validating credits" : "Connecting to bot"}
+            {isValidating ? "Validating credits" : "Connecting to agent"}
             <span className="flex ml-1">
               <motion.span animate={{ opacity: [0, 1, 0] }} transition={{ duration: 1.5, repeat: Infinity }}>.</motion.span>
               <motion.span animate={{ opacity: [0, 1, 0] }} transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }}>.</motion.span>

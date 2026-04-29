@@ -147,7 +147,7 @@ function QuickCallDropdown({ bots, avatars, onSelect, onClose, className = "bott
       <div className="py-1 max-h-[280px] overflow-y-auto custom-scrollbar">
         {bots?.length === 0 ? (
           <div className="px-4 py-6 text-center text-[#5a5a5a] text-[13px]">
-            No bots found. Add a bot library first.
+            No agents found. Add an agent first.
           </div>
         ) : (
           bots?.map((bot) => {
@@ -173,7 +173,7 @@ function QuickCallDropdown({ bots, avatars, onSelect, onClose, className = "bott
                 </div>
                 <div className="flex flex-col items-start min-w-0">
                   <span className="font-semibold truncate w-full">{bot.agent_name}</span>
-                  <span className="text-[10px] text-[#5a5a5a] uppercase tracking-tight">Saved Bot</span>
+                  <span className="text-[10px] text-[#5a5a5a] uppercase tracking-tight">Saved Agent</span>
                 </div>
               </button>
             );
@@ -293,8 +293,8 @@ export function Sidebar({
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 pb-2 flex flex-col gap-0.5 custom-scrollbar">
-        <NavRow label="Bot Library" icon={<LibraryIcon />} isActive={activeSession === "Library" || activeSession === "DirectCall"} onClick={() => handleNav("Library")} />
-        <NavRow label="Add Bot" icon={<BotIcon />} isActive={activeSession === "AddBot"} onClick={() => handleNav("AddBot")} />
+        <NavRow label="Agent Library" icon={<LibraryIcon />} isActive={activeSession === "Library" || activeSession === "DirectCall"} onClick={() => handleNav("Library")} />
+        <NavRow label="Add Agent" icon={<BotIcon />} isActive={activeSession === "AddBot"} onClick={() => handleNav("AddBot")} />
         <NavRow label="Gateway Doctor" icon={<ActivityIcon />} onClick={() => handleNav("Doctor")} isActive={activeSession === "Doctor"} badge="Health" badgeCls="border-[#00E3AA]/20 text-[#00E3AA]" />
         <NavRow label="Stock Avatars" icon={<UserIcon />}     isActive={activeSession === "Avatars"}   onClick={() => handleNav("Avatars")} />
 
@@ -378,8 +378,8 @@ export function Sidebar({
       </div>
       <div className="border-t border-[#232323] mx-2 mb-2" />
       <nav className="flex-1 overflow-y-auto flex flex-col items-center gap-1 px-2 custom-scrollbar">
-        <ColIconBtn label="Bot Library" icon={<LibraryIcon />} isActive={activeSession === "Library" || activeSession === "DirectCall"} onClick={() => handleNav("Library")} />
-        <ColIconBtn label="Add Bot" icon={<BotIcon />} isActive={activeSession === "AddBot"} onClick={() => handleNav("AddBot")} />
+        <ColIconBtn label="Agent Library" icon={<LibraryIcon />} isActive={activeSession === "Library" || activeSession === "DirectCall"} onClick={() => handleNav("Library")} />
+        <ColIconBtn label="Add Agent" icon={<BotIcon />} isActive={activeSession === "AddBot"} onClick={() => handleNav("AddBot")} />
         <ColIconBtn label="Doctor" icon={<ActivityIcon />} isActive={activeSession === "Doctor"} onClick={() => handleNav("Doctor")} />
         <ColIconBtn label="Stock Avatars" icon={<UserIcon />}     isActive={activeSession === "Avatars"}   onClick={() => handleNav("Avatars")} />
         <ColIconBtn label="Conversations" icon={<HistoryIcon />} isActive={activeSession === "Conversations"} onClick={() => handleNav("Conversations")} />
