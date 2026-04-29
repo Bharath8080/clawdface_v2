@@ -16,7 +16,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Room, RoomEvent, DisconnectReason } from "livekit-client";
 import { useCallback, useEffect, useState, useRef, Suspense, createContext, useContext } from "react";
 import type { ConnectionDetails } from "@/app/api/connection-details/route";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@stackframe/stack";
 import { initDefaultApiKey } from "@/app/services/apiKeyService";
 import { createUserServiceServer } from "@/app/services/createUserService";
@@ -71,6 +71,16 @@ const withPrimaryAvatar = (avatars: AgentBot["avatars"] | undefined, avatarId: s
 };
 
 import { AVATARS } from "@/lib/constants";
+
+const DASHBOARD_SESSIONS = new Set([
+  "Library",
+  "DirectCall",
+  "AddBot",
+  "My Bot",
+  "Doctor",
+  "Avatars",
+  "Conversations",
+]);
 
 
 export const AvatarsContext = createContext<AvatarItem[]>(AVATARS);
@@ -645,8 +655,10 @@ function HealthAlertNotification({
 
 function ClientPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [room] = useState(new Room());
   const [activeSession, setActiveSession] = useState("Library");
+  const initialSessionApplied = useRef(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
   const [isRecallModalOpen, setIsRecallModalOpen] = useState(false);
@@ -671,6 +683,17 @@ function ClientPage() {
   const [dbLastConfig, setDbLastConfig] = useState<any>(null);
   const [botHealth, setBotHealth] = useState<Record<string, 'healthy' | 'unhealthy' | 'checking' | 'unknown'>>({});
   const [showHealthAlert, setShowHealthAlert] = useState(false);
+
+  useEffect(() => {
+    if (initialSessionApplied.current) return;
+
+    const sessionParam = searchParams.get("session");
+    if (sessionParam && DASHBOARD_SESSIONS.has(sessionParam)) {
+      setActiveSession(sessionParam);
+    }
+
+    initialSessionApplied.current = true;
+  }, [searchParams]);
 
   // Conversation tracking state
   const [sessionTranscript, setSessionTranscript] = useState<any[]>([]);
