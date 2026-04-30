@@ -124,8 +124,8 @@ function ProfileDropdown({ user, initials, onClose, planLabel, className = "bott
 
       {/* Menu items */}
       <div className="py-1">
-        {menuItem(<CrownIcon />, "Upgrade to Pro", () => { router.push("/dashboard/settings/billing-and-subscription"); onClose(); }, "text-yellow-400")}
-        <div className="border-t border-[#1f1f1f] my-1" />
+        {planLabel === "Free Plan" && menuItem(<CrownIcon />, "Upgrade to Pro", () => { router.push("/dashboard/settings/billing-and-subscription"); onClose(); }, "text-yellow-400")}
+        <div className="border-[#1f1f1f] my-1" />
         {menuItem(<GearIcon />, "Settings", () => onClose())}
         {menuItem(<CardIcon />, "Billing & Plans", () => { router.push("/dashboard/settings/billing-and-subscription"); onClose(); })}
         <div className="border-t border-[#1f1f1f] my-1" />
