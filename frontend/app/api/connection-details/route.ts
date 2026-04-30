@@ -47,6 +47,8 @@ async function handleConnection(config: {
   connection_type?: string;
   enable_thinking?: string;
   thinking_delay?: string;
+  conversation_id?: string;
+  job_id?: string;
 }) {
   try {
     if (!LIVEKIT_URL) throw new Error("LIVEKIT_URL is not defined");
@@ -56,24 +58,45 @@ async function handleConnection(config: {
     const participantIdentity = `user_${Math.floor(Math.random() * 10_000)}`;
     const roomName = config.roomName || `clawdface_room_${Math.floor(Math.random() * 10_000)}`;
 
-    // Embed session config in participant token metadata so the agent can read it
-    const metadata = JSON.stringify({
+    // Participant token metadata — carries agent config for resolve_config()
+    const participantMetadata = JSON.stringify({
       openclawUrl:  config.openclawUrl  || "",
       gatewayToken: config.gatewayToken || "",
       sessionKey:   config.sessionKey   || "",
       avatarId:     config.avatarId     || "",
       meetingUrl:   config.meetingUrl   || "",
       connection_type: config.connection_type || "website",
-      enable_thinking: config.enable_thinking || (config as any).thinkingEnabled || "true",
-      thinking_delay:  config.thinking_delay  || (config as any).thinkingDelay || "5.0",
+      enable_thinking: config.enable_thinking || "true",
+      thinking_delay:  config.thinking_delay  || "5.0",
+      conversation_id: config.conversation_id || "",
+      job_id:          config.job_id          || "",
+    });
+
+    // Agent dispatch metadata — this becomes ctx.job.metadata in agent.py.
+    // MUST contain conversation_id and job_id so usage reporting uses the
+    // correct DB-registered UUIDs, not a freshly generated fallback.
+    // MUST contain connection_type so resolve_config() routes correctly:
+    //   "website" → Deepgram STT  |  "email_dispatch" → Recall STT
+    const agentMetadata = JSON.stringify({
+      openclawUrl:     config.openclawUrl     || "",
+      gatewayToken:    config.gatewayToken    || "",
+      sessionKey:      config.sessionKey      || "",
+      avatarId:        config.avatarId        || "",
+      enable_thinking: config.enable_thinking || "true",
+      thinking_delay:  config.thinking_delay  || "5.0",
+      connection_type: config.connection_type || "website",
+      conversation_id: config.conversation_id || "",
+      job_id:          config.job_id          || "",
     });
 
     console.log(`[connection-details] Room: ${roomName}`);
     console.log(`[connection-details] Session Key: ${config.sessionKey || "(default)"}`);
+    console.log(`[connection-details] conv_id → agent: ${config.conversation_id || "(none)"}`);
 
     const participantToken = await createParticipantToken(
-      { identity: participantIdentity, metadata },
-      roomName
+      { identity: participantIdentity, metadata: participantMetadata },
+      roomName,
+      agentMetadata
     );
 
     return NextResponse.json(
@@ -95,7 +118,8 @@ async function handleConnection(config: {
 
 function createParticipantToken(
   userInfo: AccessTokenOptions & { metadata?: string },
-  roomName: string
+  roomName: string,
+  agentMetadata: string = ""
 ) {
   const at = new AccessToken(API_KEY, API_SECRET, {
     identity: userInfo.identity,
@@ -110,15 +134,17 @@ function createParticipantToken(
     canSubscribe: true,
   });
 
-  // Since we named the agent 'clawdface', automatic dispatch is disabled.
-  // We must explicitly dispatch it when the participant joins.
+  // Dispatch the named agent and embed metadata into the job so agent.py
+  // receives conversation_id/job_id in ctx.job.metadata.
   at.roomConfig = new RoomConfiguration({
     agents: [
       new RoomAgentDispatch({
         agentName: 'clawdface',
+        metadata: agentMetadata,
       }),
     ],
   });
 
   return at.toJwt();
 }
+

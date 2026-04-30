@@ -663,6 +663,11 @@ function ClientPage() {
   const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
   const [isRecallModalOpen, setIsRecallModalOpen] = useState(false);
   const [showCreditModal, setShowCreditModal] = useState(false);
+  const [creditModalConfig, setCreditModalConfig] = useState<{ title: string; message: string; type: "credit" | "concurrency" }>({
+    title: "Low Credits",
+    message: "Your account balance is low. Please add credits to continue using our voice assistants.",
+    type: "credit"
+  });
   const [isValidatingCredit, setIsValidatingCredit] = useState(false);
   const user = useUser();
   const [authChecked, setAuthChecked] = useState(false);
@@ -1037,6 +1042,11 @@ function ClientPage() {
       
       if (validationResponse.status === 403) {
         console.log("🚫 Credit Validation - 403 Forbidden: Redirecting to Billing");
+        setCreditModalConfig({
+          title: "Low Credits",
+          message: "Your account balance is low. Please add credits in the Payments section to continue using our voice assistants.",
+          type: "credit"
+        });
         setShowCreditModal(true);
         return;
       }
@@ -1045,7 +1055,12 @@ function ClientPage() {
         const errorText = await validationResponse.text().catch(() => "");
         
         if (validationResponse.status === 500 && errorText.includes("concurrent session limit")) {
-          setApiError("You already have an active session. Please close it or wait 10 seconds and try again.");
+          setCreditModalConfig({
+            title: "Session Limit Reached",
+            message: "You already have an active session. Please close your other session or wait 10 seconds and try again.",
+            type: "concurrency"
+          });
+          setShowCreditModal(true);
         } else {
           console.error(`❌ Validation failed (${validationResponse.status}):`, errorText);
           setApiError(`Session start failed (Error ${validationResponse.status}). Please try again later.`);
@@ -1068,11 +1083,18 @@ function ClientPage() {
       // --- End Credit Validation ---
 
       // --- Connection Step ---
-      console.log("🚀 Connecting with config:", finalConfig);
+      // Merge the conversation_id/job_id from credit validation into the config
+      // so the agent receives them in ctx.job.metadata and can post accurate usage.
+      const connectionConfig = {
+        ...finalConfig,
+        conversation_id: currentConversationIdRef.current || undefined,
+        job_id: currentJobIdRef.current || undefined,
+      };
+      console.log("🚀 Connecting with config:", connectionConfig);
       const response = await fetch("/api/connection-details", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(finalConfig),
+        body: JSON.stringify(connectionConfig),
       });
 
       const connectionDetailsData: ConnectionDetails = await response.json();
@@ -1100,10 +1122,6 @@ function ClientPage() {
     // FIX: Prioritize bot.agent_id, then session_key, never fall back to internal UUID
     // @ts-ignore
     const externalId = bot.agent_id || stripSessionKey(bot.config?.session_key || "");
-    
-    if (!externalId) {
-      console.log("ℹ️ No explicit agent_id or session_key found for this bot, will use fallback ID.");
-    }
     
     externalAgentIdRef.current = externalId || "";
 
@@ -1175,61 +1193,14 @@ function ClientPage() {
       }
       // --- End session closing ---
 
-      const endTime = Date.now();
-      const startTime = startTimeRef.current;
-      const duration = startTime ? Math.round((endTime - startTime) / 1000) : 0;
-      
       const currentTranscript = transcriptRef.current;
       const currentConfig = configRef.current;
       const currentSessionType = activeSessionRef.current;
-      
-      // Determine session status based on disconnect reason
-      let status = "Completed";
-      if (reason && reason !== DisconnectReason.CLIENT_INITIATED) {
-        if ([DisconnectReason.SERVER_SHUTDOWN, DisconnectReason.PARTICIPANT_REMOVED, DisconnectReason.ROOM_DELETED].includes(reason)) {
-          status = "Terminated";
-        } else if ([DisconnectReason.STATE_MISMATCH, DisconnectReason.JOIN_FAILURE].includes(reason)) {
-          status = "Failed";
-        } else {
-          status = "Interrupted";
-        }
-      }
-
       const email = user?.primaryEmail || user?.displayName;
 
-      console.log("📊 Session Summary:", {
-        transcriptCount: currentTranscript.length,
-        userEmail: email,
-        duration: duration + "s",
-        sessionType: currentSessionType,
-        status
-      });
 
-      // --- Send Usage Details ---
-      if (currentConversationIdRef.current) {
-        const usageStatus = reason === DisconnectReason.CLIENT_INITIATED 
-          ? "USER_TERMINATED" 
-          : status.toUpperCase();
-
-        const usagePayload = {
-          conversation_id: currentConversationIdRef.current,
-          job_id: currentJobIdRef.current || "",
-          status: usageStatus,
-          usage: {
-            total_duration: duration
-          }
-        };
-
-        console.log("📈 Sending Usage Data:", usagePayload);
-        sendUsageData(usagePayload).then(({ success, error }) => {
-          if (success) {
-            console.log("✅ Usage data sent successfully");
-          } else {
-            console.warn("⚠️ Failed to send usage data:", error);
-          }
-        });
-      }
-      // --- End Usage Details ---
+      // Usage reporting is handled exclusively by agent.py at session teardown.
+      // It includes full STT/LLM/TTS metrics from the LiveKit usage collector.
 
       // Filter for non-empty text and ensure we only save if there's meaningful interaction
       const filteredTranscript = currentTranscript
@@ -1286,8 +1257,25 @@ function ClientPage() {
       transcriptRef.current = [];
     };
 
+    const handleDataReceived = (payload: Uint8Array) => {
+      try {
+        const strData = new TextDecoder().decode(payload);
+        const data = JSON.parse(strData);
+        if (data.type === "usage_status") {
+          if (data.status === "success") {
+            console.log("✅ [Backend Telemetry] Usage reported successfully:", data.id);
+          } else {
+            console.warn("❌ [Backend Telemetry] Usage reporting failed:", data.error || "Unknown error");
+          }
+        }
+      } catch (e) {
+        // Not our message or not JSON
+      }
+    };
+
     room.on(RoomEvent.Connected, handleConnected);
     room.on(RoomEvent.Disconnected, handleDisconnected);
+    room.on(RoomEvent.DataReceived, handleDataReceived);
 
     // Close session when user closes/refreshes the tab
     const handleBeforeUnload = async () => {
@@ -1316,6 +1304,7 @@ function ClientPage() {
       room.off(RoomEvent.MediaDevicesError, onDeviceFailure);
       room.off(RoomEvent.Connected, handleConnected);
       room.off(RoomEvent.Disconnected, handleDisconnected);
+      room.off(RoomEvent.DataReceived, handleDataReceived);
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, [room, user]);
@@ -1564,10 +1553,6 @@ function ClientPage() {
                   // @ts-ignore
                   const externalId = bot.agent_id || stripSessionKey(bot.config?.session_key || "");
                   
-                  if (!externalId) {
-                    console.log("ℹ️ No explicit agent_id or session_key found for this bot, will use fallback ID.");
-                  }
-                  
                   externalAgentIdRef.current = externalId || "";
 
                   const newConfig = {
@@ -1673,6 +1658,7 @@ function ClientPage() {
         <CreditModal 
           isOpen={showCreditModal} 
           onClose={() => setShowCreditModal(false)} 
+          config={creditModalConfig}
         />
     </main>
     </AvatarsContext.Provider>
@@ -1986,9 +1972,11 @@ function SessionConfigForm({
 function CreditModal({
   isOpen,
   onClose,
+  config,
 }: {
   isOpen: boolean;
   onClose: () => void;
+  config: { title: string; message: string; type: "credit" | "concurrency" };
 }) {
   const router = useRouter();
   if (!isOpen) return null;
@@ -2007,9 +1995,9 @@ function CreditModal({
           </svg>
         </div>
         
-        <h2 className="text-2xl font-bold text-white mb-3 font-outfit">Not enough credits</h2>
+        <h2 className="text-2xl font-bold text-white mb-3 font-outfit">{config.title}</h2>
         <p className="text-neutral-400 text-[15px] leading-relaxed mb-8">
-          Not enough credits to start the conversation. Please add credits in the Payments section to continue.
+          {config.message}
         </p>
 
         <div className="flex flex-col gap-3">

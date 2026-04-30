@@ -65,7 +65,25 @@ MALE_AVATAR_IDS = {
     "1fa504ff", "0f160301", "13550375", "18c4043e", "48d778c9"
 }
 
-DEFAULT_AVATAR_ID = "1a640442"
+
+# ---------------------------------------------------------------------------
+# BACKEND USAGE REPORTING
+# ---------------------------------------------------------------------------
+def post_backend_usage(usage: dict):
+    """POST session usage summary to BACKEND_BASE_URL."""
+    base_url = os.getenv("BACKEND_BASE_URL", "").rstrip("/")
+    if not base_url:
+        logger.warning("[USAGE] BACKEND_BASE_URL not set, skipping backend usage post.")
+        return
+    endpoint = f"{base_url}/v1/usage"
+    try:
+        resp = requests.post(endpoint, json=usage, timeout=10)
+        resp.raise_for_status()
+        logger.info(f"[USAGE] Backend usage posted successfully → {endpoint} | {resp.status_code}")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"[USAGE] Failed to POST backend usage: {e}")
+        raise
+
 
 # ---------------------------------------------------------------------------
 # RECALL.AI STT — connects to relay with room_id in URL
@@ -232,7 +250,8 @@ def resolve_config(ctx: agents.JobContext) -> tuple[dict, str]:
             if cfg.get("recallBotId"):
                 return cfg, "recall"
             if cfg.get("openclawUrl"):
-                return cfg, "email_dispatch"
+                explicit_type = cfg.get("connection_type", "")
+                return cfg, explicit_type if explicit_type else "email_dispatch"
     except Exception as e:
         logger.debug(f"[CONFIG] Failed to parse job metadata: {e}")
 
@@ -315,9 +334,14 @@ class MyAgent(Agent):
         self._thinking_played = False
         self._response_buffer = []
         self._last_user_message = None  # Store for context-aware waiting
+        self._shutting_down = False # Guard against post-disconnect transients
     
     async def on_user_turn_completed(self, turn_ctx, new_message):
         """Custom handling: stream LLM, buffer if thinking needed, then release."""
+        if self._shutting_down:
+            logger.info("[STREAM] Agent is shutting down, ignoring user turn")
+            return
+
         if not self._enable_thinking or not self._llm:
             return  # Normal flow if thinking disabled
             
@@ -352,7 +376,6 @@ class MyAgent(Agent):
         
         # Start LLM stream
         logger.info("[STREAM] Starting LLM stream...")
-        # Access the llm provider (ensure it's the standard LLM for .chat())
         from livekit.agents import llm as llm_lib
         llm_provider = self.llm
         if not isinstance(llm_provider, llm_lib.LLM):
@@ -379,13 +402,11 @@ class MyAgent(Agent):
                 if text:
                     self._response_buffer.append(text)
                     
-                    # Track first text chunk timing and cancel thinking timer if it's fast
                     if not first_chunk_received.is_set():
                         first_chunk_received.set()
                         elapsed = asyncio.get_event_loop().time() - stream_start_time
                         logger.info(f"[STREAM] First text chunk after {elapsed:.2f}s")
                         
-                        # Fast response: cancel timer, don't play thinking
                         if not thinking_started.is_set():
                             logger.info("[STREAM] Fast response, cancelling thinking timer")
                             thinking_task.cancel()
@@ -393,9 +414,8 @@ class MyAgent(Agent):
                                 await thinking_task
                             except asyncio.CancelledError:
                                 pass
-                            thinking_done.set()  # Signal that "thinking" is done (skipped)
+                            thinking_done.set()
                         else:
-                            # Thinking is playing - let it finish, just buffer the response
                             logger.info("[STREAM] Response arrived during thinking - will wait for it to finish")
                     
         except Exception as e:
@@ -423,6 +443,11 @@ class MyAgent(Agent):
         else:
             logger.warning("[STREAM] Empty response, nothing to speak")
     
+    async def _on_shutdown(self) -> None:
+        """Cleanup session resources."""
+        self._shutting_down = True
+        logger.info("[SESSION] Shutting down agent")
+    
     def _extract_text_from_chunk(self, chunk):
         """Extract text from LLM chunk."""
         text = ""
@@ -447,7 +472,6 @@ class MyAgent(Agent):
         try:
             await asyncio.sleep(self._thinking_delay)
             
-            # Only play if not already cancelled
             started_event.set()
             
             # Generate dynamic waiting message using Groq
@@ -455,8 +479,6 @@ class MyAgent(Agent):
             
             logger.info(f"[THINKING] Timer fired, saying: '{waiting_message}'")
             self._thinking_played = True
-            # No interruptions - let the full message play for better UX
-            # Play the filler phrase (non-interruptible to ensure it finishes)
             try:
                 await self.session.say(waiting_message, allow_interruptions=False)
                 logger.info("[THINKING] Done")
@@ -474,7 +496,6 @@ class MyAgent(Agent):
     async def _generate_waiting_message(self) -> str:
         """Generate context-aware waiting message using Groq LLM."""
         if not self._groq_llm or not self._last_user_message:
-            # Fallback to static if Groq not available
             fallbacks = [
                 "Let me think about that for a moment.",
                 "Hmm, give me a second to consider this.",
@@ -483,10 +504,8 @@ class MyAgent(Agent):
             return random.choice(fallbacks)
         
         try:
-            # Create prompt for Groq to generate waiting message
             user_query = self._last_user_message.content or ""
             
-# ── Filler LLM Prompt (the in-between one) ─────────────────────────────────
             waiting_prompt = (
                 "Generate a brief context-aware filler phrase while the main response is being prepared.\n\n"
                 f"User message: '{user_query}'\n\n"
@@ -530,7 +549,6 @@ class MyAgent(Agent):
                 "Respond with ONLY the filler phrase. No labels, no explanation."
             )
             
-            # Quick Groq call for instant response
             from livekit.agents import llm as llm_types
             chat_ctx = llm_types.ChatContext()
             chat_ctx.add_message(role="user", content=waiting_prompt)
@@ -541,10 +559,8 @@ class MyAgent(Agent):
                 if text:
                     response_text += text
             
-            # Clean up the response
             waiting_msg = response_text.strip().strip('"').strip("'")
             
-            # Ensure it's not too long
             if len(waiting_msg) > 80:
                 waiting_msg = waiting_msg[:77] + "..."
             
@@ -568,12 +584,28 @@ server = AgentServer()
 
 @server.rtc_session(agent_name="clawdface")
 async def my_agent(ctx: agents.JobContext):
-    # Dynamic thinking settings resolved from metadata below
-
     await ctx.connect()
 
+    # ── IDs: resolve once here, reuse everywhere ──────────────────────────
+    _raw_job_meta: dict = {}
+    try:
+        if ctx.job and ctx.job.metadata:
+            _raw_job_meta = json.loads(ctx.job.metadata)
+    except Exception:
+        pass
+
+    conversation_id: str = _raw_job_meta.get("conversation_id") or ""
+    job_id: str = ctx.job.id  # always ctx.job.id — LiveKit assigns this
+
+    if not conversation_id:
+        logger.warning(f"[SESSION] ⚠️ No conversation_id for job {job_id}. This is likely a stray session. Exiting.")
+        return
+
+    logger.info(f"🆔 conv_id={conversation_id} | job_id={job_id}")
+    # ─────────────────────────────────────────────────────────────────────
+
     config, connection_type = {}, "unknown"
-    for _ in range(30):
+    for _ in range(5):
         config, connection_type = resolve_config(ctx)
         if config: break
         await asyncio.sleep(0.5)
@@ -589,10 +621,10 @@ async def my_agent(ctx: agents.JobContext):
     url = config.get("openclawUrl", "").strip()
     token = config.get("gatewayToken", "")
     key = config.get("sessionKey", "")
-    avatar_id = config.get("avatarId") or os.getenv("TRUGEN_AVATAR_ID") or DEFAULT_AVATAR_ID
+    avatar_id = config.get("avatarId") or os.getenv("TRUGEN_AVATAR_ID")
     voice_id = "CwhRBWXzGAHq8TQ4Fs17" if avatar_id in MALE_AVATAR_IDS else "FGY2WhTYpPnrIDTdsKH5"
     
-    # Resolve dynamic thinking settings check both snake_case and camelCase
+    # Resolve dynamic thinking settings — check both snake_case and camelCase
     thinking_enabled_val = config.get("enable_thinking") or config.get("thinking_enabled") or "true"
     ENABLE_LET_ME_THINK = str(thinking_enabled_val).lower() == "true"
     
@@ -649,57 +681,113 @@ async def my_agent(ctx: agents.JobContext):
             eager_eot_threshold=0.4,
         )
 
-    session = AgentSession(
-        stt=stt_provider,
-        vad=vad_provider,
-        llm=llm,
-        tts=elevenlabs.TTS(voice_id=voice_id, model="eleven_flash_v2_5"),
-        conn_options=SessionConnectOptions(
-            llm_conn_options=APIConnectOptions(timeout=300.0, max_retry=0)
-        ),
-        # preemptive_generation=False: We manually control LLM timing to avoid
-        # double requests. We stream the LLM response but buffer it until
-        # after "let me think" plays, then release it.
-        preemptive_generation=False
-    )
+    # ── METRICS / USAGE COLLECTION ─────────────────────────────────────────
+    usage_collector = metrics.UsageCollector()
 
-    # Note: All thinking logic is now handled inside MyAgent class
-    # to enable single LLM request with streaming/buffering approach
-
-    # Groq LLM for instant waiting messages
-    groq_api_key = os.getenv("GROQ_API_KEY") or "MISSING_KEY"
-    groq_llm = openai.LLM(
-        api_key=groq_api_key,
-        base_url="https://api.groq.com/openai/v1",
-        model="openai/gpt-oss-120b",  # Fast Groq model for instant waiting messages
-    )
-
-    if connection_type in ("email_dispatch", "recall") or config.get("recallBotId"):
-        room_opts = RoomOptions(close_on_disconnect=False)
-        logger.info("[SESSION] Meeting mode active: close_on_disconnect=False")
-    else:
-        room_opts = NOT_GIVEN
-
+    # ── START SESSION ──────────────────────────────────────────────────────
     try:
+        if not avatar_id:
+            logger.error("[SESSION] ✗ No avatar_id resolved. Cannot start TruGen session.")
+            return
+
         trugen_avatar = trugen.AvatarSession(avatar_id=avatar_id)
+
+        session = AgentSession(
+            stt=stt_provider,
+            vad=vad_provider,
+            llm=llm,
+            tts=elevenlabs.TTS(voice_id=voice_id, model="eleven_flash_v2_5"),
+            conn_options=SessionConnectOptions(
+                llm_conn_options=APIConnectOptions(timeout=300.0, max_retry=0)
+            ),
+            preemptive_generation=False
+        )
+
+        @session.on("metrics_collected")
+        def _on_metrics_collected(ev: MetricsCollectedEvent):
+            metrics.log_metrics(ev.metrics)
+            usage_collector.collect(ev.metrics)
+
         await trugen_avatar.start(session, room=ctx.room)
-        
-        # In LiveKit 1.x, we use the high-level Agent properties correctly.
+
+        # Groq LLM for instant waiting messages
+        groq_api_key = os.getenv("GROQ_API_KEY") or "MISSING_KEY"
+        groq_llm = openai.LLM(
+            api_key=groq_api_key,
+            base_url="https://api.groq.com/openai/v1",
+            model="openai/gpt-oss-120b",
+        )
+
+        if connection_type in ("email_dispatch", "recall") or config.get("recallBotId"):
+            room_opts = RoomOptions(close_on_disconnect=False)
+            logger.info("[SESSION] Meeting mode active: close_on_disconnect=False")
+        else:
+            room_opts = NOT_GIVEN
+
         agent = MyAgent(
             llm=llm,
             stt=stt_provider,
             tts=elevenlabs.TTS(voice_id=voice_id, model="eleven_flash_v2_5"),
             vad=vad_provider,
-            groq_llm=groq_llm, 
-            enable_thinking=ENABLE_LET_ME_THINK, 
+            groq_llm=groq_llm,
+            enable_thinking=ENABLE_LET_ME_THINK,
             thinking_delay=THINKING_DELAY
         )
-        
+
+        ctx.add_shutdown_callback(agent._on_shutdown)
         await session.start(agent, room=ctx.room, room_options=room_opts)
         await agent.session.say("Hello! Let's get started.")
+
+        # ── SHUTDOWN / USAGE REPORTING ─────────────────────────────────────
+        async def _report_usage():
+            try:
+                summary = usage_collector.get_summary()
+                session_started_at = getattr(session, "_started_at", None)
+                total_duration = (
+                    (time.time() - session_started_at)
+                    if session_started_at is not None
+                    else 0
+                )
+
+                # ── POST to BACKEND_BASE_URL ───────────────────────────────
+                # Payload: conversation_id, job_id, status, total_duration,
+                #          stt.audio_duration, tts.characters_count.
+                # LLM tokens deliberately excluded per spec.
+                backend_payload = {
+                    "conversation_id": conversation_id,
+                    "job_id": job_id,
+                    "status": "COMPLETED",          # adjust if you have session_status
+                    "usage": {
+                        "total_duration": total_duration,
+                        "stt": {
+                            "audio_duration": summary.stt_audio_duration,
+                        },
+                        "tts": {
+                            "characters_count": summary.tts_characters_count,
+                        },
+                    },
+                }
+                logger.info(f"[USAGE] Backend payload: {json.dumps(backend_payload, default=str)}")
+
+                try:
+                    post_backend_usage(backend_payload)
+                except Exception:
+                    import traceback
+                    logger.error("[USAGE] Failed to post backend usage\n%s", traceback.format_exc())
+
+            except Exception:
+                import traceback
+                logger.error("[USAGE] Unexpected error in _report_usage\n%s", traceback.format_exc())
+
+        ctx.add_shutdown_callback(_report_usage)
+
     except Exception as e:
-        logger.error(f"[SESSION] ✗ Fatal error: {e}")
-        raise
+        error_msg = str(e)
+        if "404" in error_msg or "Avatar not found" in error_msg:
+             logger.error(f"[SESSION] ✗ TruGen Avatar Error: Avatar ID '{avatar_id}' not found or invalid. Please check your configuration.")
+        else:
+             logger.error(f"[SESSION] ✗ Failed to start agent session: {e}")
+        return
 
 
 if __name__ == "__main__":
