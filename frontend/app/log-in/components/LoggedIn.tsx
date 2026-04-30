@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useStackApp } from "@stackframe/stack";
 
 function isValidEmail(email: string) {
@@ -10,8 +10,10 @@ function isValidEmail(email: string) {
 }
 
 const LoggedIn = () => {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [formError, setFormError] = useState("");
@@ -48,12 +50,16 @@ const LoggedIn = () => {
     }
 
     setLoading(true);
-    const result = await app?.signInWithCredential({ email, password });
+    const result = await app?.signInWithCredential({ email, password, noRedirect: true });
     if (result?.status === "error") {
       setFormError(result.error.message);
+      setLoading(false);
+    } else if (result?.status === "ok") {
+      const savedRedirect = localStorage.getItem("redirectTo");
+      localStorage.removeItem("redirectTo");
+      router.push(savedRedirect && savedRedirect.startsWith("/") ? savedRedirect : "/dashboard");
     }
-    setLoading(false);
-  }, [app, email, password]);
+  }, [app, email, password, router]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout | null = null;
@@ -111,13 +117,33 @@ const LoggedIn = () => {
 
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium text-zinc-300">Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Enter your password"
-            className="bg-surface-elevated border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-brand/50 transition-colors"
-          />
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
+              className="w-full bg-surface-elevated border border-white/10 rounded-xl px-4 py-3 pr-11 text-white placeholder-zinc-600 focus:outline-none focus:border-brand/50 transition-colors"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(v => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
+            >
+              {showPassword ? (
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                  <line x1="1" y1="1" x2="23" y2="23"/>
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              )}
+            </button>
+          </div>
           {passwordError && <span className="text-red-400 text-xs mt-1">{passwordError}</span>}
         </div>
 
