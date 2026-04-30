@@ -63,7 +63,7 @@ export function ContactCTASection() {
 
           <div>
             <p className="text-zinc-500 text-sm mb-1">Email us at</p>
-            <p className="text-white font-semibold text-base">hello@clawdface.com</p>
+            <p className="text-white font-semibold text-base">support@clawdface.ai</p>
           </div>
         </motion.div>
 
