@@ -12,15 +12,7 @@ import { PricingSection } from "@/components/landing/PricingSection";
 import { FAQSection } from "@/components/landing/FAQSection";
 import { ContactCTASection } from "@/components/landing/ContactCTASection";
 import { Footer } from "@/components/landing/Footer";
-import { stackServerApp } from "@/stack";
-import { redirect } from "next/navigation";
-
 export default async function LandingPage() {
-  const user = await stackServerApp.getUser({ or: "return-null" });
-  if (user) {
-    redirect("/dashboard");
-  }
-
   return (
     <div className="min-h-screen bg-canvas text-[#E0E0E0] selection:bg-brand selection:text-black overflow-x-hidden">
       <Nav />
