@@ -33,7 +33,7 @@ export default function TermsOfServicePage() {
           <p className="mb-6">To access certain features, you may need to register an account or connect through a valid third-party service account. You must provide true, accurate, current, and complete information and maintain this information's accuracy.</p>
           
           <h3 className="text-[15px] font-semibold text-white mt-8 mb-2">2.2 Account Ownership</h3>
-          <p className="mb-6">You acknowledge that you have no ownership interest in your Account. All rights in your Account belong to ClawdFace. You are responsible for all activities that occur under your Account.</p>
+          <p className="mb-6">You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account. You agree to notify ClawdFace immediately of any unauthorized access or security breaches.</p>
 
           <h3 className="text-[15px] font-semibold text-white mt-8 mb-2">2.3 Access Rights</h3>
           <p className="mb-4">Subject to your compliance with these Terms, ClawdFace grants you a limited, non-exclusive, non-transferable license during the Term to:</p>

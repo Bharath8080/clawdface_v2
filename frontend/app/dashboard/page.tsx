@@ -928,7 +928,6 @@ function ClientPage() {
 
   const onConnectButtonClicked = useCallback(async (forcedSessionKey?: string, forcedConfig?: typeof DEFAULTS) => {
     if (room.state !== "disconnected" || isValidatingCredit || connectionLockRef.current) {
-      console.warn("⚠️ Connection already in progress or connected. State:", room.state, "Validating:", isValidatingCredit, "Locked:", connectionLockRef.current);
       return;
     }
     
@@ -938,7 +937,6 @@ function ClientPage() {
 
     try {
       // HARD RESET: Clear all previous session data before starting a new one
-      console.log("🧹 Hard Reset: Clearing previous session data");
       setSessionTranscript([]);
       transcriptRef.current = [];
       setSessionStartTime(null);
@@ -1013,7 +1011,7 @@ function ClientPage() {
         },
         mode: "vtva",
         metadata: {
-          active: "true"
+          active: "false" // FIX: Prevent premature session creation on backend during validation
         }
       };
 
@@ -1073,11 +1071,18 @@ function ClientPage() {
       console.log("🔍 Credit Validation - Success Response:", JSON.stringify(validationData, null, 2));
 
       // Capture conversation and job IDs for usage tracking
-      if (validationData.conversation_id || validationData.conversationId) {
-        currentConversationIdRef.current = validationData.conversation_id || validationData.conversationId;
+      const receivedConvId = validationData.conversation_id || validationData.conversationId;
+      const receivedJobId = validationData.job_id || validationData.jobId;
+
+      if (!receivedConvId) {
+        console.warn("⚠️ Credit Validation - No conversation_id returned. Reverting to fallback mode.");
+      } else {
+        currentConversationIdRef.current = receivedConvId;
+        console.log(`✅ Credit Validation - Assigned ID: ${receivedConvId}`);
       }
-      if (validationData.job_id || validationData.jobId) {
-        currentJobIdRef.current = validationData.job_id || validationData.jobId;
+      
+      if (receivedJobId) {
+        currentJobIdRef.current = receivedJobId;
       }
 
       // --- End Credit Validation ---
@@ -1583,6 +1588,7 @@ function ClientPage() {
                   setActiveSession("AddBot");
                 }}
                 botHealth={botHealth}
+                isConnecting={isValidatingCredit || room.state === "connecting"}
               />
             ) : activeSession === "Subscription" ? (
               <SubscriptionView />
@@ -2352,14 +2358,16 @@ function BotLibraryView({
   onRefresh,
   onSelectBot,
   onEditBot,
-  botHealth
+  botHealth,
+  isConnecting
 }: {
   bots: AgentBot[],
   profileId: string | null,
   onRefresh: () => void,
   onSelectBot: (bot: AgentBot) => void,
   onEditBot: (bot: AgentBot) => void,
-  botHealth: Record<string, 'healthy' | 'unhealthy' | 'checking' | 'unknown'>
+  botHealth: Record<string, 'healthy' | 'unhealthy' | 'checking' | 'unknown'>,
+  isConnecting?: boolean
 }) {
   const avatars = useAvatars();
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
@@ -2617,11 +2625,26 @@ function BotLibraryView({
                           <span className="group-hover/recall:scale-110 transition-transform block"><LinkIcon size={16} /></span>
                         </button>
                         
-                        <button className="h-10 px-5 rounded-xl bg-brand hover:bg-[#00ffd0] text-black text-[12px] font-bold uppercase tracking-widest transition-all transform hover:scale-[1.02] active:scale-95 shadow-[0_4px_12px_rgba(0,227,170,0.2)] flex items-center gap-2 shrink-0 whitespace-nowrap">
-                          Connect
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
-                            <polygon points="5 3 19 12 5 21 5 3"/>
-                          </svg>
+                        <button 
+                          disabled={isConnecting}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectBot(bot);
+                          }}
+                          className={`h-10 px-5 rounded-xl text-black text-[12px] font-bold uppercase tracking-widest transition-all transform hover:scale-[1.02] active:scale-95 shadow-[0_4px_12px_rgba(0,227,170,0.2)] flex items-center gap-2 shrink-0 whitespace-nowrap ${
+                            isConnecting 
+                              ? "bg-neutral-800 text-neutral-500 cursor-not-allowed opacity-50 shadow-none scale-100" 
+                              : "bg-brand hover:bg-[#00ffd0]"
+                          }`}
+                        >
+                          {isConnecting ? (
+                            <RefreshCwIcon size={14} className="animate-spin" />
+                          ) : (
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+                              <polygon points="5 3 19 12 5 21 5 3"/>
+                            </svg>
+                          )}
+                          {isConnecting ? "Connecting..." : "Connect"}
                         </button>
                       </div>
                     </div>
@@ -2852,7 +2875,8 @@ function DirectCallDashboard({
     try {
       await onStartCall();
     } catch (e) {
-      console.error(e);
+      const nowTimestamp = new Date().toISOString();
+      console.error(`[${nowTimestamp}] ❌ handleStartCall error:`, e);
       setIsConnecting(false);
     }
   };

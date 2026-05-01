@@ -69,20 +69,22 @@ MALE_AVATAR_IDS = {
 # ---------------------------------------------------------------------------
 # BACKEND USAGE REPORTING
 # ---------------------------------------------------------------------------
-def post_backend_usage(usage: dict):
-    """POST session usage summary to BACKEND_BASE_URL."""
+async def post_backend_usage(usage: dict):
+    """Async POST session usage summary to BACKEND_BASE_URL.
+    Uses aiohttp with no timeout — fully dynamic, API responds however long it needs.
+    Runs as a detached background task so it never blocks LiveKit shutdown.
+    """
     base_url = os.getenv("BACKEND_BASE_URL", "").rstrip("/")
     if not base_url:
         logger.warning("[USAGE] BACKEND_BASE_URL not set, skipping backend usage post.")
         return
     endpoint = f"{base_url}/v1/usage"
-    try:
-        resp = requests.post(endpoint, json=usage, timeout=10)
-        resp.raise_for_status()
-        logger.info(f"[USAGE] Backend usage posted successfully → {endpoint} | {resp.status_code}")
-    except requests.exceptions.RequestException as e:
-        logger.error(f"[USAGE] Failed to POST backend usage: {e}")
-        raise
+    import aiohttp
+    # total=None disables all timeouts — fully dynamic, no ConnectTimeout ever.
+    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=None)) as session:
+        async with session.post(endpoint, json=usage) as resp:
+            resp.raise_for_status()
+            logger.info(f"✅ [USAGE] Backend usage posted successfully → {endpoint} | {resp.status}")
 
 
 # ---------------------------------------------------------------------------
@@ -738,48 +740,41 @@ async def my_agent(ctx: agents.JobContext):
         await session.start(agent, room=ctx.room, room_options=room_opts)
         await agent.session.say("Hello! Let's get started.")
 
-        # ── SHUTDOWN / USAGE REPORTING ─────────────────────────────────────
-        async def _report_usage():
-            try:
-                summary = usage_collector.get_summary()
-                session_started_at = getattr(session, "_started_at", None)
-                total_duration = (
-                    (time.time() - session_started_at)
-                    if session_started_at is not None
-                    else 0
-                )
+        # ── USAGE REPORTING ────────────────────────────────────────────────
+        # We fire the POST as a fully detached asyncio task the moment the
+        # session closes — BEFORE LiveKit's shutdown sequence begins.
+        # This means the HTTP request runs independently and is never subject
+        # to LiveKit's 8-10s process kill window. No shutdown callback needed.
+        session_start_time = time.time()
 
-                # ── POST to BACKEND_BASE_URL ───────────────────────────────
-                # Payload: conversation_id, job_id, status, total_duration,
-                #          stt.audio_duration, tts.characters_count.
-                # LLM tokens deliberately excluded per spec.
-                backend_payload = {
-                    "conversation_id": conversation_id,
-                    "job_id": job_id,
-                    "status": "COMPLETED",          # adjust if you have session_status
-                    "usage": {
-                        "total_duration": total_duration,
-                        "stt": {
-                            "audio_duration": summary.stt_audio_duration,
-                        },
-                        "tts": {
-                            "characters_count": summary.tts_characters_count,
-                        },
-                    },
-                }
-                logger.info(f"[USAGE] Backend payload: {json.dumps(backend_payload, default=str)}")
-
+        @session.on("close")
+        def _on_session_close():
+            async def _send_usage():
                 try:
-                    post_backend_usage(backend_payload)
+                    summary = usage_collector.get_summary()
+                    total_duration = time.time() - session_start_time
+                    backend_payload = {
+                        "conversation_id": conversation_id,
+                        "job_id": job_id,
+                        "status": "COMPLETED",
+                        "usage": {
+                            "total_duration": total_duration,
+                            "stt": {
+                                "audio_duration": summary.stt_audio_duration,
+                            },
+                            "tts": {
+                                "characters_count": summary.tts_characters_count,
+                            },
+                        },
+                    }
+                    logger.info(f"📦 [USAGE] Backend payload: {json.dumps(backend_payload, default=str)}")
+                    await post_backend_usage(backend_payload)
                 except Exception:
                     import traceback
                     logger.error("[USAGE] Failed to post backend usage\n%s", traceback.format_exc())
 
-            except Exception:
-                import traceback
-                logger.error("[USAGE] Unexpected error in _report_usage\n%s", traceback.format_exc())
-
-        ctx.add_shutdown_callback(_report_usage)
+            # Detached task — runs freely, not tied to shutdown window
+            asyncio.ensure_future(_send_usage())
 
     except Exception as e:
         error_msg = str(e)
