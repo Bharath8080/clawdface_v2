@@ -634,6 +634,16 @@ type KBInputDoc struct {
 	WebURL   string `json:"web_url,omitempty"`
 }
 
+type EmailTemplate struct {
+	ID           string
+	TemplateName string
+	Description  string
+	FromEmail    string
+	CCEmail      sql.NullString // ✅ safe for NULL
+	EmailContent string
+	Status       bool
+}
+
 type KBInput struct {
 	Name        string       `json:"name"`
 	Description string       `json:"description"`
@@ -809,6 +819,45 @@ func InitDB(connectionString string) error {
 
 	log.Println("Database connection established successfully.")
 	return nil
+}
+
+func GetEmailTemplateByName(templateName string) (*EmailTemplate, error) {
+
+	query := `
+		SELECT 
+			id,
+			template_name,
+			description,
+			from_email,
+			cc_email,
+			email_content,
+			status
+		FROM public.email_templates
+		WHERE LOWER(template_name) = LOWER($1)
+		AND status = true
+		LIMIT 1
+	`
+
+	var tmpl EmailTemplate
+
+	err := DB.QueryRow(query, templateName).Scan(
+		&tmpl.ID,
+		&tmpl.TemplateName,
+		&tmpl.Description,
+		&tmpl.FromEmail,
+		&tmpl.CCEmail,
+		&tmpl.EmailContent,
+		&tmpl.Status,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &tmpl, nil
 }
 
 func HandleGetOrganizationByAgentID(w http.ResponseWriter, r *http.Request, agentID string) error {
@@ -7293,7 +7342,14 @@ func HandleWorkspaceUserInvitation(w http.ResponseWriter, r *http.Request) {
 		}
 
 		//Send Email
-		emailHtml := GetEmailTemplateHTML("invitation")
+		//emailHtml := GetEmailTemplateHTML("invitation")
+		emailTemplate, err := GetEmailTemplateByName("EMAIL_TEMPLATE_INVITATION")
+		if err != nil {
+			log.Println("Error fetching email template:", err)
+			return
+		}
+		emailHtml := emailTemplate.EmailContent
+
 		subject := inviterName + " Invited you to Join Project"
 		appURL := os.Getenv("STRIPE_PAYMENT_SUCCESS_URL")
 

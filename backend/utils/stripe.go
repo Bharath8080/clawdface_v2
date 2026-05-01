@@ -1927,7 +1927,13 @@ func handleCheckoutCompleted(event stripe.Event) {
 
 	if purchaseType == "one-time-payment" {
 		//Send Email
-		emailHtml := GetEmailTemplateHTML("credits")
+		//emailHtml := GetEmailTemplateHTML("credits")
+		emailTemplate, err := GetEmailTemplateByName("EMAIL_TEMPLATE_CREDITS")
+		if err != nil {
+			log.Println("Error fetching email template:", err)
+			return
+		}
+		emailHtml := emailTemplate.EmailContent
 
 		//Replace the required details to the templates
 		emailHtml = strings.ReplaceAll(emailHtml, "Krishna", userName)
@@ -1941,7 +1947,13 @@ func handleCheckoutCompleted(event stripe.Event) {
 		}
 	} else {
 		//Send Email
-		emailHtml := GetEmailTemplateHTML("subscription")
+		//emailHtml := GetEmailTemplateHTML("subscription")
+		emailTemplate, err := GetEmailTemplateByName("EMAIL_TEMPLATE_SUBSCRIPTION")
+		if err != nil {
+			log.Println("Error fetching email template:", err)
+			return
+		}
+		emailHtml := emailTemplate.EmailContent
 
 		//Replace the required details to the templates
 		emailHtml = strings.ReplaceAll(emailHtml, "Growth", name)
@@ -2084,7 +2096,13 @@ func handleInvoicePaid(event stripe.Event) {
 
 	if purchaseType == "one-time-payment" {
 		//Send Email
-		emailHtml := GetEmailTemplateHTML("credits")
+		//emailHtml := GetEmailTemplateHTML("credits")
+		emailTemplate, err := GetEmailTemplateByName("EMAIL_TEMPLATE_CREDITS")
+		if err != nil {
+			log.Println("Error fetching email template:", err)
+			return
+		}
+		emailHtml := emailTemplate.EmailContent
 
 		//Replace the required details to the templates
 		emailHtml = strings.ReplaceAll(emailHtml, "Krishna", "")
