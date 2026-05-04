@@ -5,6 +5,8 @@ import base64
 import requests
 import typing
 import logging
+import boto3
+import datetime
 from dotenv import load_dotenv
 from livekit import agents
 from livekit.agents import Agent, AgentServer, AgentSession, cli, metrics, APIConnectOptions, StopResponse, llm
@@ -85,6 +87,83 @@ async def post_backend_usage(usage: dict):
         async with session.post(endpoint, json=usage) as resp:
             resp.raise_for_status()
             logger.info(f"✅ [USAGE] Backend usage posted successfully → {endpoint} | {resp.status}")
+
+
+# ---------------------------------------------------------------------------
+# TRANSCRIPT S3 UPLOAD
+# ---------------------------------------------------------------------------
+def push_transcript_to_s3(transcript_data: list, conversation_id: str):
+    """Upload conversation transcript to S3 in the backend-compatible format."""
+    try:
+        # Support both legacy and backend bucket env names
+        bucket_name = os.getenv("BUCKET_NAME") or os.getenv("AWS_BUCKET_ADDITIONAL") or os.getenv("AWS_BUCKET")
+        aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID")
+        aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+        region = os.getenv("REGION") or os.getenv("AWS_REGION") or "us-east-2"
+
+        if not bucket_name:
+            logger.error("[TRANSCRIPT] BUCKET_NAME environment variable is not set, cannot upload transcript")
+            return
+
+        if not aws_access_key_id or not aws_secret_access_key:
+            logger.error("[TRANSCRIPT] AWS credentials not set, cannot upload transcript")
+            return
+
+        # Transform transcript to backend-compatible format
+        # Backend expects: { items: [{ id, type, role, content[], metrics, ... }] }
+        items = []
+        for idx, entry in enumerate(transcript_data):
+            content = entry.get("content", "")
+            if isinstance(content, list):
+                content_list = [str(c) for c in content]
+            elif content is None:
+                content_list = []
+            else:
+                content_list = [str(content)]
+
+            message_ts = entry.get("message_timestamp")
+            metrics = {"started_speaking_at": message_ts} if message_ts else {}
+
+            items.append({
+                "id": entry.get("id") or f"{conversation_id}-{message_ts or idx}-{idx}",
+                "type": entry.get("type", "message"),
+                "role": entry.get("role", "assistant"),
+                "content": content_list,
+                "metrics": metrics,
+                "name": entry.get("name", ""),
+                "arguments": entry.get("arguments", ""),
+                "output": entry.get("output", ""),
+                "is_error": bool(entry.get("is_error", False)),
+                "extra": entry.get("extra", None),
+                "call_id": entry.get("call_id", ""),
+            })
+
+        # S3 path matching backend expectation: egress/{conversation_id}/transcript.json
+        s3_key = f"egress/{conversation_id}/transcript.json"
+
+        # Create S3 client
+        s3_client = boto3.client(
+            "s3",
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key,
+            region_name=region,
+        )
+
+        # Convert transcript to JSON
+        transcript_json = json.dumps({"items": items}, indent=2)
+
+        # Upload to S3
+        s3_client.put_object(
+            Bucket=bucket_name,
+            Key=s3_key,
+            Body=transcript_json.encode("utf-8"),
+            ContentType="application/json",
+        )
+
+        logger.info(f"[TRANSCRIPT] ✓ Uploaded to S3: s3://{bucket_name}/{s3_key} ({len(items)} messages)")
+
+    except Exception as e:
+        logger.error(f"[TRANSCRIPT] ✗ Failed to upload transcript to S3: {e}", exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -319,7 +398,7 @@ def setup_langfuse(metadata: dict):
     return tp
 
 class MyAgent(Agent):
-    def __init__(self, *, groq_llm: llm.LLM | None = None, enable_thinking: bool = True, thinking_delay: float = 3.0, **kwargs) -> None:
+    def __init__(self, *, groq_llm: llm.LLM | None = None, enable_thinking: bool = True, thinking_delay: float = 3.0, conversation_id: str = "", **kwargs) -> None:
         super().__init__(
         instructions=(
             "You are a helpful AI assistant. Keep responses to 2-4 short spoken sentences. "
@@ -337,6 +416,11 @@ class MyAgent(Agent):
         self._response_buffer = []
         self._last_user_message = None  # Store for context-aware waiting
         self._shutting_down = False # Guard against post-disconnect transients
+        
+        # ── TRANSCRIPT COLLECTION ──────────────────────────────────────────
+        self._conversation_id = conversation_id
+        self._transcript = []  # List of transcript entries
+        self._transcript_lock = asyncio.Lock()  # Thread-safe transcript updates
     
     async def on_user_turn_completed(self, turn_ctx, new_message):
         """Custom handling: stream LLM, buffer if thinking needed, then release."""
@@ -366,6 +450,13 @@ class MyAgent(Agent):
         
         # Store user message for context-aware waiting
         self._last_user_message = new_message
+        
+        # ── CAPTURE USER MESSAGE IN TRANSCRIPT ─────────────────────────────
+        await self._add_to_transcript(
+            role="user",
+            content=new_message.content if hasattr(new_message, 'content') else str(new_message),
+            message_type="message"
+        )
         
         # Build chat context
         chat_ctx = turn_ctx.copy()
@@ -437,6 +528,13 @@ class MyAgent(Agent):
             logger.info(f"[STREAM] Speaking {len(full_text)} chars ({chunk_count} chunks)")
             try:
                 await self.session.say(full_text)
+                
+                # ── CAPTURE AGENT RESPONSE IN TRANSCRIPT ───────────────────
+                await self._add_to_transcript(
+                    role="assistant",
+                    content=full_text,
+                    message_type="message"
+                )
             except RuntimeError as e:
                 if "AgentSession is closing" in str(e):
                     logger.info("[STREAM] Session closing, skipping speak")
@@ -448,6 +546,29 @@ class MyAgent(Agent):
     async def _on_shutdown(self) -> None:
         """Cleanup session resources."""
         self._shutting_down = True
+        logger.info("[SESSION] Shutting down agent")
+    
+    async def _add_to_transcript(self, role: str, content: str, message_type: str = "message"):
+        """Add a message to the transcript in a thread-safe manner."""
+        async with self._transcript_lock:
+            timestamp_unix = int(time.time())
+            timestamp_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            
+            entry = {
+                "timestamp": timestamp_iso,
+                "role": role,
+                "content": content,
+                "type": message_type,
+                "message_timestamp": timestamp_unix,
+                "conversation_id": self._conversation_id,
+            }
+            
+            self._transcript.append(entry)
+            logger.debug(f"[TRANSCRIPT] Added {role} message: {content[:50]}...")
+    
+    def get_transcript(self) -> list:
+        """Return the collected transcript."""
+        return self._transcript.copy()
         logger.info("[SESSION] Shutting down agent")
     
     def _extract_text_from_chunk(self, chunk):
@@ -733,7 +854,8 @@ async def my_agent(ctx: agents.JobContext):
             vad=vad_provider,
             groq_llm=groq_llm,
             enable_thinking=ENABLE_LET_ME_THINK,
-            thinking_delay=THINKING_DELAY
+            thinking_delay=THINKING_DELAY,
+            conversation_id=conversation_id  # Pass conversation_id for transcript tracking
         )
 
         ctx.add_shutdown_callback(agent._on_shutdown)
@@ -749,7 +871,11 @@ async def my_agent(ctx: agents.JobContext):
 
         @session.on("close")
         def _on_session_close():
-            async def _send_usage():
+            # Capture references to module-level functions in closure
+            _push_transcript = push_transcript_to_s3
+            _post_usage = post_backend_usage
+            
+            async def _send_usage_and_transcript():
                 try:
                     summary = usage_collector.get_summary()
                     total_duration = time.time() - session_start_time
@@ -768,13 +894,25 @@ async def my_agent(ctx: agents.JobContext):
                         },
                     }
                     logger.info(f"📦 [USAGE] Backend payload: {json.dumps(backend_payload, default=str)}")
-                    await post_backend_usage(backend_payload)
+                    await _post_usage(backend_payload)
                 except Exception:
                     import traceback
                     logger.error("[USAGE] Failed to post backend usage\n%s", traceback.format_exc())
 
+                # ── UPLOAD TRANSCRIPT TO S3 ────────────────────────────────
+                try:
+                    transcript = agent.get_transcript()
+                    if transcript:
+                        logger.info(f"[TRANSCRIPT] Uploading {len(transcript)} messages to S3...")
+                        _push_transcript(transcript, conversation_id)
+                    else:
+                        logger.warning("[TRANSCRIPT] No transcript data to upload")
+                except Exception:
+                    import traceback
+                    logger.error("[TRANSCRIPT] Failed to upload transcript\n%s", traceback.format_exc())
+
             # Detached task — runs freely, not tied to shutdown window
-            asyncio.ensure_future(_send_usage())
+            asyncio.ensure_future(_send_usage_and_transcript())
 
     except Exception as e:
         error_msg = str(e)

@@ -38,12 +38,36 @@ export const getConversations = async (
   }
 };
 
+export const getConversationById = async (
+  apiKey: string,
+  conversationId: string
+): Promise<{ data: any | null; error: string | null }> => {
+  try {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_BASE_URL}/v1/conversation/${conversationId}`,
+      {
+        method: "GET",
+        headers: { "X-API-Key": apiKey },
+      }
+    );
+    if (response.ok) {
+      const data = await response.json();
+      return { data, error: null };
+    } else {
+      const errorText = await response.json().catch(() => ({}));
+      return { data: null, error: errorText?.error || errorText?.message || "An error occurred" };
+    }
+  } catch (err: unknown) {
+    return { data: null, error: err instanceof Error ? err.message : "Unknown error" };
+  }
+};
+
 export const createConversation = async (
   apiKey: string,
   body: ConversationPayload
 ): Promise<{ data: any; error: string | null }> => {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/v1/public/conversation`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/v1/conversation`, {
       method: "POST",
       headers: {
         "X-API-Key": apiKey,
