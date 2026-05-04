@@ -659,6 +659,7 @@ function ClientPage() {
   const [room] = useState(new Room());
   const [activeSession, setActiveSession] = useState("Library");
   const initialSessionApplied = useRef(false);
+  const botIdParamApplied = useRef(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
   const [isRecallModalOpen, setIsRecallModalOpen] = useState(false);
@@ -693,12 +694,40 @@ function ClientPage() {
     if (initialSessionApplied.current) return;
 
     const sessionParam = searchParams.get("session");
+    const botIdParam = searchParams.get("botId");
+
     if (sessionParam && DASHBOARD_SESSIONS.has(sessionParam)) {
-      setActiveSession(sessionParam);
+      // If we have a botId, we want the botId useEffect to handle the session transition
+      // after it has configured the bot. This prevents a race condition where DirectCall
+      // starts with empty config.
+      if (sessionParam === "DirectCall" && botIdParam) {
+        console.log("⏳ DirectCall with botId detected, waiting for bot metadata...");
+      } else {
+        setActiveSession(sessionParam);
+      }
     }
 
     initialSessionApplied.current = true;
   }, [searchParams]);
+
+  useEffect(() => {
+    if (botIdParamApplied.current || bots.length === 0) return;
+
+    const botId = searchParams.get("botId");
+    if (botId) {
+      const bot = bots.find(b => b.id === botId);
+      if (bot) {
+        console.log("🤖 Found bot for DirectCall:", bot.agent_name);
+        handleQuickCallSelect(bot);
+        botIdParamApplied.current = true;
+      } else if (!isLoadingBots) {
+        console.warn("⚠️ Bot not found for botId:", botId);
+        // Fallback to library if bot not found
+        setActiveSession("Library");
+        botIdParamApplied.current = true;
+      }
+    }
+  }, [searchParams, bots, isLoadingBots]);
 
   // Conversation tracking state
   const [sessionTranscript, setSessionTranscript] = useState<any[]>([]);

@@ -1,15 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@stackframe/stack";
 import { Sidebar } from "@/components/Sidebar";
 import Image from "next/image";
+import { getAgents, type AgentBot } from "@/app/services/agentService";
+import { fetchAvatars, type AvatarItem } from "@/app/services/avatarService";
+import { AVATARS } from "@/lib/constants";
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [bots, setBots] = useState<AgentBot[]>([]);
+  const [avatars, setAvatars] = useState<AvatarItem[]>(AVATARS);
   const router = useRouter();
   const user = useUser();
+
+  useEffect(() => {
+    const initData = async () => {
+      const apiKey = localStorage.getItem("defaultApiKey") || "";
+      if (apiKey) {
+        try {
+          const [{ data: agentData }, { data: avatarData }] = await Promise.all([
+            getAgents(apiKey),
+            fetchAvatars(apiKey)
+          ]);
+          if (agentData) setBots(agentData);
+          if (avatarData && avatarData.length > 0) setAvatars(avatarData);
+        } catch (err) {
+          console.error("SettingsLayout data fetch error:", err);
+        }
+      }
+    };
+    initData();
+  }, []);
 
   if (user === null) {
     router.replace("/log-in");
@@ -28,6 +52,11 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         setActiveSession={(session) => router.push(`/dashboard?session=${encodeURIComponent(session)}`)}
         isMobileMenuOpen={isMobileMenuOpen}
         setIsMobileMenuOpen={setIsMobileMenuOpen}
+        bots={bots}
+        avatars={avatars}
+        onQuickCall={(bot) => {
+          router.push(`/dashboard?session=DirectCall&botId=${bot.id}`);
+        }}
       />
 
       <div className="flex-1 h-full w-full overflow-hidden flex flex-col relative z-0">
