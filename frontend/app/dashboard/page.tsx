@@ -995,7 +995,7 @@ function ClientPage() {
         return;
       }
 
-      const resolvedAgentId = externalAgentIdRef.current || selectedAgentIdRef.current || "";
+      const resolvedAgentId = selectedAgentIdRef.current || externalAgentIdRef.current || "";
 
       if (!resolvedAgentId) {
         setApiError("Unable to identify the agent. Please re-select your bot from the library.");
@@ -1124,7 +1124,7 @@ function ClientPage() {
     setSelectedAgentId(bot.id);
     selectedAgentIdRef.current = bot.id;
     
-    // FIX: Prioritize bot.agent_id, then session_key, never fall back to internal UUID
+    // Store external agent identifiers separately; backend conversation calls use the internal UUID.
     // @ts-ignore
     const externalId = bot.agent_id || stripSessionKey(bot.config?.session_key || "");
     
@@ -1175,7 +1175,7 @@ function ClientPage() {
         const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || "https://qaapi.clawdface.ai").replace(/\/$/, "");
         
         const closePayload = {
-          agentId: externalAgentIdRef.current || selectedAgentIdRef.current || "",
+          agentId: selectedAgentIdRef.current || externalAgentIdRef.current || "",
           userName: email,
           userId: email,
           context: { text: "" },
@@ -1291,7 +1291,7 @@ function ClientPage() {
         navigator.sendBeacon(
           `${baseUrl}/v1/public/conversation`,
           JSON.stringify({
-            agentId: externalAgentIdRef.current || "",
+            agentId: selectedAgentIdRef.current || externalAgentIdRef.current || "",
             userName: email,
             userId: email,
             context: { text: "" },
@@ -1554,7 +1554,7 @@ function ClientPage() {
                   setSelectedAgentId(bot.id);
                   selectedAgentIdRef.current = bot.id;
                   
-                  // FIX: Prioritize bot.agent_id, then session_key, never fall back to internal UUID
+                  // Store external agent identifiers separately; backend conversation calls use the internal UUID.
                   // @ts-ignore
                   const externalId = bot.agent_id || stripSessionKey(bot.config?.session_key || "");
                   
