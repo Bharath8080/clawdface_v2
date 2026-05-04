@@ -21,7 +21,7 @@ import { useUser } from "@stackframe/stack";
 import { initDefaultApiKey } from "@/app/services/apiKeyService";
 import { createUserServiceServer } from "@/app/services/createUserService";
 import { createAgent, updateAgent, getAgents, deleteAgent, type AgentBot } from "@/app/services/agentService";
-import { getConversations, createConversation } from "@/app/services/conversationService";
+import { getConversations, getConversationById } from "@/app/services/conversationService";
 import { sendUsageData } from "@/app/services/usageService";
 import { Sidebar } from "@/components/Sidebar";
 import { SubscriptionView } from "@/components/SubscriptionView";
@@ -1018,6 +1018,12 @@ function ClientPage() {
       console.log("🔍 Credit Validation - Outgoing Payload:", JSON.stringify(validationPayload, null, 2));
 
       const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || "https://qaapi.clawdface.ai").replace(/\/$/, "");
+      const apiKey = localStorage.getItem("defaultApiKey") ?? "";
+
+      if (!apiKey) {
+        setApiError("Missing API key. Please sign in again.");
+        return;
+      }
       
       let token = "";
       try {
@@ -1027,9 +1033,10 @@ function ClientPage() {
         console.warn("⚠️ Credit Validation - Failed to get access token:", e);
       }
 
-      const validationResponse = await fetch(`${baseUrl}/v1/public/conversation`, {
+      const validationResponse = await fetch(`${baseUrl}/v1/conversation`, {
         method: "POST",
         headers: {
+          "X-API-Key": apiKey,
           "Content-Type": "application/json",
           ...(token ? { "Authorization": `Bearer ${token}` } : {})
         },
@@ -1163,87 +1170,21 @@ function ClientPage() {
     const handleDisconnected = async (reason?: DisconnectReason) => {
       console.log("📡 handleDisconnected Logic Triggered, Reason:", reason);
       
-      // --- Close active session on backend ---
-      try {
-        const email = user?.primaryEmail || user?.displayName || "";
-        let token = "";
-        try {
-          // @ts-ignore
-          token = await user?.getAccessToken() || "";
-        } catch (e) {}
-
-        const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || "https://qaapi.clawdface.ai").replace(/\/$/, "");
-        
-        const closePayload = {
-          agentId: selectedAgentIdRef.current || externalAgentIdRef.current || "",
-          userName: email,
-          userId: email,
-          context: { text: "" },
-          mode: "vtva",
-          metadata: { active: "false" }
-        };
-
-        console.log("🔴 Closing active session on backend:", closePayload);
-        
-        await fetch(`${baseUrl}/v1/public/conversation`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { "Authorization": `Bearer ${token}` } : {})
-          },
-          body: JSON.stringify(closePayload)
-        });
-      } catch (err) {
-        console.warn("⚠️ Could not close backend session:", err);
-      }
-      // --- End session closing ---
-
-      const currentTranscript = transcriptRef.current;
-      const currentConfig = configRef.current;
       const currentSessionType = activeSessionRef.current;
       const email = user?.primaryEmail || user?.displayName;
-
 
       // Usage reporting is handled exclusively by agent.py at session teardown.
       // It includes full STT/LLM/TTS metrics from the LiveKit usage collector.
 
-      // Filter for non-empty text and ensure we only save if there's meaningful interaction
-      const filteredTranscript = currentTranscript
-        .filter(s => s.text && s.text.trim().length > 0)
-        .map(s => ({
-          text: s.text,
-          isAgent: s.isAgent,
-          timestamp: s.timestamp,
-          participant: s.participant
-        }));
-
       if (email) {
         try {
           const convApiKey = localStorage.getItem("defaultApiKey") ?? "";
-          const convApiKeyId = localStorage.getItem("defaultApiKeyId") ?? undefined;
-          // Prefer the explicitly selected agent; fall back to matching by URL from the bot library
-          const resolvedAgentId = selectedAgentIdRef.current
-            ?? botsRef.current.find(b =>
-                (b.config?.openclaw_url ?? "") === (currentConfig.openclawUrl ?? "")
-              )?.id
-            ?? "";
-
-          if (convApiKey && resolvedAgentId) {
-            await createConversation(convApiKey, {
-              agentId: resolvedAgentId,
-              userName: user?.displayName || email,
-              userId: email,
-              mode: "vtva",
-              context: { text: "" },
-              metadata: { active: "false" },
-            });
-
-            // Refresh conversations list
+          if (convApiKey) {
             const { data: convData } = await getConversations(convApiKey);
             setConversations(convData ?? []);
           }
         } catch (err) {
-          console.error("⛔ Conversation save error:", err);
+          console.error("⛔ Conversation refresh error:", err);
         }
       }
 
@@ -1284,19 +1225,14 @@ function ClientPage() {
 
     // Close session when user closes/refreshes the tab
     const handleBeforeUnload = async () => {
-      if (room.state === "connected" && selectedAgentIdRef.current) {
-        const email = user?.primaryEmail || user?.displayName || "";
+      if (room.state === "connected" && currentConversationIdRef.current) {
         const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || "https://qaapi.clawdface.ai").replace(/\/$/, "");
-        
         navigator.sendBeacon(
-          `${baseUrl}/v1/public/conversation`,
+          `${baseUrl}/v1/usage/update`,
           JSON.stringify({
-            agentId: selectedAgentIdRef.current || externalAgentIdRef.current || "",
-            userName: email,
-            userId: email,
-            context: { text: "" },
-            mode: "vtva",
-            metadata: { active: "false" }
+            conversation_id: currentConversationIdRef.current,
+            status: "TERMINATED",
+            message: "client_unload"
           })
         );
       }
@@ -1602,7 +1538,24 @@ function ClientPage() {
                 <ConversationsListView
                   isLoading={isLoadingConversations}
                   conversations={conversations}
-                  onSelect={(conv) => setSelectedConversation(conv)}
+                  onSelect={async (conv) => {
+                    // Fetch full conversation details including transcript
+                    try {
+                      const apiKey = localStorage.getItem("defaultApiKey") ?? "";
+                      const { data, error } = await getConversationById(apiKey, conv.id);
+                      if (data) {
+                        setSelectedConversation(data);
+                      } else {
+                        console.error("Failed to fetch conversation details:", error);
+                        // Fallback to basic conversation data
+                        setSelectedConversation(conv);
+                      }
+                    } catch (err) {
+                      console.error("Error fetching conversation:", err);
+                      // Fallback to basic conversation data
+                      setSelectedConversation(conv);
+                    }
+                  }}
                 />
               )
             ) : (
@@ -2797,17 +2750,27 @@ function ConversationDetailView({
 
         <div className="space-y-6">
           {Array.isArray(conversation.transcript) && conversation.transcript.length > 0 ? (
-            conversation.transcript.map((msg: any, idx: number) => (
-              <div key={idx} className={`flex ${msg.isAgent ? 'justify-start' : 'justify-end'}`}>
-                <div className={`max-w-[80%] rounded-2xl p-4 ${msg.isAgent ? 'bg-white/5 border border-white/10 text-white' : 'bg-brand/10 border border-brand/20 text-white'}`}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider opacity-50">{msg.isAgent ? 'Agent' : 'User'}</span>
-                    <span className="text-[10px] opacity-30">{new Date(msg.timestamp).toLocaleTimeString()}</span>
+            conversation.transcript.map((msg: any, idx: number) => {
+              const role = msg.role ?? (msg.isAgent ? "assistant" : "user");
+              const isAgent = typeof msg.isAgent === "boolean" ? msg.isAgent : role !== "user";
+              const label = role === "assistant" ? "Agent" : role === "tool" ? "Tool" : "User";
+              const text = msg.text ?? msg.content ?? msg.output ?? msg.arguments ?? "";
+              if (!text) return null;
+              const ts = msg.timestamp ?? (msg.message_timestamp ? new Date(msg.message_timestamp * 1000).toISOString() : "");
+              const timeLabel = ts ? new Date(ts).toLocaleTimeString() : "";
+
+              return (
+                <div key={idx} className={`flex ${isAgent ? "justify-start" : "justify-end"}`}>
+                  <div className={`max-w-[80%] rounded-2xl p-4 ${isAgent ? "bg-white/5 border border-white/10 text-white" : "bg-brand/10 border border-brand/20 text-white"}`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider opacity-50">{label}</span>
+                      {timeLabel ? <span className="text-[10px] opacity-30">{timeLabel}</span> : null}
+                    </div>
+                    <p className="text-[15px] leading-relaxed">{text}</p>
                   </div>
-                  <p className="text-[15px] leading-relaxed">{msg.text}</p>
                 </div>
-              </div>
-            ))
+              );
+            })
           ) : (
             <div className="text-center py-20 text-neutral-500">No transcript available for this session.</div>
           )}
