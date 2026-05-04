@@ -68,6 +68,27 @@ export interface IInvoiceInfo {
   invoiceURL: string;
 }
 
+export const getPublicPricingPlans = async (): Promise<{
+  data: PlanType[] | null;
+  error: string | null;
+}> => {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/v1/ext/purchase/plans`, {
+      method: "GET",
+    });
+    if (response.ok) {
+      const data = (await response.json()) as PlanType[];
+      return { data, error: null };
+    }
+    const errorText = await response.text();
+    return { data: null, error: errorText || "Failed to fetch plans" };
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : "Unknown error";
+    console.error("Error fetching public pricing plans:", err);
+    return { data: null, error: errorMessage };
+  }
+};
+
 export const getPricingPlans = async (
   apiKey: string
 ): Promise<{ data: PlanType[] | null; status?: number; error: string | null }> => {

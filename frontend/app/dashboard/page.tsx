@@ -2475,10 +2475,10 @@ function BotLibraryView({
                         return (
                           <div className={`
                             flex items-center gap-2 px-2.5 py-1 rounded-full backdrop-blur-md border 
-                            ${status === 'healthy' ? 'bg-green-500/20 border-green-500/30 text-green-400' : 
-                              status === 'unhealthy' ? 'bg-red-500/20 border-red-500/30 text-red-400' : 
-                              status === 'checking' ? 'bg-yellow-500/20 border-yellow-500/30 text-yellow-400' : 
-                              'bg-neutral-500/20 border-neutral-500/30 text-neutral-400'}
+                            ${status === 'healthy' ? 'bg-green-500 border-green-500/30' : 
+                              status === 'unhealthy' ? 'bg-red-500 border-red-500/30 ' : 
+                              status === 'checking' ? 'bg-yellow-500 border-yellow-500/30' : 
+                              'bg-neutral-500 border-neutral-500 '}
                           `}>
                             {status === 'checking' ? (
                               <div className="w-2 h-2 rounded-full bg-current animate-pulse shadow-[0_0_8px_rgba(234,179,8,0.5)]" />
