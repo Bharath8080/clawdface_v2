@@ -157,7 +157,7 @@ function PlanCard({
 
       {/* Current plan badge */}
       {isCurrent && (
-        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-white/10 text-white/60 border border-white/15 px-4 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap">
+        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-white text-black border border-white/15 px-4 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap">
           Current Plan
         </div>
       )}
@@ -487,12 +487,17 @@ function PlanDetailsPanel({
       ? autoReloadSlug.replace(/_/g, " ")
       : "Not configured";
 
+  const total = licenseInfo.totalCredit ?? 0;
+  const balance = licenseInfo.balanceCredit ?? 0;
+  const used = total - balance;
+  const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.08, duration: 0.4 }}
-      className="mb-10 border border-white/15 bg-white/[0.035] px-6 py-5"
+      className="mb-10 border border-white/15 bg-white/[0.035] rounded-2xl px-6 py-5"
     >
       <div className="mb-4 flex items-start justify-between">
         <div>
@@ -520,6 +525,7 @@ function PlanDetailsPanel({
       <div className={`grid grid-cols-1 divide-y divide-white/10 border-t border-white/10 pt-5 ${
         isProPlan ? "md:grid-cols-3 md:divide-x md:divide-y-0" : "md:grid-cols-2 md:divide-x md:divide-y-0"
       }`}>
+        {/* Col 1 – Current plan */}
         <div className="pb-5 md:pb-0 md:pr-7">
           <div className="mb-3 flex items-center gap-2">
             <span className="text-[14px] font-semibold text-white">Current Plan</span>
@@ -527,27 +533,48 @@ function PlanDetailsPanel({
               {currentPlanName}
             </span>
           </div>
-          <p className="text-[12px] text-[#9ca3af]">Upgrade to get better rates</p>
-        </div>
-
-        <div className="py-5 md:px-7 md:py-0">
-          <h3 className="mb-4 text-[14px] font-semibold text-white">Billing cycle usage</h3>
-          <div className="space-y-3 text-[12px]">
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-[#9ca3af]">Credits available</span>
-              <span className="font-medium text-white/90">
-                {formatCredits(licenseInfo?.balanceCredit ?? 0)}/{formatCredits(licenseInfo?.totalCredit ?? 0)}
-              </span>
+          <div className="space-y-2 text-[12px]">
+            <div className="flex items-center justify-between">
+              <span className="text-[#9ca3af]">Concurrent sessions</span>
+              <span className="font-medium text-white/90">{licenseInfo.concurrentSessions >= 60 ? "Unlimited" : licenseInfo.concurrentSessions}</span>
             </div>
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-[#9ca3af]">Add-on credits</span>
-              <span className="font-medium text-white/90">
-                {formatCredits(licenseInfo?.purchasedCredit ?? 0)}
-              </span>
+            <div className="flex items-center justify-between">
+              <span className="text-[#9ca3af]">Max session duration</span>
+              <span className="font-medium text-white/90">{licenseInfo.maxSessionDuration >= 120 ? "Unlimited" : `${licenseInfo.maxSessionDuration} min`}</span>
             </div>
           </div>
         </div>
 
+        {/* Col 2 – Credit usage */}
+        <div className="py-5 md:px-7 md:py-0">
+          <h3 className="mb-4 text-[14px] font-semibold text-white">Credit usage</h3>
+          <div className="space-y-3 text-[12px]">
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-[#9ca3af]">Credits remaining</span>
+              <span className="font-medium text-white/90">
+                {formatCredits(balance)} / {formatCredits(total)}
+              </span>
+            </div>
+            <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-brand transition-all duration-500"
+                style={{ width: `${100 - pct}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-[#9ca3af]">Credits used</span>
+              <span className="font-medium text-white/90">{formatCredits(used)}</span>
+            </div>
+            {(licenseInfo.purchasedCredit ?? 0) > 0 && (
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-[#9ca3af]">Add-on credits</span>
+                <span className="font-medium text-white/90">{formatCredits(licenseInfo.purchasedCredit)}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Col 3 – Auto-reload (Pro only) */}
         {isProPlan && (
           <div className="pt-5 md:pl-7 md:pt-0">
             <div className="mb-3 flex items-start justify-between gap-4">
@@ -588,6 +615,88 @@ function PlanDetailsPanel({
             )}
           </div>
         )}
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── Free Plan Usage Panel ────────────────────────────────────────────────────
+function FreeUsageSummaryPanel({ licenseInfo, currentPlanName }: { licenseInfo: ILicenseInfo; currentPlanName: string }) {
+  const total = licenseInfo.totalCredit ?? 0;
+  const balance = licenseInfo.balanceCredit ?? 0;
+  const used = total - balance;
+  const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
+  const minutesLeft = Math.floor(balance / 50);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.08, duration: 0.4 }}
+      className="mb-10 border border-white/15 bg-white/[0.035] rounded-2xl px-6 py-5"
+    >
+      <div className="mb-4 flex items-start justify-between">
+        <div>
+          <h2 className="text-[15px] font-bold text-white tracking-tight">Plan details</h2>
+          <p className="mt-1 text-[12px] text-[#9ca3af]">Usage resets monthly</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 divide-y divide-white/10 border-t border-white/10 pt-5 md:grid-cols-3 md:divide-x md:divide-y-0">
+        {/* Current plan */}
+        <div className="pb-5 md:pb-0 md:pr-7">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="text-[14px] font-semibold text-white">Current Plan</span>
+            <span className="rounded-full bg-white/10 border border-white/20 px-3 py-1 text-[11px] font-bold text-white">
+              {currentPlanName}
+            </span>
+          </div>
+          <div className="space-y-2 text-[12px]">
+            <div className="flex items-center justify-between">
+              <span className="text-[#9ca3af]">Concurrent sessions</span>
+              <span className="font-medium text-white/90">{licenseInfo.concurrentSessions}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[#9ca3af]">Max session duration</span>
+              <span className="font-medium text-white/90">{licenseInfo.maxSessionDuration} min</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Credit usage */}
+        <div className="py-5 md:px-7 md:py-0">
+          <h3 className="mb-4 text-[14px] font-semibold text-white">Credit usage</h3>
+          <div className="space-y-3 text-[12px]">
+            <div className="flex items-center justify-between">
+              <span className="text-[#9ca3af]">Credits remaining</span>
+              <span className="font-medium text-white/90">
+                {formatCredits(balance)} / {formatCredits(total)}
+              </span>
+            </div>
+            <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-brand transition-all duration-500"
+                style={{ width: `${100 - pct}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[#9ca3af]">Credits used</span>
+              <span className="font-medium text-white/90">{formatCredits(used)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Minutes estimate */}
+        <div className="pt-5 md:pl-7 md:pt-0">
+          <h3 className="mb-4 text-[14px] font-semibold text-white">Minutes available</h3>
+          <div className="flex items-end gap-1.5 mb-1">
+            <span className="text-3xl font-bold text-white leading-none">{minutesLeft}</span>
+            <span className="text-[#9ca3af] text-[12px] mb-1">min remaining</span>
+          </div>
+          <p className="text-[11px] text-[#6b7280] leading-relaxed">
+            Based on 50 credits / min. Upgrade to Pro for more minutes and higher concurrency.
+          </p>
+        </div>
       </div>
     </motion.div>
   );
@@ -818,7 +927,12 @@ function SubscriptionViewInner() {
           </motion.div>
         )}
 
-        {/* ── Subscription plan cards ── */}
+        {/* ── Free plan usage summary ── */}
+        {!isPaidPlan && !isLoading && licenseInfo && (
+          <FreeUsageSummaryPanel licenseInfo={licenseInfo} currentPlanName={currentPlanName} />
+        )}
+
+        {/* ── Paid plan details ── */}
         {isPaidPlan && !isLoading && (
           <>
             <PlanDetailsPanel
