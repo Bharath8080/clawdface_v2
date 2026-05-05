@@ -64,7 +64,8 @@ EMAIL_BOT_AVATAR_MAP = {
 
 MALE_AVATAR_IDS = {
     "182b03e8", "05a001fc", "be5b2ce0", "03ae0187",
-    "1fa504ff", "0f160301", "13550375", "18c4043e", "48d778c9"
+    "1fa504ff", "0f160301", "13550375", "18c4043e", "48d778c9",
+    "60a0926a", "5daa73d5", "2b130585"
 }
 
 
@@ -604,6 +605,12 @@ class MyAgent(Agent):
             self._thinking_played = True
             try:
                 await self.session.say(waiting_message, allow_interruptions=False)
+                # ── Capture filler message in transcript ──
+                await self._add_to_transcript(
+                    role="assistant",
+                    content=waiting_message,
+                    message_type="message"
+                )
                 logger.info("[THINKING] Done")
             except RuntimeError as e:
                 if "AgentSession is closing" in str(e):
@@ -861,6 +868,12 @@ async def my_agent(ctx: agents.JobContext):
         ctx.add_shutdown_callback(agent._on_shutdown)
         await session.start(agent, room=ctx.room, room_options=room_opts)
         await agent.session.say("Hello! Let's get started.")
+        # ── Capture greeting in transcript ──
+        await agent._add_to_transcript(
+            role="assistant",
+            content="Hello! Let's get started.",
+            message_type="message"
+        )
 
         # ── USAGE REPORTING ────────────────────────────────────────────────
         # We fire the POST as a fully detached asyncio task the moment the
