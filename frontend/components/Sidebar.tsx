@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { getInitials } from '@/lib/auth';
 import { useUser, useStackApp } from '@stackframe/stack';
 import { getLicenseDetails } from '@/app/services/pricingPaymentService';
+import { clearApiKey } from '@/app/services/apiKeyService';
 import { type AgentBot } from '@/app/services/agentService';
 import { AVATARS } from '@/lib/constants';
 import { fetchAvatars, type AvatarItem } from '@/app/services/avatarService';
@@ -92,6 +93,7 @@ function ProfileDropdown({ user, initials, onClose, planLabel, className = "bott
   const app = useStackApp();
 
   const handleLogout = async () => {
+    clearApiKey();
     await app.signOut();
     onClose();
     router.push("/handler/sign-in");
@@ -126,11 +128,9 @@ function ProfileDropdown({ user, initials, onClose, planLabel, className = "bott
       <div className="py-1">
         {planLabel === "Free Plan" && menuItem(<CrownIcon />, "Upgrade to Pro", () => { router.push("/dashboard/settings/billing-and-subscription"); onClose(); }, "text-yellow-400")}
         <div className="border-[#1f1f1f] my-1" />
-        {menuItem(<GearIcon />, "Settings", () => onClose())}
         {menuItem(<CardIcon />, "Billing & Plans", () => { router.push("/dashboard/settings/billing-and-subscription"); onClose(); })}
         <div className="border-t border-[#1f1f1f] my-1" />
         {/* Light mode — dummy (coming soon) */}
-        {menuItem(<SunIcon />, "Light Mode", () => onClose(), "opacity-40 cursor-not-allowed")}
         {menuItem(<SignOutIcon />, "Sign Out", handleLogout, "text-red-400")}
       </div>
     </div>
@@ -142,7 +142,7 @@ function QuickCallDropdown({ bots, avatars, onSelect, onClose, className = "bott
   return (
     <div className={`absolute ${className} bg-[#161616] border border-[#242424] rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.5)] overflow-hidden z-[200]`}>
       <div className="px-4 py-3 border-b border-[#242424]">
-        <span className="text-white text-[12px] font-bold uppercase tracking-wider text-[#9ca3af]">Select a Companion</span>
+        <span className="text-white text-[12px] font-bold uppercase tracking-wider text-[#9ca3af]">Select a Agent</span>
       </div>
       <div className="py-1 max-h-[280px] overflow-y-auto custom-scrollbar">
         {bots?.length === 0 ? (
@@ -164,7 +164,7 @@ function QuickCallDropdown({ bots, avatars, onSelect, onClose, className = "bott
               >
                 <div className="w-8 h-8 rounded-full overflow-hidden border border-white/10 shrink-0 group-hover:border-[#00E3AA]/40 transition-colors">
                   {avatar ? (
-                    <Image src={avatar.image} alt={bot.agent_name} width={32} height={32} className="object-cover" />
+                    <Image src={avatar.image} alt={bot.agent_name} width={40} height={40} className="w-full h-full object-cover object-top" />
                   ) : (
                     <div className="w-full h-full bg-[#1c2e28] flex items-center justify-center text-[10px] font-bold text-[#00E3AA]">
                       {bot.agent_name.charAt(0)}
@@ -172,7 +172,7 @@ function QuickCallDropdown({ bots, avatars, onSelect, onClose, className = "bott
                   )}
                 </div>
                 <div className="flex flex-col items-start min-w-0">
-                  <span className="font-semibold truncate w-full">{bot.agent_name}</span>
+                  <span className="font-semibold truncate w-full text-left">{bot.agent_name}</span>
                   <span className="text-[10px] text-[#5a5a5a] uppercase tracking-tight">Saved Agent</span>
                 </div>
               </button>
@@ -227,8 +227,9 @@ export function Sidebar({
       getLicenseDetails(apiKey).then(({ data }) => {
         if (cancelled || !data?.slug) return;
         const slug = data.slug;
+        console.log("License slug:", slug);
         if (slug.includes("ente_ente")) setPlanLabel("Enterprise Plan");
-        else if (!slug.includes("free")) setPlanLabel("Pro Plan");
+        else if (slug.startsWith("pro")) setPlanLabel("Pro Plan");
         else setPlanLabel("Free Plan");
       });
     };
@@ -279,7 +280,7 @@ export function Sidebar({
       <div className="flex items-center justify-between px-4 pt-5 pb-4 shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-[#1c2e28] flex items-center justify-center shrink-0 overflow-hidden">
-            <Image src="/openclaw.png" alt="ClawdFace" width={30} height={30} className="object-contain" />
+            <Image src="/clawdface-logo.svg" alt="ClawdFace" width={50} height={50} className="object-contain" />
           </div>
           <div className="flex flex-col">
             <span className="text-white font-bold text-[17px] leading-tight tracking-[-0.01em]">ClawdFace</span>
@@ -370,7 +371,7 @@ export function Sidebar({
     <>
       <div className="flex flex-col items-center pt-4 pb-2 shrink-0 gap-3">
         <div className="w-9 h-9 rounded-xl bg-[#1c2e28] flex items-center justify-center overflow-hidden">
-          <Image src="/openclaw.png" alt="ClawdFace" width={26} height={26} className="object-contain" />
+          <Image src="/clawdface-logo.svg" alt="ClawdFace" width={26} height={26} className="object-contain" />
         </div>
         <button onClick={() => setIsCollapsed(false)} className="text-[#5a5a5a] hover:text-[#9ca3af] transition-colors p-1.5 rounded-md hover:bg-white/5">
           <ExpandIcon />
