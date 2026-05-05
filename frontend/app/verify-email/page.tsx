@@ -49,13 +49,13 @@ export default function VerifyEmailPage() {
             </div>
             <h2 className="text-xl font-bold text-white">Email Verified</h2>
             <p className="text-zinc-400 text-sm">
-              Your email has been verified. You will be redirected to login shortly.
+              Your email has been verified. You will be redirected to Dashboard shortly.
             </p>
             <Link
               href="/log-in"
               className="mt-2 bg-brand text-black font-bold py-2.5 px-8 rounded-xl hover:brightness-110 transition-all"
             >
-              Sign In
+              Go to Dashboard
             </Link>
           </>
         )}
