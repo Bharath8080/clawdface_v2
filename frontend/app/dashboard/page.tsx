@@ -434,7 +434,7 @@ function DoctorView({ bots, onHealthUpdate }: { bots: AgentBot[], onHealthUpdate
                 </div>
                 <input
                   type="text"
-                  placeholder="https://your-ngrok-id.ngrok-free.app"
+                  placeholder="Your Domain Name"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-white font-medium focus:outline-none focus:border-brand/40 transition-all placeholder:text-neutral-700"
@@ -1463,7 +1463,7 @@ function ClientPage() {
         <div className="md:hidden flex items-center justify-between px-4 h-14 border-b border-white/5 bg-surface-secondary shrink-0 z-10 shadow-sm transition-all duration-300">
           <div className="flex items-center gap-3">
             <div className="w-7 h-7 shrink-0 relative flex items-center justify-center rounded-lg bg-brand/10 text-brand">
-              <Image src="/openclaw.png" alt="Logo" width={18} height={18} className="object-contain drop-shadow-[0_0_4px_rgba(0,227,170,0.5)]" />
+              <Image src="/clawdface-logo.svg" alt="Logo" width={30} height={30} className="object-contain drop-shadow-[0_0_4px_rgba(0,227,170,0.5)]" />
             </div>
             <span className="text-white font-bold text-lg leading-none tracking-tight mt-1 font-outfit">ClawdFace</span>
           </div>
