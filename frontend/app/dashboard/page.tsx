@@ -930,7 +930,25 @@ function ClientPage() {
         try {
           const apiKey = localStorage.getItem("defaultApiKey") ?? "";
           const { data } = await getConversations(apiKey);
-          setConversations(data ?? []);
+          const listData = data ?? [];
+          setConversations(listData);
+
+          // Enrich list with duration + agent_name from individual detail API
+          // (the list endpoint doesn't return these fields)
+          if (listData.length > 0 && apiKey) {
+            const enriched = await Promise.all(
+              listData.map(async (conv: any) => {
+                try {
+                  const { data: detail } = await getConversationById(apiKey, conv.id);
+                  if (detail) {
+                    return { ...conv, duration: detail.duration, agent_name: detail.agent_name, avatar_id: detail.avatar_id };
+                  }
+                } catch (_) { /* ignore per-item failures */ }
+                return conv;
+              })
+            );
+            setConversations(enriched);
+          }
         } catch (err) {
           console.error("Failed to fetch conversations:", err);
         } finally {
@@ -2694,10 +2712,10 @@ function ConversationsListView({
                     if (normalized === "failed" || normalized === "interrupted") return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
                     return "bg-gray-500/10 text-gray-500 border-gray-500/20";
                   };
-                  // Map API response fields — agentId links back to the bot in the library
-                  const matchedBot = avatars.find(a => a.id === (conv.bot_avatar ?? conv.agentId));
-                  const displayAvatar = matchedBot ?? avatars[0];
-                  const displayName = conv.bot_name || conv.userName || conv.userId || "Unknown";
+                  // Match avatar: prefer avatar_id from detail API, then bot_avatar, then agentId
+                  const matchedBot = avatars.find(a => a.id === conv.avatar_id) || avatars.find(a => a.id === (conv.bot_avatar ?? conv.agentId));
+                  const displayAvatar = matchedBot || null;
+                  const displayName = conv.agent_name || conv.bot_name || conv.userName || conv.userId || "Unknown";
                   const displayId = conv.session_key || conv.agentId || conv.id;
                   const displayDate = conv.created_at ? new Date(conv.created_at) : null;
                   return (
@@ -2724,7 +2742,7 @@ function ConversationsListView({
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-[#9ca3af] text-[13px]">{conv.duration ? `${conv.duration}s` : '—'}</span>
+                        <span className="text-[#9ca3af] text-[13px]">{conv.duration ? `${parseFloat(String(conv.duration)).toFixed(1)}s` : '—'}</span>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
@@ -2764,8 +2782,8 @@ function ConversationDetailView({
               <ChevronDownIcon className="rotate-90" />
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-white tracking-tight">Conversation with {conversation.bot_name || conversation.userName || "Agent"}</h1>
-              <p className="text-[#6b7280] text-sm mt-1">{conversation.created_at ? new Date(conversation.created_at).toLocaleString() : "—"}{conversation.duration ? ` • ${conversation.duration}s` : ""}</p>
+              <h1 className="text-2xl font-bold text-white tracking-tight">Conversation with {conversation.agent_name || conversation.bot_name || conversation.userName || "Agent"} ({conversation.userName || "own"})</h1>
+              <p className="text-[#6b7280] text-sm mt-1">{conversation.created_at ? new Date(conversation.created_at).toLocaleString() : "—"}{conversation.duration ? ` • ${parseFloat(String(conversation.duration)).toFixed(1)}s` : ""}</p>
             </div>
           </div>
           <span className={`px-3 py-1 rounded-full text-[12px] font-bold uppercase border ${
