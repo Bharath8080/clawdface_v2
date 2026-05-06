@@ -968,7 +968,7 @@ func main() {
 
 		// Avatars by AgentId
 		r.Route("/public/avatar", func(r chi.Router) {
-			r.Use(SameOriginMiddleware())
+			//r.Use(SameOriginMiddleware())
 			r.Get("/{agentId}", func(w http.ResponseWriter, r *http.Request) {
 				agentId := chi.URLParam(r, "agentId")
 				utils.HandleGetAvatarDetailsByAgent(w, agentId)
