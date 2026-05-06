@@ -27,6 +27,8 @@ export async function GET(req: Request) {
     connection_type: searchParams.get("connection_type") || undefined,
     enable_thinking: searchParams.get("enable_thinking") || searchParams.get("thinkingEnabled") || undefined,
     thinking_delay:  searchParams.get("thinking_delay") || searchParams.get("thinkingDelay") || undefined,
+    conversation_id: searchParams.get("conversation_id") || searchParams.get("conversationId") || undefined,
+    user_email:      searchParams.get("user_email") || searchParams.get("userEmail") || undefined,
   };
   return handleConnection(config);
 }
@@ -48,7 +50,7 @@ async function handleConnection(config: {
   enable_thinking?: string;
   thinking_delay?: string;
   conversation_id?: string;
-  job_id?: string;
+  user_email?: string;
 }) {
   try {
     if (!LIVEKIT_URL) throw new Error("LIVEKIT_URL is not defined");
@@ -69,7 +71,8 @@ async function handleConnection(config: {
       enable_thinking: config.enable_thinking || "true",
       thinking_delay:  config.thinking_delay  || "5.0",
       conversation_id: config.conversation_id || "",
-      job_id:          config.job_id          || "",
+      user_email:      config.user_email      || "",
+      job_id:          "",
     });
 
     // Agent dispatch metadata — this becomes ctx.job.metadata in agent.py.
@@ -86,7 +89,8 @@ async function handleConnection(config: {
       thinking_delay:  config.thinking_delay  || "5.0",
       connection_type: config.connection_type || "website",
       conversation_id: config.conversation_id || "",
-      job_id:          config.job_id          || "",
+      user_email:      config.user_email      || "",
+      job_id:          "",
     });
 
     console.log(`[connection-details] Room: ${roomName}`);

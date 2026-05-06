@@ -1206,6 +1206,7 @@ function ClientPage() {
         ...finalConfig,
         conversation_id: currentConversationIdRef.current || undefined,
         job_id: currentJobIdRef.current || undefined,
+        user_email: user?.primaryEmail || undefined,
       };
       if (abortConnectionRef.current) return;
 

@@ -14,7 +14,7 @@ function generateTimestampId(prefix: string): string {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { email, meetingUrl, startTime, roomId: requestedRoomId } = body;
+    const { email, meetingUrl, startTime, roomId: requestedRoomId, conversation_id, user_email } = body;
  
     if (!email) {
       return NextResponse.json({ error: 'Missing email' }, { status: 400 });
@@ -65,7 +65,9 @@ export async function POST(request: Request) {
       meetingUrl:   meetingUrl          || '',
       agentName:    agent.name          || 'AI Assistant',
       recallBotId:  '',
-      roomId:       lkRoomSid, // Consistent SID inclusion
+      roomId:       lkRoomSid,
+      conversation_id: conversation_id || '',
+      user_email:      user_email      || userEmail || '',
     });
  
     await dispatchClient.createDispatch(roomId, 'clawdface', { metadata });

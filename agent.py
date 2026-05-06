@@ -1,4 +1,5 @@
 import os
+import uuid
 import json
 import asyncio
 import base64
@@ -83,11 +84,45 @@ async def post_backend_usage(usage: dict):
         return
     endpoint = f"{base_url}/v1/usage"
     import aiohttp
-    # total=None disables all timeouts — fully dynamic, no ConnectTimeout ever.
-    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=None)) as session:
-        async with session.post(endpoint, json=usage) as resp:
-            resp.raise_for_status()
-            logger.info(f"✅ [USAGE] Backend usage posted successfully → {endpoint} | {resp.status}")
+    try:
+        # total=None disables all timeouts — fully dynamic, no ConnectTimeout ever.
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=None)) as session:
+            async with session.post(endpoint, json=usage) as resp:
+                resp.raise_for_status()
+                logger.info(f"✅ [USAGE] Backend usage posted successfully for {usage.get('conversation_id')} → {endpoint} | {resp.status}")
+    except Exception as e:
+        logger.error(f"❌ [USAGE] Error posting usage for {usage.get('conversation_id')}: {e}")
+
+
+async def register_conversation(config: dict, conversation_id: str):
+    """Registers a new conversation with the backend."""
+    base_url = os.getenv("FRONTEND_URL", "").rstrip("/")
+    if not base_url:
+        logger.warning("[REGISTER] FRONTEND_URL not set, cannot register conversation.")
+        return
+    
+    endpoint = f"{base_url}/api/conversations/register"
+    payload = {
+        "conversation_id": conversation_id,
+        "user_email": config.get("user_email") or config.get("userEmail") or config.get("ownerEmail") or config.get("email") or "system@clawdface.ai",
+        "bot_name": config.get("name") or "AI Assistant",
+        "bot_avatar": config.get("avatarId") or "0f160301",
+        "agent_id": config.get("agentId") or ""
+    }
+    
+    logger.debug(f"[REGISTER] Sending payload: {json.dumps(payload)}")
+    
+    import aiohttp
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(endpoint, json=payload, timeout=10) as resp:
+                if resp.status == 200:
+                    logger.info(f"✅ [REGISTER] Session registered successfully | ID: {conversation_id}")
+                else:
+                    text = await resp.text()
+                    logger.error(f"❌ [REGISTER] Failed to register ID: {conversation_id} | Status: {resp.status} | Error: {text}")
+    except Exception as e:
+        logger.error(f"[REGISTER] Error during registration: {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -724,29 +759,32 @@ async def my_agent(ctx: agents.JobContext):
     except Exception:
         pass
 
-    conversation_id: str = _raw_job_meta.get("conversation_id") or ""
-    job_id: str = ctx.job.id  # always ctx.job.id — LiveKit assigns this
-
-    if not conversation_id:
-        logger.warning(f"[SESSION] ⚠️ No conversation_id for job {job_id}. This is likely a stray session. Exiting.")
-        return
-
-    logger.info(f"🆔 conv_id={conversation_id} | job_id={job_id}")
     # ─────────────────────────────────────────────────────────────────────
-
+    # Generate and Register conversation session
+    # ─────────────────────────────────────────────────────────────────────
     config, connection_type = {}, "unknown"
     for _ in range(5):
         config, connection_type = resolve_config(ctx)
         if config: break
         await asyncio.sleep(0.5)
 
-    logger.info(f"[METADATA] Resolution Completed | Mode: {connection_type.upper()}")
-    logger.info(f"[METADATA] Room Metadata: {ctx.room.metadata[:300]}")
-    logger.info(f"[METADATA] Job Metadata: {ctx.job.metadata[:300]}")
-
     if not config:
         logger.error(f"[SESSION] ✗ Failed to resolve config for room {ctx.room.name}")
         return
+
+    # 1. Resolve Conversation ID: Prioritize ID passed from frontend metadata
+    # 2. Fallback: Generate a fresh UUID if missing (e.g. for headless sessions)
+    job_id = ctx.job.id
+    conversation_id = config.get("conversation_id") or config.get("conversationId")
+    
+    if conversation_id:
+        logger.info(f"🔗 [MATCH] Using conversation_id from frontend: {conversation_id}")
+    else:
+        conversation_id = str(uuid.uuid4())
+        logger.info(f"🎲 [FALLBACK] Generated fresh UUID for session: {conversation_id}")
+
+    logger.info(f"🚀 [SESSION START] Initializing session | conversation_id: {conversation_id} | job_id: {job_id}")
+    await register_conversation(config, conversation_id)
 
     url = config.get("openclawUrl", "").strip()
     token = config.get("gatewayToken", "")
