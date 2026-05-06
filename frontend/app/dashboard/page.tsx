@@ -321,7 +321,7 @@ const GatewayChecklist = () => (
     <ul className="text-[14px] text-neutral-400 space-y-3 list-none font-medium">
       <li className="flex items-center gap-3">
         <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center text-[10px] text-neutral-500 shrink-0">1</div>
-        Is your Ngrok tunnel running?
+        Is your gateway domain reachable from the internet?
       </li>
       <li className="flex items-center gap-3">
         <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center text-[10px] text-neutral-500 shrink-0">2</div>
@@ -379,21 +379,9 @@ function DoctorView({ bots, onHealthUpdate }: { bots: AgentBot[], onHealthUpdate
         // Always pass the ID and status to the handler
         if (onHealthUpdate && activeBot) onHealthUpdate(activeBot.id, 'healthy');
       } else if (data.status === 404) {
-        // If it's a 404, check if it's an ngrok URL
-        const isNgrok = url.includes("ngrok-free.dev") || 
-                        url.includes("ngrok.io") || 
-                        url.includes("ngrok-free.app") ||
-                        (data.server && data.server.toLowerCase().includes("ngrok"));
-        
-        if (isNgrok) {
-          setApiError("Ngrok returned a 404. Your tunnel is likely not running or the URL has expired.");
-          setStatus("error_connection");
-          if (onHealthUpdate && activeBot) onHealthUpdate(activeBot.id, 'unhealthy');
-        } else {
-          // If not ngrok, it might be the gateway but the endpoint is off
-          setStatus("error_404");
-          if (onHealthUpdate && activeBot) onHealthUpdate(activeBot.id, 'unhealthy');
-        }
+        setApiError("The domain returned a 404. The gateway service may not be running or the URL may be incorrect.");
+        setStatus("error_connection");
+        if (onHealthUpdate && activeBot) onHealthUpdate(activeBot.id, 'unhealthy');
       } else if (data.error) {
         setApiError(data.error);
         setStatus("error_connection");
@@ -746,6 +734,7 @@ function ClientPage() {
   const currentConversationIdRef = useRef<string | null>(null);
   const currentJobIdRef = useRef<string | null>(null);
   const connectionLockRef = useRef(false);
+  const abortConnectionRef = useRef(false);
 
   // Sync refs with state to ensure handleDisconnected sees latest values
   useEffect(() => {
@@ -979,6 +968,7 @@ function ClientPage() {
     }
     
     connectionLockRef.current = true;
+    abortConnectionRef.current = false;
     setIsValidatingCredit(true);
     setApiError(null);
 
@@ -1012,6 +1002,8 @@ function ClientPage() {
           console.warn("Local sync skipped (expected on production)");
         }
       }
+
+      if (abortConnectionRef.current) return;
 
       const finalSessionKey = `agent:main:${generateSessionId()}`;
 
@@ -1120,6 +1112,8 @@ function ClientPage() {
         return;
       }
 
+      if (abortConnectionRef.current) return;
+
       // If we reach here, validation passed
       const validationData = await validationResponse.json().catch(() => ({}));
       console.log("🔍 Credit Validation - Success Response:", JSON.stringify(validationData, null, 2));
@@ -1149,6 +1143,8 @@ function ClientPage() {
         conversation_id: currentConversationIdRef.current || undefined,
         job_id: currentJobIdRef.current || undefined,
       };
+      if (abortConnectionRef.current) return;
+
       console.log("🚀 Connecting with config:", connectionConfig);
       const response = await fetch("/api/connection-details", {
         method: "POST",
@@ -1157,6 +1153,9 @@ function ClientPage() {
       });
 
       const connectionDetailsData: ConnectionDetails = await response.json();
+
+      if (abortConnectionRef.current) return;
+
       await room.connect(connectionDetailsData.serverUrl, connectionDetailsData.participantToken, {
         // @ts-ignore
         signalTimeout: 30000, 
@@ -1302,10 +1301,15 @@ function ClientPage() {
     // Define sessions that are allowed to maintain an active call
     const callCapableSessions = ["DirectCall", "My Bot"];
     
-    // If the room is active and we navigate to a non-call session, disconnect.
-    if (room && (room.state === "connected" || room.state === "connecting" || room.state === "reconnecting")) {
-      if (!callCapableSessions.includes(activeSession)) {
-        console.log("🚶 Navigation event: User moved to non-call section:", activeSession, "- auto-disconnecting call");
+    if (!callCapableSessions.includes(activeSession)) {
+      // Abort any in-flight connection attempt
+      if (connectionLockRef.current) {
+        console.log("🚶 Navigation event: aborting in-flight connection");
+        abortConnectionRef.current = true;
+      }
+      // Disconnect if already connected/connecting
+      if (room && (room.state === "connected" || room.state === "connecting" || room.state === "reconnecting")) {
+        console.log("🚶 Navigation event: disconnecting active call");
         room.disconnect();
       }
     }
@@ -1456,6 +1460,7 @@ function ClientPage() {
           bots={bots}
           onQuickCall={handleQuickCallSelect}
           avatars={avatars}
+          gatewayError={Object.values(botHealth).some(s => s === 'unhealthy')}
         />
 
       <div className="flex-1 h-full w-full overflow-hidden flex flex-col relative z-0">
@@ -2460,6 +2465,9 @@ function BotLibraryView({
             {bots.map((bot) => {
               const botAvatarId = getBotAvatarId(bot);
               const avatar = avatars.find(a => a.id === botAvatarId);
+              const botHealthKey = `${(bot.config?.openclaw_url ?? "").replace(/\/$/, "")}|${bot.config?.gateway_token ?? ""}`;
+              const botStatus = botHealth[botHealthKey] || 'unknown';
+              const isOffline = botStatus === 'unhealthy';
               return (
                 <motion.div 
                   key={bot.id} 
@@ -2625,17 +2633,18 @@ function BotLibraryView({
                           <span className="group-hover/recall:scale-110 transition-transform block"><LinkIcon size={16} /></span>
                         </button>
                         
-                        <button 
-                          disabled={isConnecting}
+                        <button
+                          disabled={isConnecting || isOffline}
                           onClick={(e) => {
                             e.stopPropagation();
                             onSelectBot(bot);
                           }}
-                          className={`h-10 px-5 rounded-xl text-black text-[12px] font-bold uppercase tracking-widest transition-all transform hover:scale-[1.02] active:scale-95 shadow-[0_4px_12px_rgba(0,227,170,0.2)] flex items-center gap-2 shrink-0 whitespace-nowrap ${
-                            isConnecting 
-                              ? "bg-neutral-800 text-neutral-500 cursor-not-allowed opacity-50 shadow-none scale-100" 
-                              : "bg-brand hover:bg-[#00ffd0]"
+                          className={`h-10 px-5 rounded-xl text-[12px] font-bold uppercase tracking-widest transition-all transform active:scale-95 flex items-center gap-2 shrink-0 whitespace-nowrap ${
+                            isConnecting || isOffline
+                              ? "bg-neutral-800 text-neutral-500 cursor-not-allowed opacity-50 shadow-none scale-100"
+                              : "bg-brand hover:bg-[#00ffd0] text-black hover:scale-[1.02] shadow-[0_4px_12px_rgba(0,227,170,0.2)]"
                           }`}
+                          title={isOffline ? "Agent is offline" : undefined}
                         >
                           {isConnecting ? (
                             <RefreshCwIcon size={14} className="animate-spin" />
@@ -2644,7 +2653,7 @@ function BotLibraryView({
                               <polygon points="5 3 19 12 5 21 5 3"/>
                             </svg>
                           )}
-                          {isConnecting ? "Connecting..." : "Connect"}
+                          {isConnecting ? "Connecting..." : isOffline ? "Offline" : "Connect"}
                         </button>
                       </div>
                     </div>

@@ -186,7 +186,7 @@ function QuickCallDropdown({ bots, avatars, onSelect, onClose, className = "bott
 
 // ─── Main Sidebar ─────────────────────────────────────────────────────────────
 export function Sidebar({
-  activeSession, setActiveSession, isMobileMenuOpen, setIsMobileMenuOpen, bots = [], onQuickCall = () => {}, avatars = AVATARS
+  activeSession, setActiveSession, isMobileMenuOpen, setIsMobileMenuOpen, bots = [], onQuickCall = () => {}, avatars = AVATARS, gatewayError = false
 }: {
   activeSession: string;
   setActiveSession: (s: string) => void;
@@ -195,6 +195,7 @@ export function Sidebar({
   bots?: AgentBot[];
   onQuickCall?: (bot: AgentBot) => void | Promise<void>;
   avatars?: AvatarItem[];
+  gatewayError?: boolean;
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -296,7 +297,7 @@ export function Sidebar({
       <nav className="flex-1 overflow-y-auto px-3 pb-2 flex flex-col gap-0.5 custom-scrollbar">
         <NavRow label="Agent Library" icon={<LibraryIcon />} isActive={activeSession === "Library" || activeSession === "DirectCall"} onClick={() => handleNav("Library")} />
         <NavRow label="Add Agent" icon={<BotIcon />} isActive={activeSession === "AddBot"} onClick={() => handleNav("AddBot")} />
-        <NavRow label="Gateway Doctor" icon={<ActivityIcon />} onClick={() => handleNav("Doctor")} isActive={activeSession === "Doctor"} badge="Health" badgeCls="border-[#00E3AA]/20 text-[#00E3AA]" />
+        <NavRow label="Gateway Doctor" icon={<ActivityIcon />} onClick={() => handleNav("Doctor")} isActive={activeSession === "Doctor"} badge={gatewayError ? "Offline" : "Active"} badgeCls={gatewayError ? "border-red-500/40 text-red-400 bg-red-500/10" : "border-[#00E3AA]/20 text-[#00E3AA]"} />
         <NavRow label="Stock Avatars" icon={<UserIcon />}     isActive={activeSession === "Avatars"}   onClick={() => handleNav("Avatars")} />
 
         <NavRow label="Conversations" icon={<HistoryIcon />} onClick={() => handleNav("Conversations")} isActive={activeSession === "Conversations"} />
