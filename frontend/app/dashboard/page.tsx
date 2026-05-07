@@ -341,12 +341,13 @@ function DoctorView({ bots, onHealthUpdate }: { bots: AgentBot[], onHealthUpdate
   const [status, setStatus] = useState<"idle" | "checking" | "healthy" | "error_404" | "error_connection">( "idle" );
   const [lastCheck, setLastCheck] = useState<Date | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
+  const hasManualInputRef = useRef(false);
 
   useEffect(() => {
-    if (bots.length > 0 && !url) {
+    if (!hasManualInputRef.current && bots.length > 0) {
       setUrl(bots[0].config?.openclaw_url ?? "");
     }
-  }, [bots, url]);
+  }, [bots]);
 
   const runDiagnostics = async () => {
     if (!url) return;
@@ -424,7 +425,10 @@ function DoctorView({ bots, onHealthUpdate }: { bots: AgentBot[], onHealthUpdate
                   type="text"
                   placeholder="Your Domain Name"
                   value={url}
-                  onChange={(e) => setUrl(e.target.value)}
+                  onChange={(e) => {
+                    hasManualInputRef.current = true;
+                    setUrl(e.target.value);
+                  }}
                   className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-white font-medium focus:outline-none focus:border-brand/40 transition-all placeholder:text-neutral-700"
                 />
               </div>
@@ -536,6 +540,20 @@ function DoctorView({ bots, onHealthUpdate }: { bots: AgentBot[], onHealthUpdate
                   </p>
                   
                   <GatewayChecklist />
+
+                  <div className="mt-6 space-y-3">
+                    <p className="text-[13px] text-neutral-400 font-semibold uppercase tracking-widest">Quick Fix (If OpenClaw Is Running)</p>
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <p className="text-[13px] text-neutral-400 font-medium">Option A: Run this command</p>
+                        <CopyableCommand command="openclaw config set gateway.http.endpoints.chatCompletions.enabled true" />
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-[13px] text-neutral-400 font-medium">Option B: Send this message to OpenClaw</p>
+                        <CopyableCommand command="Please enable the chat/completions endpoint (gateway.http.endpoints.chatCompletions.enabled = true) and restart the gateway." />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -652,6 +670,7 @@ function ClientPage() {
   const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
   const [isRecallModalOpen, setIsRecallModalOpen] = useState(false);
   const [showCreditModal, setShowCreditModal] = useState(false);
+  const [showEndSessionModal, setShowEndSessionModal] = useState(false);
   const [creditModalConfig, setCreditModalConfig] = useState<{ title: string; message: string; type: "credit" | "concurrency" }>({
     title: "Low Credits",
     message: "Your account balance is low. Please add credits to continue using our voice assistants.",
@@ -735,6 +754,8 @@ function ClientPage() {
   const currentJobIdRef = useRef<string | null>(null);
   const connectionLockRef = useRef(false);
   const abortConnectionRef = useRef(false);
+  const pendingActionRef = useRef<(() => void) | null>(null);
+  const pendingSessionRef = useRef<string | null>(null);
 
   // Sync refs with state to ensure handleDisconnected sees latest values
   useEffect(() => {
@@ -748,6 +769,49 @@ function ClientPage() {
   useEffect(() => {
     activeSessionRef.current = activeSession;
   }, [activeSession]);
+
+  const shouldConfirmEndSession = () => isValidatingCredit || room.state !== "disconnected";
+
+  const requestSessionChange = (nextSession: string, action: () => void) => {
+    if (!shouldConfirmEndSession()) {
+      action();
+      return;
+    }
+    pendingActionRef.current = action;
+    pendingSessionRef.current = nextSession;
+    setShowEndSessionModal(true);
+  };
+
+  const handleEndSessionConfirm = () => {
+    const action = pendingActionRef.current;
+    const nextSession = pendingSessionRef.current;
+    pendingActionRef.current = null;
+    pendingSessionRef.current = null;
+    setShowEndSessionModal(false);
+
+    if (nextSession) {
+      activeSessionRef.current = nextSession;
+    }
+
+    if (isValidatingCredit || room.state !== "disconnected") {
+      abortConnectionRef.current = true;
+      connectionLockRef.current = false;
+      setIsValidatingCredit(false);
+      if (room.state !== "disconnected") {
+        room.disconnect();
+      }
+    }
+
+    if (action) {
+      action();
+    }
+  };
+
+  const handleEndSessionCancel = () => {
+    pendingActionRef.current = null;
+    pendingSessionRef.current = null;
+    setShowEndSessionModal(false);
+  };
 
   // Robust Transcription Tracking via Hook
   // (Moved to TranscriptSynchronizer component to stay within RoomContext)
@@ -1174,27 +1238,29 @@ function ClientPage() {
 
 
   const handleQuickCallSelect = async (bot: AgentBot) => {
-    setSelectedAgentId(bot.id);
-    selectedAgentIdRef.current = bot.id;
-    
-    // Store external agent identifiers separately; backend conversation calls use the internal UUID.
-    // @ts-ignore
-    const externalId = bot.agent_id || stripSessionKey(bot.config?.session_key || "");
-    
-    externalAgentIdRef.current = externalId || "";
+    requestSessionChange("DirectCall", () => {
+      setSelectedAgentId(bot.id);
+      selectedAgentIdRef.current = bot.id;
+      
+      // Store external agent identifiers separately; backend conversation calls use the internal UUID.
+      // @ts-ignore
+      const externalId = bot.agent_id || stripSessionKey(bot.config?.session_key || "");
+      
+      externalAgentIdRef.current = externalId || "";
 
-    setConfig({
-      ...config,
-      openclawUrl: bot.config.openclaw_url,
-      gatewayToken: bot.config.gateway_token,
-      sessionKey: bot.config.session_key ? stripSessionKey(bot.config.session_key) : "",
-      avatarId: getBotAvatarId(bot),
-      botName: bot.agent_name,
-      thinkingEnabled: String(bot.config.thinking_enabled ?? true),
-      thinkingDelay: String(bot.config.thinking_delay ?? 5.0),
+      setConfig({
+        ...config,
+        openclawUrl: bot.config.openclaw_url,
+        gatewayToken: bot.config.gateway_token,
+        sessionKey: bot.config.session_key ? stripSessionKey(bot.config.session_key) : "",
+        avatarId: getBotAvatarId(bot),
+        botName: bot.agent_name,
+        thinkingEnabled: String(bot.config.thinking_enabled ?? true),
+        thinkingDelay: String(bot.config.thinking_delay ?? 5.0),
+      });
+      setActiveSession("DirectCall");
+      setIsMobileMenuOpen(false);
     });
-    setActiveSession("DirectCall");
-    setIsMobileMenuOpen(false);
   };
 
   useEffect(() => {
@@ -1270,8 +1336,9 @@ function ClientPage() {
     room.on(RoomEvent.DataReceived, handleDataReceived);
 
     // Close session when user closes/refreshes the tab
-    const handleBeforeUnload = async () => {
-      if (room.state === "connected" && currentConversationIdRef.current) {
+    const handleBeforeUnload = () => {
+      const wasConnected = room.state === "connected";
+      if (wasConnected && currentConversationIdRef.current) {
         const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || "https://qaapi.clawdface.ai").replace(/\/$/, "");
         navigator.sendBeacon(
           `${baseUrl}/v1/usage/update`,
@@ -1281,6 +1348,13 @@ function ClientPage() {
             message: "client_unload"
           })
         );
+      }
+      if (isValidatingCredit || room.state !== "disconnected") {
+        abortConnectionRef.current = true;
+        connectionLockRef.current = false;
+        if (room.state !== "disconnected") {
+          room.disconnect();
+        }
       }
     };
 
@@ -1294,7 +1368,7 @@ function ClientPage() {
       room.off(RoomEvent.DataReceived, handleDataReceived);
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, [room, user]);
+  }, [room, user, isValidatingCredit]);
 
   // ─── Auto-disconnect call on navigation ────────────────────────────────────
   useEffect(() => {
@@ -1436,6 +1510,27 @@ function ClientPage() {
     }
   };
 
+  const handleSidebarSessionChange = (session: string) => {
+    requestSessionChange(session, () => {
+      setActiveSession(session);
+      // Clear editing state when navigating via sidebar
+      if (session !== "AddBot") {
+        setEditingBotId(null);
+        setEditingAgent(null);
+        // Only reset config if we're not moving to a call-related session
+        if (session !== "DirectCall" && session !== "My Bot") {
+          setConfig(DEFAULTS);
+        }
+      }
+    });
+  };
+
+  const handleSidebarRouteChange = (action: () => void) => {
+    requestSessionChange("Library", () => {
+      action();
+    });
+  };
+
 
 
   return (
@@ -1443,24 +1538,14 @@ function ClientPage() {
     <main data-lk-theme="default" className="h-[100dvh] w-screen bg-canvas flex overflow-hidden font-[Inter] text-white">
         <Sidebar
           activeSession={activeSession}
-          setActiveSession={(session) => {
-            setActiveSession(session);
-            // Clear editing state when navigating via sidebar
-            if (session !== "AddBot") {
-              setEditingBotId(null);
-              setEditingAgent(null);
-              // Only reset config if we're not moving to a call-related session
-              if (session !== "DirectCall" && session !== "My Bot") {
-                setConfig(DEFAULTS);
-              }
-            }
-          }}
+          setActiveSession={handleSidebarSessionChange}
           isMobileMenuOpen={isMobileMenuOpen}
           setIsMobileMenuOpen={setIsMobileMenuOpen}
           bots={bots}
           onQuickCall={handleQuickCallSelect}
           avatars={avatars}
           gatewayError={Object.values(botHealth).some(s => s === 'unhealthy')}
+          onNavigate={handleSidebarRouteChange}
         />
 
       <div className="flex-1 h-full w-full overflow-hidden flex flex-col relative z-0">
@@ -1513,10 +1598,12 @@ function ClientPage() {
                   await onConnectButtonClicked();
                 }}
                 onBack={() => {
-                  setEditingBotId(null);
-                  setEditingAgent(null);
-                  setConfig(DEFAULTS);
-                  setActiveSession("Library");
+                  requestSessionChange("Library", () => {
+                    setEditingBotId(null);
+                    setEditingAgent(null);
+                    setConfig(DEFAULTS);
+                    setActiveSession("Library");
+                  });
                 }}
                 isValidating={isValidatingCredit}
               />
@@ -1539,41 +1626,45 @@ function ClientPage() {
                 profileId={profileId} 
                 onRefresh={refreshBots}
                 onSelectBot={(bot) => {
-                  setSelectedAgentId(bot.id);
-                  selectedAgentIdRef.current = bot.id;
-                  
-                  // Store external agent identifiers separately; backend conversation calls use the internal UUID.
-                  // @ts-ignore
-                  const externalId = bot.agent_id || stripSessionKey(bot.config?.session_key || "");
-                  
-                  externalAgentIdRef.current = externalId || "";
+                  requestSessionChange("DirectCall", () => {
+                    setSelectedAgentId(bot.id);
+                    selectedAgentIdRef.current = bot.id;
+                    
+                    // Store external agent identifiers separately; backend conversation calls use the internal UUID.
+                    // @ts-ignore
+                    const externalId = bot.agent_id || stripSessionKey(bot.config?.session_key || "");
+                    
+                    externalAgentIdRef.current = externalId || "";
 
-                  const newConfig = {
-                    openclawUrl: bot.config.openclaw_url,
-                    gatewayToken: bot.config.gateway_token,
-                    sessionKey: stripSessionKey(bot.config.session_key || ""),
-                    avatarId: getBotAvatarId(bot),
-                    botName: bot.agent_name,
-                    thinkingEnabled: String(bot.config.thinking_enabled ?? true),
-                    thinkingDelay: String(bot.config.thinking_delay ?? 5.0),
-                  };
-                  setConfig(newConfig);
-                  setActiveSession("DirectCall");
+                    const newConfig = {
+                      openclawUrl: bot.config.openclaw_url,
+                      gatewayToken: bot.config.gateway_token,
+                      sessionKey: stripSessionKey(bot.config.session_key || ""),
+                      avatarId: getBotAvatarId(bot),
+                      botName: bot.agent_name,
+                      thinkingEnabled: String(bot.config.thinking_enabled ?? true),
+                      thinkingDelay: String(bot.config.thinking_delay ?? 5.0),
+                    };
+                    setConfig(newConfig);
+                    setActiveSession("DirectCall");
+                  });
                 }}
                 onEditBot={(bot) => {
-                  setEditingBotId(bot.id);
-                  setEditingAgent(bot);
-                  const editConfig = {
-                    openclawUrl: bot.config.openclaw_url,
-                    gatewayToken: bot.config.gateway_token,
-                    sessionKey: stripSessionKey(bot.config.session_key || ""),
-                    avatarId: getBotAvatarId(bot),
-                    botName: bot.agent_name,
-                    thinkingEnabled: String(bot.config.thinking_enabled ?? true),
-                    thinkingDelay: String(bot.config.thinking_delay ?? 5.0),
-                  };
-                  setConfig(editConfig);
-                  setActiveSession("AddBot");
+                  requestSessionChange("AddBot", () => {
+                    setEditingBotId(bot.id);
+                    setEditingAgent(bot);
+                    const editConfig = {
+                      openclawUrl: bot.config.openclaw_url,
+                      gatewayToken: bot.config.gateway_token,
+                      sessionKey: stripSessionKey(bot.config.session_key || ""),
+                      avatarId: getBotAvatarId(bot),
+                      botName: bot.agent_name,
+                      thinkingEnabled: String(bot.config.thinking_enabled ?? true),
+                      thinkingDelay: String(bot.config.thinking_delay ?? 5.0),
+                    };
+                    setConfig(editConfig);
+                    setActiveSession("AddBot");
+                  });
                 }}
                 botHealth={botHealth}
                 isConnecting={isValidatingCredit || room.state === "connecting"}
@@ -1624,7 +1715,11 @@ function ClientPage() {
                     The <span className="text-white font-medium">&quot;{activeSession}&quot;</span> session is currently under development.
                   </p>
                   <button
-                    onClick={() => setActiveSession("My Bot")}
+                    onClick={() => {
+                      requestSessionChange("My Bot", () => {
+                        setActiveSession("My Bot");
+                      });
+                    }}
                     className="relative z-10 mt-6 px-5 py-2.5 bg-brand/10 hover:bg-brand/20 text-brand rounded-lg font-medium transition-all duration-300 text-sm border border-brand/20"
                   >
                     Return to My Agent
@@ -1659,12 +1754,21 @@ function ClientPage() {
             <HealthAlertNotification 
               onClose={() => setShowHealthAlert(false)} 
               onFix={() => {
-                setActiveSession("Doctor");
-                setShowHealthAlert(false);
+                requestSessionChange("Doctor", () => {
+                  setActiveSession("Doctor");
+                  setShowHealthAlert(false);
+                });
               }} 
             />
           )}
         </AnimatePresence>
+
+        <EndSessionModal
+          isOpen={showEndSessionModal}
+          onConfirm={handleEndSessionConfirm}
+          onCancel={handleEndSessionCancel}
+          isStarting={isValidatingCredit || room.state === "connecting"}
+        />
 
         <CreditModal 
           isOpen={showCreditModal} 
@@ -1976,6 +2080,63 @@ function SessionConfigForm({
 
       </div>
     </motion.div>
+  );
+}
+
+// ─── End Session Modal ─────────────────────────────────────────────────────
+function EndSessionModal({
+  isOpen,
+  onConfirm,
+  onCancel,
+  isStarting,
+}: {
+  isOpen: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+  isStarting: boolean;
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onCancel} />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="w-full max-w-md bg-surface-secondary rounded-3xl border border-white/5 shadow-2xl overflow-hidden relative p-8 text-center"
+      >
+        <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+          <AlertCircleIcon size={28} className="text-red-400" />
+        </div>
+
+        <h2 className="text-2xl font-bold text-white mb-3 font-outfit">End this conversation?</h2>
+        <p className="text-neutral-400 text-[15px] leading-relaxed mb-8">
+          You are about to leave this page. This will end your conversation{isStarting ? " before it finishes connecting." : "."}
+        </p>
+
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={onConfirm}
+            className="w-full py-4 bg-red-500/90 hover:bg-red-500 text-white font-bold rounded-2xl transition-all shadow-[0_0_20px_rgba(239,68,68,0.25)] active:scale-[0.98]"
+          >
+            End Conversation
+          </button>
+          <button
+            onClick={onCancel}
+            className="w-full py-4 bg-white/5 hover:bg-white/10 text-white font-semibold rounded-2xl transition-all border border-white/5 active:scale-[0.98]"
+          >
+            Stay Here
+          </button>
+        </div>
+
+        <button
+          onClick={onCancel}
+          className="absolute top-4 right-4 text-neutral-600 hover:text-white transition-colors"
+        >
+          <CloseIcon size={14} />
+        </button>
+      </motion.div>
+    </div>
   );
 }
 
@@ -2473,8 +2634,7 @@ function BotLibraryView({
                   key={bot.id} 
                   variants={cardVariants}
                   whileHover={{ y: -12, scale: 1.02, transition: { type: "spring", stiffness: 260, damping: 25 } }}
-                  onClick={() => onSelectBot(bot)} 
-                  className="group relative rounded-[2rem] bg-surface-secondary/80 backdrop-blur-xl border border-white/5 hover:border-brand/40 transition-[border-color,box-shadow,background-color] duration-300 overflow-hidden cursor-pointer flex flex-col shadow-2xl hover:shadow-brand/20"
+                  className="group relative rounded-[2rem] bg-surface-secondary/80 backdrop-blur-xl border border-white/5 hover:border-brand/40 transition-[border-color,box-shadow,background-color] duration-300 overflow-hidden flex flex-col shadow-2xl hover:shadow-brand/20"
                 >
                   {/* Decorative background glow */}
                   <div className="absolute top-0 right-0 w-24 h-24 bg-brand/5 rounded-full blur-[60px] pointer-events-none group-hover:bg-brand/20 transition-all duration-300" />

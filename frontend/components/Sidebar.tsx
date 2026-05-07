@@ -88,7 +88,7 @@ function ColIconBtn({ label, icon, isActive, onClick }: NavItemProps) {
 }
 
 // ---- Profile Dropdown ----
-function ProfileDropdown({ user, initials, onClose, planLabel, className = "bottom-full left-0 mb-2 w-full" }: { user: any; initials: string; onClose: () => void; planLabel: string; className?: string }) {
+function ProfileDropdown({ user, initials, onClose, planLabel, onNavigate, className = "bottom-full left-0 mb-2 w-full" }: { user: any; initials: string; onClose: () => void; planLabel: string; onNavigate?: (action: () => void) => void; className?: string }) {
   const router = useRouter();
   const app = useStackApp();
 
@@ -106,6 +106,29 @@ function ProfileDropdown({ user, initials, onClose, planLabel, className = "bott
       {label}
     </button>
   );
+
+  const navigate = (path: string) => {
+    const go = () => {
+      router.push(path);
+      onClose();
+    };
+    if (onNavigate) {
+      onNavigate(go);
+    } else {
+      go();
+    }
+  };
+
+  const handleLogoutRequest = () => {
+    const go = () => {
+      handleLogout();
+    };
+    if (onNavigate) {
+      onNavigate(go);
+    } else {
+      go();
+    }
+  };
 
   return (
     <div className={`absolute ${className} bg-[#161616] border border-[#242424] rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.5)] overflow-hidden z-[200]`}>
@@ -126,12 +149,12 @@ function ProfileDropdown({ user, initials, onClose, planLabel, className = "bott
 
       {/* Menu items */}
       <div className="py-1">
-        {planLabel === "Free Plan" && menuItem(<CrownIcon />, "Upgrade to Pro", () => { router.push("/dashboard/settings/billing-and-subscription"); onClose(); }, "text-yellow-400")}
+        {planLabel === "Free Plan" && menuItem(<CrownIcon />, "Upgrade to Pro", () => navigate("/dashboard/settings/billing-and-subscription"), "text-yellow-400")}
         <div className="border-[#1f1f1f] my-1" />
-        {menuItem(<CardIcon />, "Billing & Plans", () => { router.push("/dashboard/settings/billing-and-subscription"); onClose(); })}
+        {menuItem(<CardIcon />, "Billing & Plans", () => navigate("/dashboard/settings/billing-and-subscription"))}
         <div className="border-t border-[#1f1f1f] my-1" />
         {/* Light mode — dummy (coming soon) */}
-        {menuItem(<SignOutIcon />, "Sign Out", handleLogout, "text-red-400")}
+        {menuItem(<SignOutIcon />, "Sign Out", handleLogoutRequest, "text-red-400")}
       </div>
     </div>
   );
@@ -186,7 +209,7 @@ function QuickCallDropdown({ bots, avatars, onSelect, onClose, className = "bott
 
 // ─── Main Sidebar ─────────────────────────────────────────────────────────────
 export function Sidebar({
-  activeSession, setActiveSession, isMobileMenuOpen, setIsMobileMenuOpen, bots = [], onQuickCall = () => {}, avatars = AVATARS, gatewayError = false
+  activeSession, setActiveSession, isMobileMenuOpen, setIsMobileMenuOpen, bots = [], onQuickCall = () => {}, avatars = AVATARS, gatewayError = false, onNavigate
 }: {
   activeSession: string;
   setActiveSession: (s: string) => void;
@@ -196,6 +219,7 @@ export function Sidebar({
   onQuickCall?: (bot: AgentBot) => void | Promise<void>;
   avatars?: AvatarItem[];
   gatewayError?: boolean;
+  onNavigate?: (action: () => void) => void;
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -268,6 +292,19 @@ export function Sidebar({
     setQuickCallOpen(false);
   };
 
+  const handleRoute = (path: string) => {
+    const go = () => {
+      router.push(path);
+      setIsMobileMenuOpen(false);
+      setQuickCallOpen(false);
+    };
+    if (onNavigate) {
+      onNavigate(go);
+    } else {
+      go();
+    }
+  };
+
   const UserAvatar = ({ size = "w-9 h-9" }: { size?: string }) => (
     user?.profileImageUrl
       ? <Image src={user.profileImageUrl} alt={initials} width={36} height={36} className={`${size} rounded-xl object-cover shrink-0`} />
@@ -311,13 +348,13 @@ export function Sidebar({
           <SubRow
             label="Billing & Plans"
             icon={<CardIcon />}
-            onClick={() => { router.push("/dashboard/settings/billing-and-subscription"); setIsMobileMenuOpen(false); }}
+            onClick={() => handleRoute("/dashboard/settings/billing-and-subscription")}
             isActive={pathname === "/dashboard/settings/billing-and-subscription"}
           />
           <SubRow
             label="Invoices"
             icon={<FileTextIcon />}
-            onClick={() => { router.push("/dashboard/settings/invoices"); setIsMobileMenuOpen(false); }}
+            onClick={() => handleRoute("/dashboard/settings/invoices")}
             isActive={pathname === "/dashboard/settings/invoices"}
           />
         </div>}
@@ -345,7 +382,7 @@ export function Sidebar({
         {/* Profile + dropdown */}
         <div ref={dropdownRef} className="relative">
           {dropdownOpen && user && (
-            <ProfileDropdown user={user} initials={initials} onClose={() => setDropdownOpen(false)} planLabel={planLabel} />
+            <ProfileDropdown user={user} initials={initials} onClose={() => setDropdownOpen(false)} planLabel={planLabel} onNavigate={onNavigate} />
           )}
           <div 
             onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -385,7 +422,7 @@ export function Sidebar({
         <ColIconBtn label="Doctor" icon={<ActivityIcon />} isActive={activeSession === "Doctor"} onClick={() => handleNav("Doctor")} />
         <ColIconBtn label="Stock Avatars" icon={<UserIcon />}     isActive={activeSession === "Avatars"}   onClick={() => handleNav("Avatars")} />
         <ColIconBtn label="Conversations" icon={<HistoryIcon />} isActive={activeSession === "Conversations"} onClick={() => handleNav("Conversations")} />
-        <ColIconBtn label="Billing & Plans" icon={<CardIcon />} isActive={!!pathname?.startsWith("/dashboard/settings")} onClick={() => { router.push("/dashboard/settings/billing-and-subscription"); setIsMobileMenuOpen(false); }} />
+        <ColIconBtn label="Billing & Plans" icon={<CardIcon />} isActive={!!pathname?.startsWith("/dashboard/settings")} onClick={() => handleRoute("/dashboard/settings/billing-and-subscription")} />
       </nav>
       <div className="flex flex-col items-center px-2 pb-4 shrink-0 gap-2">
         <div className="border-t border-[#232323] w-full mb-1" />
@@ -414,6 +451,7 @@ export function Sidebar({
               initials={initials}
               onClose={() => setDropdownOpen(false)}
               planLabel={planLabel}
+              onNavigate={onNavigate}
               className="bottom-0 left-full ml-4 w-[260px]"
             />
           )}
