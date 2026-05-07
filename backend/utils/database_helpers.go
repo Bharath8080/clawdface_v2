@@ -48,6 +48,20 @@ var DB *sql.DB
 
 const dateLayoutYYYYMMDD = "2006-01-02"
 
+type ScheduledJob struct {
+	Name         string `json:"name"`
+	ID           string `json:"id"`
+	Cron         string `json:"cron"`
+	AgentEmailID string `json:"agentEmailID"`
+	MeetingURL   string `json:"meetingUrl"`
+	Expiry       string `json:"expiry"`
+	Status       string `json:"status"`
+	StartTime    string `json:"start_time,omitempty"`
+	UID          string `json:"uid,omitempty"`
+	CreatedAt    string `json:"created_at,omitempty"`
+	TraceID      string `json:"trace_id,omitempty"`
+}
+
 type JoinExternalMeetingsRequest struct {
 	AgentID               string `json:"agent_id"`
 	MeetingURL            string `json:"meeting_url"`
@@ -10917,82 +10931,175 @@ func HandleJoinExternalMeeting(w http.ResponseWriter, r *http.Request, roomId st
 	w.Write([]byte(statusMessage))
 }
 
-// Method to Post request to Recall.AI
-func PostRecallRequest(meetingUrl string, displayName string, lkRoomID string) (bool, error) {
-	recall_url := os.Getenv("RECALL_API_URL")
-	method := "POST"
+func buildRecallRequestPayload(meetingUrl string, displayName string, lkRoomID string) ([]byte, string, error) {
+	avatarStream := os.Getenv("AVATAR_VIDEO_STREAM")
+	recallWS := os.Getenv("RECALL_VIDEO_WS_URL")
+	if recallWS == "" {
+		return nil, "", fmt.Errorf("RECALL_VIDEO_WS_URL is not set")
+	}
 
-	payload := strings.NewReader(fmt.Sprintf(`{
-    "meeting_url": "%s",
-    "bot_name": "%s",
-    "output_media": {
-        "camera": {
-            "kind": "webpage",
-            "config": {
-                "url": "%s/%s?agent=%s"
-            }
-        }
-    },
-    "recording_config": {
-   		"video_mixed_mp4": {},
-     	"include_bot_in_recording": {
-            "audio": true
-        },
-        "video_mixed_layout": "gallery_view_v2",
-        "transcript": {
-            "provider": {
-                "deepgram_streaming": {
-                    "language_code": "en",
-                    "mode": "prioritize_low_latency"
-                }
-            }
-        },
-        "realtime_endpoints": [
-            {
-                "type": "webhook",
-                "url": "%s/%s",
-                "events": [
-                    "participant_events.join",
-                    "participant_events.leave",
-                    "participant_events.speech_on",
-                    "participant_events.speech_off",
-                    "transcript.data",
-                    "transcript.partial_data"
-                ]
-            }
-        ]
-    },
-    "variant": {
-        "zoom": "web_gpu",
-        "google_meet": "web_gpu",
-        "microsoft_teams": "web_gpu",
-        "webex": "web_gpu"
-    }
-}`, meetingUrl, displayName, os.Getenv("AVATAR_VIDEO_STREAM"), lkRoomID, url.PathEscape(displayName), os.Getenv("RECALL_WEBHOOK_URL"), lkRoomID))
-	client := &http.Client{}
-	req, err := http.NewRequest(method, recall_url, payload)
+	cameraURL := fmt.Sprintf("%s/%s?agent=%s", avatarStream, lkRoomID, url.QueryEscape(displayName))
+	wsURL := fmt.Sprintf("%s/%s", recallWS, lkRoomID)
 
+	realtimeEndpoints := []map[string]interface{}{
+		{
+			"type": "websocket",
+			"url":  wsURL,
+			"events": []string{
+				"participant_events.join",
+				"participant_events.leave",
+				"participant_events.speech_on",
+				"participant_events.speech_off",
+				"participant_events.screenshare_on",
+				"participant_events.screenshare_off",
+				"participant_events.webcam_on",
+				"participant_events.webcam_off",
+				"transcript.data",
+				"transcript.partial_data",
+				"video_separate_png.data",
+			},
+		},
+	}
+
+	payload := map[string]interface{}{
+		"meeting_url": meetingUrl,
+		"bot_name":    displayName,
+		"output_media": map[string]interface{}{
+			"camera": map[string]interface{}{
+				"kind": "webpage",
+				"config": map[string]interface{}{
+					"url": cameraURL,
+				},
+			},
+		},
+		"recording_config": map[string]interface{}{
+			"video_mixed_layout": "gallery_view_v2",
+			"include_bot_in_recording": map[string]interface{}{
+				"audio": true,
+			},
+			"video_separate_png": map[string]interface{}{
+				"include_screenshare": true,
+				"include_webcam":      true,
+			},
+			"transcript": map[string]interface{}{
+				"provider": map[string]interface{}{
+					"deepgram_streaming": map[string]interface{}{
+						"model":        "nova-3",
+						"language":     "en-US",
+						"smart_format": true,
+						"endpointing":  200,
+						"numerals":     true,
+						"keyterm":      []string{"Lisa", "TruGen"},
+					},
+				},
+				"diarization": map[string]interface{}{
+					"use_separate_streams_when_available": true,
+				},
+			},
+			"realtime_endpoints": realtimeEndpoints,
+		},
+		"variant": map[string]string{
+			"zoom":            "web_gpu",
+			"google_meet":     "web_gpu",
+			"microsoft_teams": "web_gpu",
+			"webex":           "web_gpu",
+		},
+	}
+
+	jsonBody, err := json.Marshal(payload)
 	if err != nil {
-		fmt.Println(err)
+		return nil, "", fmt.Errorf("failed to marshal recall payload: %w", err)
+	}
+	return jsonBody, wsURL, nil
+}
+
+func postRecallRequestWithLabel(label string, meetingUrl string, displayName string, lkRoomID string) (bool, error) {
+	recallURL := os.Getenv("RECALL_API_URL")
+	recallToken := os.Getenv("RECALL_API_TOKEN")
+
+	log.Printf("[%s] meetingUrl=%s displayName=%s lkRoomID=%s", label, meetingUrl, displayName, lkRoomID)
+
+	if recallURL == "" {
+		return false, fmt.Errorf("RECALL_API_URL is not set")
+	}
+	if recallToken == "" {
+		return false, fmt.Errorf("RECALL_API_TOKEN is not set")
+	}
+
+	jsonBody, wsURL, err := buildRecallRequestPayload(meetingUrl, displayName, lkRoomID)
+	if err != nil {
 		return false, err
 	}
-	req.Header.Add("Authorization", os.Getenv("RECALL_API_TOKEN"))
-	req.Header.Add("Content-Type", "application/json")
 
+	log.Printf("[%s] Recall WS endpoint - url=%s", label, wsURL)
+	log.Printf("[%s] Request Body:\n%s", label, string(jsonBody))
+
+	req, err := http.NewRequest("POST", recallURL, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return false, fmt.Errorf("failed to create recall request: %w", err)
+	}
+	req.Header.Set("Authorization", recallToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 30 * time.Second}
 	res, err := client.Do(req)
 	if err != nil {
-		fmt.Println(err)
-		return false, err
+		return false, fmt.Errorf("recall API request failed: %w", err)
 	}
 	defer res.Body.Close()
 
-	_, err = io.ReadAll(res.Body)
+	respBody, err := io.ReadAll(res.Body)
 	if err != nil {
-		fmt.Println(err)
-		return false, err
+		return false, fmt.Errorf("failed to read recall response: %w", err)
 	}
+
+	log.Printf("[%s] Response status=%d body=%s", label, res.StatusCode, string(respBody))
+
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		return false, fmt.Errorf("recall API returned status %d: %s", res.StatusCode, string(respBody))
+	}
+
+	log.Printf("[%s] SUCCESS bot created", label)
 	return true, nil
 }
+
+// Method to Post request to Recall.AI
+func PostRecallRequest(meetingUrl string, displayName string, lkRoomID string) (bool, error) {
+	return postRecallRequestWithLabel("PostRecallRequest", meetingUrl, displayName, lkRoomID)
+}
+
+// PostRecallRequestV2 is kept for scheduled-job compatibility and uses the same payload as direct joins.
+func PostRecallRequestV2(meetingUrl string, displayName string, lkRoomID string) (bool, error) {
+	return postRecallRequestWithLabel("PostRecallRequestV2", meetingUrl, displayName, lkRoomID)
+}
+
+// HandleCheckAgentEmailUniqueness checks if an email is already assigned to any agent.
+// Query params: email (required).
+func HandleCheckAgentEmailUniqueness(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	email := r.URL.Query().Get("email")
+	if email == "" {
+		http.Error(w, "email query parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	var exists bool
+	err := DB.QueryRow(
+		`SELECT EXISTS(SELECT 1 FROM agents WHERE email = $1)`,
+		email,
+	).Scan(&exists)
+
+	if err != nil {
+		log.Printf("Error checking agent email uniqueness: %v", err)
+		http.Error(w, "Failed to check email uniqueness", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]bool{"unique": !exists})
+}
+
 
 func dispatchAgent(roomName, agentName, metaData string) error {
 
@@ -13416,4 +13523,301 @@ func GetGlobalMetricsConversationByID(w http.ResponseWriter, r *http.Request, co
 	}
 
 	json.NewEncoder(w).Encode(conversationConfigs)
+}
+
+// getConversationRoomID fetches the LiveKit room ID (stored in join_link) for a given conversation.
+func getConversationRoomID(conversationID string) (string, error) {
+	var roomID string
+	err := DB.QueryRow(`SELECT join_link FROM conversations WHERE id = $1`, conversationID).Scan(&roomID)
+	if err == sql.ErrNoRows {
+		return "", fmt.Errorf("conversation not found: %s", conversationID)
+	}
+	return roomID, err
+}
+
+// newRoomServiceClient returns a configured LiveKit RoomServiceClient.
+func newRoomServiceClient() *lksdk.RoomServiceClient {
+	return lksdk.NewRoomServiceClient(
+		configs.GetEnv("LIVEKIT_URL"),
+		configs.GetEnv("LIVEKIT_API_KEY"),
+		configs.GetEnv("LIVEKIT_API_SECRET"),
+	)
+}
+
+// getAgentParticipantIdentity lists participants in the given LiveKit room and returns
+// the identity of the agent participant. It identifies the agent by checking for the
+// "lk.agent_name" attribute (set automatically by the LiveKit agents framework) or by
+// participant Kind == AGENT as a fallback.
+func getAgentParticipantIdentity(roomID string) (string, error) {
+	client := newRoomServiceClient()
+
+	resp, err := client.ListParticipants(context.Background(), &livekit.ListParticipantsRequest{
+		Room: roomID,
+	})
+	if err != nil {
+		return "", fmt.Errorf("ListParticipants failed: %w", err)
+	}
+
+	log.Printf("getAgentParticipantIdentity: room=%s participants=%d", roomID, len(resp.Participants))
+
+	// Prefer participant with lk.agent_name attribute (matches frontend logic)
+	for _, p := range resp.Participants {
+		if _, ok := p.Attributes["lk.agent_name"]; ok {
+			log.Printf("getAgentParticipantIdentity: found agent by attribute — identity=%s", p.Identity)
+			return p.Identity, nil
+		}
+	}
+
+	// Fallback: participant Kind == AGENT
+	for _, p := range resp.Participants {
+		if p.Kind == livekit.ParticipantInfo_AGENT {
+			log.Printf("getAgentParticipantIdentity: found agent by kind — identity=%s", p.Identity)
+			return p.Identity, nil
+		}
+	}
+
+	return "", fmt.Errorf("no agent participant found in room %s", roomID)
+}
+
+// EnsureSchema creates the scheduled_jobs table and runs any pending migrations.
+func EnsureSchema() error {
+	_, err := DB.Exec(`
+	CREATE TABLE IF NOT EXISTS scheduled_jobs (
+		id TEXT PRIMARY KEY,
+		name TEXT,
+		meeting_url TEXT,
+		agent_email_id TEXT,
+		cron TEXT,
+		expiry TEXT,
+		status TEXT,
+		created_at TEXT,
+		uid TEXT,
+		start_time TEXT,
+		trace_id TEXT
+	);`)
+	if err != nil {
+		return err
+	}
+	migrations := []string{
+		`ALTER TABLE scheduled_jobs ADD COLUMN IF NOT EXISTS trace_id TEXT`,
+		`ALTER TABLE scheduled_jobs ADD COLUMN IF NOT EXISTS start_time TEXT`,
+		`ALTER TABLE scheduled_jobs ADD COLUMN IF NOT EXISTS uid TEXT`,
+	}
+	for _, m := range migrations {
+		if _, err := DB.Exec(m); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// GetAllJobsFromDB returns all scheduled jobs, optionally filtered by agent email IDs.
+func GetAllJobsFromDB(agentEmailIDs []string) ([]ScheduledJob, error) {
+	sqlStmt := `
+		SELECT id, name, cron, agent_email_id, meeting_url, expiry, status, COALESCE(uid,''), COALESCE(start_time,''), COALESCE(created_at,''), COALESCE(trace_id,'')
+		FROM scheduled_jobs
+	`
+	var args []interface{}
+	if len(agentEmailIDs) > 0 {
+		placeholders := make([]string, len(agentEmailIDs))
+		for i, id := range agentEmailIDs {
+			placeholders[i] = fmt.Sprintf("$%d", i+1)
+			args = append(args, id)
+		}
+		sqlStmt += " WHERE agent_email_id IN (" + strings.Join(placeholders, ", ") + ")"
+	}
+	res, err := DB.Query(sqlStmt, args...)
+	if err != nil {
+		return []ScheduledJob{}, err
+	}
+	defer res.Close()
+	var jobs []ScheduledJob
+	for res.Next() {
+		var job ScheduledJob
+		if err := res.Scan(&job.ID, &job.Name, &job.Cron, &job.AgentEmailID, &job.MeetingURL, &job.Expiry, &job.Status, &job.UID, &job.StartTime, &job.CreatedAt, &job.TraceID); err != nil {
+			return []ScheduledJob{}, err
+		}
+		jobs = append(jobs, job)
+	}
+	if err = res.Err(); err != nil {
+		return []ScheduledJob{}, err
+	}
+	if jobs == nil {
+		jobs = []ScheduledJob{}
+	}
+	return jobs, nil
+}
+
+// AddJobToDB inserts a new scheduled job record.
+func AddJobToDB(ctx context.Context, job ScheduledJob) error {
+	sqlStmt := `
+	INSERT INTO scheduled_jobs (id, name, cron, agent_email_id, meeting_url, expiry, status, uid, start_time, created_at, trace_id)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
+	`
+	_, err := DB.Exec(sqlStmt, job.ID, job.Name, job.Cron, job.AgentEmailID, job.MeetingURL, job.Expiry, job.Status, job.UID, job.StartTime, time.Now().UTC().Format(time.RFC3339), job.TraceID)
+	return err
+}
+
+// GetJobFromDBByID fetches a single job by ID.
+func GetJobFromDBByID(jobID string) (ScheduledJob, error) {
+	sqlStmt := `SELECT id, name, cron, agent_email_id, meeting_url, expiry FROM scheduled_jobs WHERE id = $1;`
+	row := DB.QueryRow(sqlStmt, jobID)
+	var job ScheduledJob
+	err := row.Scan(&job.ID, &job.Name, &job.Cron, &job.AgentEmailID, &job.MeetingURL, &job.Expiry)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return ScheduledJob{}, nil
+		}
+		return ScheduledJob{}, err
+	}
+	return job, nil
+}
+
+// DeleteJobFromDBByID removes a job record by ID.
+func DeleteJobFromDBByID(jobID string) error {
+	_, err := DB.Exec(`DELETE FROM scheduled_jobs WHERE id = $1;`, jobID)
+	return err
+}
+
+// UpdateJobStatusInDB updates the status field of a job.
+func UpdateJobStatusInDB(jobID string, status string) error {
+	_, err := DB.Exec(`UPDATE scheduled_jobs SET status = $1 WHERE id = $2;`, status, jobID)
+	return err
+}
+
+// UpdateJobStartTimeInDB updates the start_time field of a job (used to reflect next run time for recurring jobs).
+func UpdateJobStartTimeInDB(jobID string, startTime string) error {
+	_, err := DB.Exec(`UPDATE scheduled_jobs SET start_time = $1 WHERE id = $2;`, startTime, jobID)
+	return err
+}
+
+// performAgentRPC joins the LiveKit room as a short-lived server participant and sends
+// an RPC request to the agent via WebRTC (PerformRpc). The room join is synchronous so
+// we know the connection is established before we dispatch. PerformRpc itself is run in
+// a goroutine — the response path (agent → server) is unreliable from a local dev
+// machine behind NAT, but the request path (server → agent) succeeds consistently.
+// We return as soon as the request is dispatched rather than waiting for the ACK.
+func performAgentRPC(roomID, agentIdentity, method, payload string) error {
+	lkURL := configs.GetEnv("LIVEKIT_URL")
+	apiKey := configs.GetEnv("LIVEKIT_API_KEY")
+	apiSecret := configs.GetEnv("LIVEKIT_API_SECRET")
+
+	serverIdentity := "server-rpc-" + uuid.New().String()[:8]
+	at := auth.NewAccessToken(apiKey, apiSecret)
+	at.SetIdentity(serverIdentity)
+	at.SetName("Server")
+	grant := &auth.VideoGrant{
+		RoomJoin: true,
+		Room:     roomID,
+	}
+	grant.SetCanPublishData(true)
+	at.AddGrant(grant)
+
+	token, err := at.ToJWT()
+	if err != nil {
+		return fmt.Errorf("token generation failed: %w", err)
+	}
+
+	room, err := lksdk.ConnectToRoomWithToken(lkURL, token, &lksdk.RoomCallback{}, lksdk.WithAutoSubscribe(false))
+	if err != nil {
+		return fmt.Errorf("room connect failed: %w", err)
+	}
+
+	// PerformRpc blocks until the agent sends back an ACK + response. On a local dev
+	// machine the return data channel is often unreliable (NAT / DTLS issues), so the
+	// call times out even though the agent receives and processes the request. Running
+	// it in a goroutine lets us return 200 immediately; the background goroutine logs
+	// any response error and disconnects the room when done.
+	go func() {
+		defer room.Disconnect()
+		_, err := room.LocalParticipant.PerformRpc(lksdk.PerformRpcParams{
+			DestinationIdentity: agentIdentity,
+			Method:              method,
+			Payload:             payload,
+		})
+		if err != nil {
+			log.Printf("performAgentRPC: response not received for method=%s agent=%s (request was delivered): %v", method, agentIdentity, err)
+		}
+	}()
+
+	log.Printf("performAgentRPC: dispatched method=%s → agent=%s room=%s", method, agentIdentity, roomID)
+	return nil
+}
+
+// HandleAgentSpeak locates the agent participant in the LiveKit room for the given
+// conversation and calls the agent's "speak" RPC method with the provided text.
+// PUT /conversation/{conversationId}/speak
+func HandleAgentSpeak(w http.ResponseWriter, r *http.Request, conversationID string) {
+	w.Header().Set("Content-Type", "application/json")
+	log.Printf("HandleAgentSpeak: conversationID=%s", conversationID)
+
+	var body struct {
+		Text string `json:"text"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Text == "" {
+		WriteBadRequestError(w, "Invalid request body: 'text' field is required")
+		return
+	}
+
+	roomID, err := getConversationRoomID(conversationID)
+	if err != nil {
+		log.Printf("HandleAgentSpeak: room lookup failed: %v", err)
+		WriteNotFoundError(w, "Conversation not found")
+		return
+	}
+
+	agentIdentity, err := getAgentParticipantIdentity(roomID)
+	if err != nil {
+		log.Printf("HandleAgentSpeak: agent not found room=%s err=%v", roomID, err)
+		WriteInternalServerError(w, "Agent participant not found in room")
+		return
+	}
+
+	rpcPayload, _ := json.Marshal(map[string]string{"text": body.Text})
+
+	if err := performAgentRPC(roomID, agentIdentity, "speak", string(rpcPayload)); err != nil {
+		log.Printf("HandleAgentSpeak: RPC failed room=%s agent=%s err=%v", roomID, agentIdentity, err)
+		WriteInternalServerError(w, "Failed to send speak command to agent")
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]string{
+		"conversation_id": conversationID,
+		"agent_identity":  agentIdentity,
+		"message":         "Speak command sent successfully",
+	})
+}
+
+// HandleEndConversation gracefully ends a conversation by calling the agent's
+// "end_session" RPC method, letting the agent shut down cleanly.
+// DELETE /conversation/{conversationId}
+func HandleEndConversation(w http.ResponseWriter, conversationID string) {
+	w.Header().Set("Content-Type", "application/json")
+	log.Printf("HandleEndConversation: conversationID=%s", conversationID)
+
+	roomID, err := getConversationRoomID(conversationID)
+	if err != nil {
+		log.Printf("HandleEndConversation: room lookup failed: %v", err)
+		WriteNotFoundError(w, "Conversation not found")
+		return
+	}
+
+	agentIdentity, err := getAgentParticipantIdentity(roomID)
+	if err != nil {
+		log.Printf("HandleEndConversation: agent not found room=%s err=%v", roomID, err)
+		WriteInternalServerError(w, "Agent participant not found in room")
+		return
+	}
+
+	if err := performAgentRPC(roomID, agentIdentity, "end_session", ""); err != nil {
+		log.Printf("HandleEndConversation: RPC failed room=%s agent=%s err=%v", roomID, agentIdentity, err)
+		WriteInternalServerError(w, "Failed to end conversation")
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]string{
+		"conversation_id": conversationID,
+		"agent_identity":  agentIdentity,
+		"message":         "Conversation ended successfully",
+	})
 }

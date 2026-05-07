@@ -1390,6 +1390,11 @@ func main() {
 					utils.HandleGetAllAgentConfigs(w, apikeyId)
 				})
 
+				
+				r.Get("/email/check", func(w http.ResponseWriter, r *http.Request) {
+					utils.HandleCheckAgentEmailUniqueness(w, r)
+				})
+
 				r.Get("/{agentId}", func(w http.ResponseWriter, r *http.Request) {
 					apikeyId := r.Context().Value("apiKeyId").(string)
 					agentId := chi.URLParam(r, "agentId")
@@ -1419,6 +1424,42 @@ func main() {
 				})
 			})
 
+
+
+			// External meeting routes
+		r.Route("/extmeet", func(r chi.Router) {
+			// Internal — no auth, called by AWS SES Lambda and Recall.AI
+			r.Get("/ws", func(w http.ResponseWriter, r *http.Request) {
+				utils.HandleWebSocket(w, r)
+			})
+			r.Post("/calendar/inbound", func(w http.ResponseWriter, r *http.Request) {
+				utils.HandleAWSLLM(w, r)
+			})
+
+			r.Get("/video-ws/{roomID}", func(w http.ResponseWriter, r *http.Request) {
+				utils.HandleRecallWS(w, r)
+			})
+
+			r.Group(func(r chi.Router) {
+				r.Use(utils.AuthMiddleware)
+				r.Get("/scheduled-jobs", func(w http.ResponseWriter, r *http.Request) {
+					utils.HandleGetAllScheduledJobs(w, r)
+				})
+				r.Get("/scheduled-jobs/{jobID}", func(w http.ResponseWriter, r *http.Request) {
+					utils.HandleGetScheduledJob(w, r)
+				})
+				r.Post("/scheduled-jobs", func(w http.ResponseWriter, r *http.Request) {
+					utils.HandleAddScheduledJob(w, r)
+				})
+				r.Delete("/scheduled-jobs/{jobID}", func(w http.ResponseWriter, r *http.Request) {
+					utils.HandleDeleteScheduledJob(w, r)
+				})
+				r.Patch("/scheduled-jobs/{jobID}", func(w http.ResponseWriter, r *http.Request) {
+					utils.HandleUpdateScheduledJob(w, r)
+				})
+			})
+		})
+	
 			// Workspace Management Routes
 			r.Route("/workspace", func(r chi.Router) {
 				r.Get("/user/{userId}", func(w http.ResponseWriter, r *http.Request) {
@@ -1770,6 +1811,8 @@ func main() {
 		r.Post("/infra/request/end", providerHealthHandler.HandleInfraRequestEnd)
 		r.Get("/infra/concurrency/check", providerHealthHandler.HandleInfraConcurrencyCheck)
 	})
+	// Initialize the meeting scheduler (must be called before serving requests)
+	utils.InitRecallScheduler()
 
 	// Start the server
 	log.Println("Server running on port 3077")
