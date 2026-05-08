@@ -1053,7 +1053,6 @@ function ClientPage() {
       // 2. Sync to Supabase & local files
       const email = user?.primaryEmail || user?.displayName;
       if (email) {
-        await updateLastConfig(email, activeConfig);
         try {
           await fetch("/api/user-config", {
             method: "POST",
