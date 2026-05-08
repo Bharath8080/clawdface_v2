@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     console.log(`[API] Agent config lookup for: ${email}`);
 
     // Query the agents table for an exact match on email
-    // This supports timestamped emails like sofiasbot-2026-03-18-1734clawdfaceai@agent.truhire.ai
+    // This supports emails like sofia@agent.clawdface.ai
     const [agent] = await db
       .select({
         openclawUrl: agents.openclaw_url,
