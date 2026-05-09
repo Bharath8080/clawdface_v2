@@ -11,6 +11,8 @@ type StartConversationResponse struct {
 	Name           string `json:"name"`
 	ID             string `json:"id"`
 	RunID          string `json:"run_id"`
+	OpenClawURL    string `json:"openclaw_url"`
+	GatewayToken   string `json:"gateway_token"`
 }
 
 type StartConversationResponse11Lab struct {

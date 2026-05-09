@@ -836,6 +836,8 @@ func main() {
 					ImageURL:       agent.AvatarImageURL,
 					Name:           agent.AvatarName,
 					ID:             agent.AvatarID,
+					OpenClawURL:    agent.OpenClawURL,
+					GatewayToken:   agent.GatewayToken,
 				}
 
 				w.Header().Set("Content-Type", "application/json")
@@ -868,6 +870,8 @@ func main() {
 				response := types.StartConversationResponse{
 					ConversationId: conversationId,
 					URL:            url,
+					OpenClawURL:    agent.OpenClawURL,
+					GatewayToken:   agent.GatewayToken,
 					ImageURL:       agent.AvatarImageURL,
 					Name:           agent.AvatarName,
 					ID:             agent.AvatarID,
