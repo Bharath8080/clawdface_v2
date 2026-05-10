@@ -504,6 +504,8 @@ type Agent struct {
 	RecordRoom         bool            `json:"record_room"`
 	Callback           *Callback       `json:"callback,omitempty"`
 	Communication      *Communication  `json:"communication,omitempty"`
+	OpenClawURL        string          `json:"openclaw_url"`
+	GatewayToken       string          `json:"gateway_token"`
 }
 
 // Actions
@@ -10666,6 +10668,10 @@ func HandleConversationCreation(
 			}
 		}
 	}
+
+	selectedAgent.GatewayToken = agentConfig["gateway_token"].(string)
+	selectedAgent.OpenClawURL = agentConfig["openclaw_url"].(string)
+
 	// MCP
 	mcpRows, mcperr := tx.Query(`
         SELECT m.type, m.name, m.description, m.arguments, m.cache_tools_list, m.event_messages
@@ -10834,14 +10840,14 @@ func HandleConversationCreation(
 	str := string(jsonStr)
 	log.Printf("Payload to Infra: %s", str)
 
-	agentNameCon := configs.GetEnv("LIVEKIT_AGENTNAME")
+	// agentNameCon := configs.GetEnv("LIVEKIT_AGENTNAME")
 
-	disErr := dispatchAgent(roomId, agentNameCon, str)
-	if disErr != nil {
-		delay := 10 * time.Second
-		ScheduleOneTimeResetCreditJob(delay, conversationId)
-		return "", "", Agent{}, fmt.Errorf("invalid dispatch response: %v", err)
-	}
+	// disErr := dispatchAgent(roomId, agentNameCon, str)
+	// if disErr != nil {
+	// 	delay = 10 * time.Second
+	// 	ScheduleOneTimeResetCreditJob(delay, conversationId)
+	// 	return "", "", Agent{}, fmt.Errorf("invalid dispatch response: %v", err)
+	// }
 
 	var jobResp struct {
 		ID string `json:"id"`
@@ -11099,7 +11105,6 @@ func HandleCheckAgentEmailUniqueness(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]bool{"unique": !exists})
 }
-
 
 func dispatchAgent(roomName, agentName, metaData string) error {
 

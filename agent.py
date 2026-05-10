@@ -1,5 +1,4 @@
 import os
-import uuid
 import json
 import asyncio
 import base64
@@ -115,7 +114,7 @@ async def register_conversation(config: dict, conversation_id: str):
     import aiohttp
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(endpoint, json=payload, timeout=10) as resp:
+            async with session.post(endpoint, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                 if resp.status == 200:
                     logger.info(f"✅ [REGISTER] Session registered successfully | ID: {conversation_id}")
                 else:
@@ -602,10 +601,9 @@ class MyAgent(Agent):
             self._transcript.append(entry)
             logger.debug(f"[TRANSCRIPT] Added {role} message: {content[:50]}...")
     
-    def get_transcript(self) -> list:
+    def get_transcript(self) -> list[dict]:
         """Return the collected transcript."""
         return self._transcript.copy()
-        logger.info("[SESSION] Shutting down agent")
     
     def _extract_text_from_chunk(self, chunk):
         """Extract text from LLM chunk."""
@@ -772,19 +770,22 @@ async def my_agent(ctx: agents.JobContext):
         logger.error(f"[SESSION] ✗ Failed to resolve config for room {ctx.room.name}")
         return
 
-    # 1. Resolve Conversation ID: Prioritize ID passed from frontend metadata
-    # 2. Fallback: Generate a fresh UUID if missing (e.g. for headless sessions)
+    # Resolve Conversation ID from dispatched metadata (always provided by route.ts)
     job_id = ctx.job.id
-    conversation_id = config.get("conversation_id") or config.get("conversationId")
-    
-    if conversation_id:
-        logger.info(f"🔗 [MATCH] Using conversation_id from frontend: {conversation_id}")
-    else:
-        conversation_id = str(uuid.uuid4())
-        logger.info(f"🎲 [FALLBACK] Generated fresh UUID for session: {conversation_id}")
+    conversation_id = (
+        config.get("conversation_id")
+        or config.get("conversationId")
+        or ""
+    )
 
-    logger.info(f"🚀 [SESSION START] Initializing session | conversation_id: {conversation_id} | job_id: {job_id}")
-    await register_conversation(config, conversation_id)
+    if not conversation_id:
+        logger.warning(
+            f"[SESSION] ⚠️  No conversation_id in metadata for job {job_id} — "
+            "session usage/transcripts will not be linked. This is likely a stray or headless session."
+        )
+        return
+
+    logger.info(f"🔗 [SESSION] conversation_id={conversation_id} | job_id={job_id}")
 
     url = config.get("openclawUrl", "").strip()
     token = config.get("gatewayToken", "")
