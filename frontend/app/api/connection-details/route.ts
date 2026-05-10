@@ -97,10 +97,16 @@ async function handleConnection(config: {
     console.log(`[connection-details] Session Key: ${config.sessionKey || "(default)"}`);
     console.log(`[connection-details] conv_id → agent: ${config.conversation_id || "(none)"}`);
 
+    // When a roomName is supplied (avatar page joining an already-dispatched room),
+    // do NOT embed another RoomAgentDispatch — the agent was already started by
+    // start-agent/route.ts. Only dispatch in standalone/headless mode (no roomName).
+    const isPreDispatched = !!config.roomName;
+
     const participantToken = await createParticipantToken(
       { identity: participantIdentity, metadata: participantMetadata },
       roomName,
-      agentMetadata
+      agentMetadata,
+      !isPreDispatched            // dispatch only when NO existing room
     );
 
     return NextResponse.json(
@@ -123,7 +129,8 @@ async function handleConnection(config: {
 function createParticipantToken(
   userInfo: AccessTokenOptions & { metadata?: string },
   roomName: string,
-  agentMetadata: string = ""
+  agentMetadata: string = "",
+  dispatchAgent: boolean = false
 ) {
   const at = new AccessToken(API_KEY, API_SECRET, {
     identity: userInfo.identity,
@@ -138,16 +145,18 @@ function createParticipantToken(
     canSubscribe: true,
   });
 
-  // Dispatch the named agent and embed metadata into the job so agent.py
-  // receives conversation_id/job_id in ctx.job.metadata.
-  at.roomConfig = new RoomConfiguration({
-    agents: [
-      new RoomAgentDispatch({
-        agentName: 'clawdface',
-        metadata: agentMetadata,
-      }),
-    ],
-  });
+  // Only embed a RoomAgentDispatch when entering a fresh room without a
+  // pre-running agent. Avoids stray duplicate agents with missing conversation_id.
+  if (dispatchAgent && agentMetadata) {
+    at.roomConfig = new RoomConfiguration({
+      agents: [
+        new RoomAgentDispatch({
+          agentName: 'clawdface',
+          metadata: agentMetadata,
+        }),
+      ],
+    });
+  }
 
   return at.toJwt();
 }

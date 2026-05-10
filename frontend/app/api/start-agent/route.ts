@@ -96,10 +96,10 @@ export async function POST(request: Request) {
       agentName,
       meetingUrl:      meetingUrl     || '',
       recallBotId:     '',
-      roomId:          roomName,
+      roomName,                       // LiveKit canonical room identifier (roomName = what createDispatch uses)
       conversation_id: conversationId,
       user_email:      email,
-      connection_type: 'website',   // ← tells agent to use Deepgram STT (not Recall)
+      connection_type: 'website',     // ← tells agent to use Deepgram STT (not Recall)
     });
 
     await dispatchClient.createDispatch(roomName, 'clawdface', { metadata });
@@ -110,16 +110,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'NEXT_PUBLIC_APP_URL not configured' }, { status: 500 });
     }
 
-    const videoUrl = `${baseAppUrl}/avatar?room=${encodeURIComponent(roomName)}&avatarId=${avatarId}&openclawUrl=${encodeURIComponent(openclawUrl)}&gatewayToken=${gatewayToken}&sessionKey=${sessionKey}`;
+    const videoUrl = `${baseAppUrl}/avatar?room=${encodeURIComponent(roomName)}&avatarId=${avatarId}&openclawUrl=${encodeURIComponent(openclawUrl)}&gatewayToken=${gatewayToken}&sessionKey=${sessionKey}&conversationId=${encodeURIComponent(conversationId)}&connection_type=website`;
 
     return NextResponse.json({
       videoUrl,
       userEmail:      email,
       agentName,
       avatarId,
-      roomId:         roomName,
-      roomName,
-      sessionKey,
+      roomName,                 // canonical LiveKit room name (also used as roomId)
+      sessionKey,               // internal OpenClaw session tracker
       conversationId,
     });
 
