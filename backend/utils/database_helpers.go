@@ -10853,16 +10853,14 @@ func HandleConversationCreation(
 	str := string(jsonStr)
 	log.Printf("Payload to Infra: %s", str)
 
-	agentNameCon := configs.GetEnv("LIVEKIT_AGENTNAME")
-	if agentNameCon == "" {
-		agentNameCon = "clawdface"
-	}
+	// agentNameCon := configs.GetEnv("LIVEKIT_AGENTNAME")
 
-
-	disErr := dispatchAgent(roomId, agentNameCon, str)
-	if disErr != nil {
-		log.Printf("ERROR: dispatchAgent failed: %v", disErr)
-	}
+	// disErr := dispatchAgent(roomId, agentNameCon, str)
+	// if disErr != nil {
+	// 	delay = 10 * time.Second
+	// 	ScheduleOneTimeResetCreditJob(delay, conversationId)
+	// 	return "", "", Agent{}, fmt.Errorf("invalid dispatch response: %v", err)
+	// }
 
 	// Update job_id
 	_, err = DB.Exec(`
