@@ -31,6 +31,7 @@ export async function POST(request: Request) {
 
     const roomName   = requestedRoomId || generateRoomId();
     const sessionKey = generateSessionKey();
+    const isExternalMeeting = !!meetingUrl;
 
     const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://qaapi.clawdface.ai';
 
@@ -96,29 +97,41 @@ export async function POST(request: Request) {
       agentName,
       meetingUrl:      meetingUrl     || '',
       recallBotId:     '',
-      roomName,                       // LiveKit canonical room identifier (roomName = what createDispatch uses)
+      roomName,
       conversation_id: conversationId,
       user_email:      email,
-      connection_type: 'website',     // ← tells agent to use Deepgram STT (not Recall)
+      connection_type: isExternalMeeting ? 'email_dispatch' : 'website',
     });
 
     await dispatchClient.createDispatch(roomName, 'clawdface', { metadata });
     console.log(`[start-agent] ✓ Dispatched → room=${roomName} | avatarId=${avatarId} | convId=${conversationId}`);
+
+    if (isExternalMeeting) {
+      await fetch(`${BACKEND_BASE_URL}/v1/ext/recall-trigger`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          meeting_url: meetingUrl,
+          room_name: roomName,
+          conversation_id: conversationId,
+        }),
+      }).catch(err => console.error('[start-agent] Recall trigger failed:', err));
+    }
 
     const baseAppUrl = process.env.NEXT_PUBLIC_APP_URL;
     if (!baseAppUrl) {
       return NextResponse.json({ error: 'NEXT_PUBLIC_APP_URL not configured' }, { status: 500 });
     }
 
-    const videoUrl = `${baseAppUrl}/avatar?room=${encodeURIComponent(roomName)}&avatarId=${avatarId}&openclawUrl=${encodeURIComponent(openclawUrl)}&gatewayToken=${gatewayToken}&sessionKey=${sessionKey}&conversationId=${encodeURIComponent(conversationId)}&connection_type=website`;
+    const videoUrl = `${baseAppUrl}/avatar?room=${encodeURIComponent(roomName)}&avatarId=${avatarId}&openclawUrl=${encodeURIComponent(openclawUrl)}&gatewayToken=${gatewayToken}&sessionKey=${sessionKey}&conversationId=${encodeURIComponent(conversationId)}&connection_type=${isExternalMeeting ? 'email_dispatch' : 'website'}`;
 
     return NextResponse.json({
       videoUrl,
       userEmail:      email,
       agentName,
       avatarId,
-      roomName,                 // canonical LiveKit room name (also used as roomId)
-      sessionKey,               // internal OpenClaw session tracker
+      roomName,
+      sessionKey,
       conversationId,
     });
 
