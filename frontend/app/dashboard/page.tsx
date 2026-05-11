@@ -1,37 +1,32 @@
 "use client";
 
+import type { ConnectionDetails } from "@/app/api/connection-details/route";
+import { type AgentBot, createAgent, deleteAgent, getAgents, updateAgent } from "@/app/services/agentService";
+import { initDefaultApiKey } from "@/app/services/apiKeyService";
+import { type AvatarItem, fetchAvatars } from "@/app/services/avatarService";
+import { getConversationById, getConversations } from "@/app/services/conversationService";
+import { createUserServiceServer } from "@/app/services/createUserService";
+import { type ILicenseInfo, getLicenseDetails } from "@/app/services/pricingPaymentService";
+import { sendUsageData } from "@/app/services/usageService";
 import { CloseIcon } from "@/components/CloseIcon";
 import { NoAgentNotification } from "@/components/NoAgentNotification";
-import TranscriptionView from "@/components/TranscriptionView";
-import {
-  BarVisualizer,
-  DisconnectButton,
-  RoomAudioRenderer,
-  VideoTrack,
-} from "@livekit/components-react";
-// @ts-ignore - Internal context may not be exported in TS declaration
-import { RoomContext, useVoiceAssistant, useRoomContext } from "@livekit/components-react";
-import useCombinedTranscriptions from "@/hooks/useCombinedTranscriptions";
-import { AnimatePresence, motion } from "framer-motion";
-import { Room, RoomEvent, DisconnectReason } from "livekit-client";
-import { useCallback, useEffect, useState, useRef, Suspense, createContext, useContext } from "react";
-import type { ConnectionDetails } from "@/app/api/connection-details/route";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useUser } from "@stackframe/stack";
-import { initDefaultApiKey } from "@/app/services/apiKeyService";
-import { createUserServiceServer } from "@/app/services/createUserService";
-import { createAgent, updateAgent, getAgents, deleteAgent, type AgentBot } from "@/app/services/agentService";
-import { getConversations, getConversationById } from "@/app/services/conversationService";
-import { sendUsageData } from "@/app/services/usageService";
 import { Sidebar } from "@/components/Sidebar";
 import { SubscriptionView } from "@/components/SubscriptionView";
+import TranscriptionView from "@/components/TranscriptionView";
+import useCombinedTranscriptions from "@/hooks/useCombinedTranscriptions";
+import { AVATARS } from "@/lib/constants";
+import { createBotAction as createBot, syncUserAction, updateLastConfigAction as updateLastConfig } from "@/lib/database-actions";
+import { formatDuration } from "@/lib/utils";
+import { BarVisualizer, DisconnectButton, RoomAudioRenderer, VideoTrack } from "@livekit/components-react";
+// @ts-ignore - Internal context may not be exported in TS declaration
+import { RoomContext, useRoomContext, useVoiceAssistant } from "@livekit/components-react";
+import { useUser } from "@stackframe/stack";
+import { AnimatePresence, motion } from "framer-motion";
+import { DisconnectReason, Room, RoomEvent } from "livekit-client";
 import Image from "next/image";
-import {
-  createBotAction as createBot,
-  updateLastConfigAction as updateLastConfig,
-  syncUserAction,
-} from "@/lib/database-actions";
-import { type AvatarItem, fetchAvatars } from "@/app/services/avatarService";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+
 
 // Duplicate AvatarsContext removed
 
@@ -43,8 +38,9 @@ const DEFAULTS = {
   sessionKey:      "",
   avatarId:        "",
   botName:         "",
-  thinkingEnabled: "true",
-  thinkingDelay:   "5.0",
+  thinkingEnabled:  "true",
+  thinkingDelay:    "5.0",
+  maxCallDuration:  "10",
 };
 
 const stripSessionKey = (key: string) => {
@@ -70,7 +66,6 @@ const withPrimaryAvatar = (avatars: AgentBot["avatars"] | undefined, avatarId: s
   return [{ ...primary, [idField]: avatarId }, ...rest];
 };
 
-import { AVATARS } from "@/lib/constants";
 
 const DASHBOARD_SESSIONS = new Set([
   "Library",
@@ -85,6 +80,34 @@ const DASHBOARD_SESSIONS = new Set([
 
 export const AvatarsContext = createContext<AvatarItem[]>(AVATARS);
 export const useAvatars = () => useContext(AvatarsContext);
+
+// ─── Error Toast ────────────────────────────────────────────────────────────
+function ErrorToast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onDismiss, 6000);
+    return () => clearTimeout(t);
+  }, [message, onDismiss]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 40 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 40 }}
+      transition={{ duration: 0.25 }}
+      className="fixed bottom-6 right-0 -translate-x-1/2 z-[9999] flex items-start gap-3 bg-[#1a0a0a] border border-red-500/30 text-red-300 text-sm font-medium rounded-2xl px-5 py-4 shadow-[0_8px_32px_rgba(239,68,68,0.2)] max-w-md w-[calc(100%-2rem)]"
+    >
+      <svg className="shrink-0 mt-0.5 text-red-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <span className="flex-1 leading-snug">{message}</span>
+      <button onClick={onDismiss} className="shrink-0 text-red-400/60 hover:text-red-300 transition-colors ml-1">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </motion.div>
+  );
+}
 
 // ─── Icons ──────────────────────────────────────────────────────────────────
 const UserIcon = ({ size = 15 }: { size?: number }) => (
@@ -695,6 +718,7 @@ function ClientPage() {
   const externalAgentIdRef = useRef<string | null>(null);
   const [dbLastConfig, setDbLastConfig] = useState<any>(null);
   const [botHealth, setBotHealth] = useState<Record<string, 'healthy' | 'unhealthy' | 'checking' | 'unknown'>>({});
+  const [licenseInfo, setLicenseInfo] = useState<ILicenseInfo | null>(null);
   const [showHealthAlert, setShowHealthAlert] = useState(false);
 
   useEffect(() => {
@@ -939,7 +963,15 @@ function ClientPage() {
               }
 
               setIsLoadingBots(false);
-              
+
+              // Fetch license info for max call duration validation
+              try {
+                const { data: license } = await getLicenseDetails(initApiKey);
+                if (license) setLicenseInfo(license);
+              } catch (licErr) {
+                console.error("License fetch error:", licErr);
+              }
+
               if (profile.last_config) {
                 setDbLastConfig(profile.last_config);
                 // If nothing in localStorage, initialize form from DB config
@@ -1036,6 +1068,23 @@ function ClientPage() {
     setIsValidatingCredit(true);
     setApiError(null);
 
+    // Pre-flight outside try so the throw propagates to the caller (shows toast + navigates back)
+    const activeConfig = forcedConfig || config;
+    if (licenseInfo !== null) {
+      const remainingMinutes = Math.floor((licenseInfo.balanceCredit ?? 0) / 50);
+      const requestedMinutes = parseInt(activeConfig.maxCallDuration || "10");
+      if (requestedMinutes > remainingMinutes) {
+        connectionLockRef.current = false;
+        setIsValidatingCredit(false);
+        setApiError(
+          `Insufficient credits — you have ${remainingMinutes} min available but the agent is set to ${requestedMinutes} min. Add more credits or lower the Max Call Duration in the agent settings.`
+        );
+        throw new Error(
+          `Insufficient credits — you have ${remainingMinutes} min available but the agent is set to ${requestedMinutes} min. Add more credits or lower the Max Call Duration in the agent settings.`
+        );
+      }
+    }
+
     try {
       // HARD RESET: Clear all previous session data before starting a new one
       setSessionTranscript([]);
@@ -1046,8 +1095,6 @@ function ClientPage() {
       finalSegmentIds.current.clear();
       currentConversationIdRef.current = null;
       currentJobIdRef.current = null;
-
-      const activeConfig = forcedConfig || config;
 
       // 1. Persist config to localStorage (Works on Vercel)
       localStorage.setItem("openclaw_config", JSON.stringify(activeConfig));
@@ -1229,7 +1276,7 @@ function ClientPage() {
 
     } catch (err: any) {
       console.error("❌ Connection Error:", err);
-      setApiError("An error occurred while starting the session.");
+      setApiError(err?.message || "An error occurred while starting the session.");
     } finally {
       connectionLockRef.current = false;
       setIsValidatingCredit(false);
@@ -1441,7 +1488,22 @@ function ClientPage() {
               thinking_delay: parseFloat(config.thinkingDelay || "5.0"),
             },
             tools: agentToUpdate.tools ?? {},
-            avatars: withPrimaryAvatar(agentToUpdate.avatars, config.avatarId),
+            avatars: (() => {
+              const [primary, ...rest] = withPrimaryAvatar(agentToUpdate.avatars, config.avatarId);
+              return [
+                {
+                  ...primary,
+                  exit_message: {
+                    messages: primary?.exit_message?.messages ?? [
+                      "We are at the end of our call, thank you for your time.",
+                      "Thank you for your time today.",
+                    ],
+                    max_call_duration: parseInt(config?.maxCallDuration) * 60,
+                  },
+                },
+                ...rest,
+              ];
+            })(),
             knowledge_base: agentToUpdate.knowledge_base ?? [],
             mcp: agentToUpdate.mcp ?? [],
             tool: agentToUpdate.tool ?? [],
@@ -1487,7 +1549,14 @@ function ClientPage() {
             thinking_delay: parseFloat(config.thinkingDelay || "5.0"),
           },
           tools: {},
-          avatars: [{ avatar_key_id: config.avatarId }],
+          avatars: [{
+            avatar_key_id: config.avatarId,
+            exit_message: {
+              messages: ["We are almost at the end of our call, thank you for your time.",
+          "Thank you for your time. We will see you next time."],
+              max_call_duration: parseInt(config.maxCallDuration || "10") * 60,
+            },
+          }],
           is_active: true,
           is_public: false,
           type: "vtva",
@@ -1536,6 +1605,9 @@ function ClientPage() {
   return (
     <AvatarsContext.Provider value={avatars}>
     <main data-lk-theme="default" className="h-[100dvh] w-screen bg-canvas flex overflow-hidden font-[Inter] text-white">
+      <AnimatePresence>
+        {apiError && <ErrorToast message={apiError} onDismiss={() => setApiError(null)} />}
+      </AnimatePresence>
         <Sidebar
           activeSession={activeSession}
           setActiveSession={handleSidebarSessionChange}
@@ -1581,6 +1653,7 @@ function ClientPage() {
                 onSaveAsBot={handleSaveBot}
                 isSavingBot={isLoadingBots}
                 isEditing={!!editingBotId}
+                licenseInfo={licenseInfo}
                 onCancelEdit={() => {
                   setEditingBotId(null);
                   setEditingAgent(null);
@@ -1636,35 +1709,35 @@ function ClientPage() {
                     
                     externalAgentIdRef.current = externalId || "";
 
-                    const newConfig = {
-                      openclawUrl: bot.config.openclaw_url,
-                      gatewayToken: bot.config.gateway_token,
-                      sessionKey: stripSessionKey(bot.config.session_key || ""),
-                      avatarId: getBotAvatarId(bot),
-                      botName: bot.agent_name,
-                      thinkingEnabled: String(bot.config.thinking_enabled ?? true),
-                      thinkingDelay: String(bot.config.thinking_delay ?? 5.0),
-                    };
-                    setConfig(newConfig);
-                    setActiveSession("DirectCall");
+                  const newConfig = {
+                    openclawUrl: bot.config.openclaw_url,
+                    gatewayToken: bot.config.gateway_token,
+                    sessionKey: stripSessionKey(bot.config.session_key || ""),
+                    avatarId: getBotAvatarId(bot),
+                    botName: bot.agent_name,
+                    thinkingEnabled: String(bot.config.thinking_enabled ?? true),
+                    thinkingDelay: String(bot.config.thinking_delay ?? 5.0),
+                    maxCallDuration: String(bot.avatars?.[0]?.exit_message?.max_call_duration != null ? Math.round(bot.avatars[0].exit_message.max_call_duration / 60) : DEFAULTS.maxCallDuration),
+                  };
+                  setConfig(newConfig);
+                  setActiveSession("DirectCall");
                   });
                 }}
                 onEditBot={(bot) => {
-                  requestSessionChange("AddBot", () => {
-                    setEditingBotId(bot.id);
-                    setEditingAgent(bot);
-                    const editConfig = {
-                      openclawUrl: bot.config.openclaw_url,
-                      gatewayToken: bot.config.gateway_token,
-                      sessionKey: stripSessionKey(bot.config.session_key || ""),
-                      avatarId: getBotAvatarId(bot),
-                      botName: bot.agent_name,
-                      thinkingEnabled: String(bot.config.thinking_enabled ?? true),
-                      thinkingDelay: String(bot.config.thinking_delay ?? 5.0),
-                    };
-                    setConfig(editConfig);
-                    setActiveSession("AddBot");
-                  });
+                  setEditingBotId(bot.id);
+                  setEditingAgent(bot);
+                  const editConfig = {
+                    openclawUrl: bot.config.openclaw_url,
+                    gatewayToken: bot.config.gateway_token,
+                    sessionKey: stripSessionKey(bot.config.session_key || ""),
+                    avatarId: getBotAvatarId(bot),
+                    botName: bot.agent_name,
+                    thinkingEnabled: String(bot.config.thinking_enabled ?? true),
+                    thinkingDelay: String(bot.config.thinking_delay ?? 5.0),
+                    maxCallDuration: String(bot.avatars?.[0]?.exit_message?.max_call_duration != null ? Math.round(bot.avatars[0].exit_message.max_call_duration / 60) : DEFAULTS.maxCallDuration),
+                  };
+                  setConfig(editConfig);
+                  setActiveSession("AddBot");
                 }}
                 botHealth={botHealth}
                 isConnecting={isValidatingCredit || room.state === "connecting"}
@@ -1793,6 +1866,7 @@ function SessionConfigForm({
   bots = [],
   isConnecting = false,
   showConnectButton = true,
+  licenseInfo = null,
 }: {
   onConnect: (e: React.FormEvent) => void;
   config: any;
@@ -1805,9 +1879,32 @@ function SessionConfigForm({
   bots?: AgentBot[];
   isConnecting?: boolean;
   showConnectButton?: boolean;
+  licenseInfo?: ILicenseInfo | null;
 }) {
   const avatars = useAvatars();
   const selectedAvatar = avatars.find((a) => a.id === config.avatarId);
+  console.log('licenseInfo:', licenseInfo);
+
+  const creditsInMinutes = Math.floor((licenseInfo?.balanceCredit ?? 0) / 50);
+  const sessionCapInMinutes = licenseInfo?.maxSessionDuration ?? 0;
+  // Binding constraint is whichever is smaller: plan session cap or remaining credits
+  const maxAllowedMinutes = licenseInfo
+    ? sessionCapInMinutes < creditsInMinutes
+      ? sessionCapInMinutes
+      : creditsInMinutes
+    : 0;
+  console.log('Calculated maxAllowedMinutes:', maxAllowedMinutes);
+
+  const savedMaxCallDuration = useRef(parseInt(config.maxCallDuration || "10"));
+
+  useEffect(() => {
+    if (maxAllowedMinutes > 0) {
+      const current = parseInt(config.maxCallDuration || "10");
+      if (current > maxAllowedMinutes) {
+        setConfig({ ...config, maxCallDuration: String(maxAllowedMinutes) });
+      }
+    }
+  }, [maxAllowedMinutes]);
 
   const handleConnect = (e: React.MouseEvent | React.FormEvent) => {
     e.preventDefault();
@@ -2015,6 +2112,90 @@ function SessionConfigForm({
                     </motion.div>
                   )}
                 </AnimatePresence>
+              </div>
+
+              <div className="flex flex-col gap-3 p-4 rounded-2xl bg-white/[0.02] border border-white/5 transition-all hover:bg-white/[0.04] shadow-inner">
+                <div className="flex flex-col gap-0.5">
+                  <label className="text-[12px] font-bold uppercase tracking-[0.1em] text-neutral-400 flex items-center gap-2">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-brand">
+                      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    Max Call Duration
+                  </label>
+                  <p className="text-[10px] text-neutral-600 font-medium">
+                    {licenseInfo
+                      ? sessionCapInMinutes <= creditsInMinutes
+                        ? `Max ${maxAllowedMinutes} min based on your plan's session limit`
+                        : `Max ${maxAllowedMinutes} min based on your remaining credits`
+                      : "Maximum session length in minutes"}
+                  </p>
+                  {licenseInfo && (
+                    <p className="text-[10px] text-neutral-600 font-medium">
+                      {creditsInMinutes} min available from your current credits
+                    </p>
+                  )}
+                  {isEditing && savedMaxCallDuration.current !== parseInt(config.maxCallDuration || "10") && (
+                    <p className="text-[10px] text-amber-400/70 font-medium">
+                      Saved value: {savedMaxCallDuration.current} min
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 bg-black/40 p-1.5 rounded-lg border border-white/5">
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const current = parseInt(config.maxCallDuration || "10");
+                      if (current > 1) setConfig({ ...config, maxCallDuration: String(current - 1) });
+                    }}
+                    className="w-8 h-8 flex items-center justify-center rounded-md bg-white/5 hover:bg-white/10 active:scale-95 transition-all text-brand border border-white/5"
+                  >
+                    <span className="text-lg font-bold">−</span>
+                  </button>
+
+                  <div className="flex-1 flex items-center justify-center gap-1">
+                    <input
+                      type="number"
+                      min="1"
+                      max={maxAllowedMinutes > 0 ? maxAllowedMinutes : undefined}
+                      value={config.maxCallDuration}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        if (!isNaN(val) && val >= 1) {
+                          const clamped = maxAllowedMinutes > 0 ? Math.min(val, maxAllowedMinutes) : val;
+                          setConfig({ ...config, maxCallDuration: String(clamped) });
+                        }
+                      }}
+                      className="w-12 bg-transparent text-center text-[15px] font-bold text-white focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <span className="text-[11px] font-bold text-neutral-500 uppercase tracking-tight">min</span>
+                  </div>
+
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const current = parseInt(config.maxCallDuration || "10");
+                      const limit = maxAllowedMinutes > 0 ? maxAllowedMinutes : Infinity;
+                      if (current < limit) setConfig({ ...config, maxCallDuration: String(current + 1) });
+                    }}
+                    className="w-8 h-8 flex items-center justify-center rounded-md bg-white/5 hover:bg-white/10 active:scale-95 transition-all text-brand border border-white/5"
+                  >
+                    <span className="text-lg font-bold">+</span>
+                  </button>
+                </div>
+
+                {licenseInfo && maxAllowedMinutes > 0 && parseInt(config.maxCallDuration || "10") >= maxAllowedMinutes && (
+                  <p className="text-[10px] text-amber-500 font-medium">
+                    {sessionCapInMinutes <= creditsInMinutes
+                      ? "Maximum allowed based on your plan's session limit"
+                      : "Maximum allowed based on your remaining credits"}
+                  </p>
+                )}
+                {licenseInfo && maxAllowedMinutes === 0 && (
+                  <p className="text-[10px] text-red-400 font-medium">
+                    Insufficient credits. Please top up to start a session.
+                  </p>
+                )}
               </div>
 
               <div className="flex flex-col gap-3 mt-4">
@@ -2411,6 +2592,7 @@ function SimpleVoiceAssistant({
   bots = [],
   showConnectButton = true,
   isConnecting: isConnectingProp = false,
+  licenseInfo = null,
 }: {
   onConnectButtonClicked: () => void;
   config: typeof DEFAULTS;
@@ -2423,6 +2605,7 @@ function SimpleVoiceAssistant({
   bots?: AgentBot[];
   showConnectButton?: boolean;
   isConnecting?: boolean;
+  licenseInfo?: ILicenseInfo | null;
 }) {
   const { state: agentState } = useVoiceAssistant();
   const [internalIsConnecting, setInternalIsConnecting] = useState(false);
@@ -2455,6 +2638,7 @@ function SimpleVoiceAssistant({
             onCancelEdit={onCancelEdit}
             bots={bots}
             showConnectButton={showConnectButton}
+            licenseInfo={licenseInfo}
           />
         ) : (
           <ActiveVoiceAssistantView 
@@ -2911,7 +3095,7 @@ function ConversationsListView({
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-[#9ca3af] text-[13px]">{conv.duration ? `${parseFloat(String(conv.duration)).toFixed(1)}s` : '—'}</span>
+                        <span className="text-[#9ca3af] text-[13px]">  {conv.duration ? formatDuration(parseFloat(String(conv.duration))) : '—'}</span>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
@@ -3046,6 +3230,7 @@ function DirectCallDashboard({
 }) {
   const { state: agentState, audioTrack, videoTrack } = useVoiceAssistant();
   const [isConnecting, setIsConnecting] = useState(autoStart || false);
+  const room = useRoomContext();
   const avatars = useAvatars();
   const selectedAvatar = avatars.find(a => a.id === config.avatarId) || avatars[0];
 
@@ -3056,6 +3241,8 @@ function DirectCallDashboard({
     } catch (e) {
       const nowTimestamp = new Date().toISOString();
       console.error(`[${nowTimestamp}] ❌ handleStartCall error:`, e);
+      onBack();
+    } finally {
       setIsConnecting(false);
     }
   };
@@ -3074,12 +3261,10 @@ function DirectCallDashboard({
     if (isAgentInteractive) {
       hasConnectedRef.current = true;
     } else if (agentState === "disconnected" && hasConnectedRef.current) {
-      // If we were connected and then the agent disconnected, return to library
       onBack();
     }
   }, [agentState, isAgentInteractive, onBack]);
 
-  const room = useRoomContext();
   useEffect(() => {
     const handleDisconnected = () => {
       if (isConnecting) setIsConnecting(false);
@@ -3091,12 +3276,10 @@ function DirectCallDashboard({
     };
   }, [room, isConnecting, onBack]);
 
-  // Transition to the active view once the agent is no longer pending
   if (isAgentInteractive) {
     return <ActiveVoiceAssistantView onConnectButtonClicked={onStartCall} />;
   }
 
-  // Determine if we are in any state that should show the orb instead of the prep UI
   const isPending = isConnecting || isValidating || agentState === "connecting";
 
   return (
@@ -3108,7 +3291,7 @@ function DirectCallDashboard({
       {isPending ? (
         <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in duration-500">
           <AIGlowingOrb />
-          <motion.h2 
+          <motion.h2
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             className="text-2xl font-bold text-white mt-8 tracking-wide flex items-center"
@@ -3125,10 +3308,10 @@ function DirectCallDashboard({
         <div className="flex flex-col items-center space-y-12">
           <div className="w-56 h-56 rounded-full p-1.5 border-2 border-brand/30 shadow-[0_0_40px_rgba(0,227,170,0.15)] relative">
             <div className="w-full h-full rounded-full overflow-hidden relative">
-              <Image 
-                src={selectedAvatar.image} 
-                alt={selectedAvatar.name} 
-                fill 
+              <Image
+                src={selectedAvatar.image}
+                alt={selectedAvatar.name}
+                fill
                 className="object-cover"
               />
             </div>
