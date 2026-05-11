@@ -27,6 +27,8 @@ export async function GET(req: Request) {
     connection_type: searchParams.get("connection_type") || undefined,
     enable_thinking: searchParams.get("enable_thinking") || searchParams.get("thinkingEnabled") || undefined,
     thinking_delay:  searchParams.get("thinking_delay") || searchParams.get("thinkingDelay") || undefined,
+    conversation_id: searchParams.get("conversation_id") || searchParams.get("conversationId") || undefined,
+    user_email:      searchParams.get("user_email") || searchParams.get("userEmail") || undefined,
   };
   return handleConnection(config);
 }
@@ -48,7 +50,7 @@ async function handleConnection(config: {
   enable_thinking?: string;
   thinking_delay?: string;
   conversation_id?: string;
-  job_id?: string;
+  user_email?: string;
 }) {
   try {
     if (!LIVEKIT_URL) throw new Error("LIVEKIT_URL is not defined");
@@ -69,7 +71,8 @@ async function handleConnection(config: {
       enable_thinking: config.enable_thinking || "true",
       thinking_delay:  config.thinking_delay  || "5.0",
       conversation_id: config.conversation_id || "",
-      job_id:          config.job_id          || "",
+      user_email:      config.user_email      || "",
+      job_id:          "",
     });
 
     // Agent dispatch metadata — this becomes ctx.job.metadata in agent.py.
@@ -86,17 +89,24 @@ async function handleConnection(config: {
       thinking_delay:  config.thinking_delay  || "5.0",
       connection_type: config.connection_type || "website",
       conversation_id: config.conversation_id || "",
-      job_id:          config.job_id          || "",
+      user_email:      config.user_email      || "",
+      job_id:          "",
     });
 
     console.log(`[connection-details] Room: ${roomName}`);
     console.log(`[connection-details] Session Key: ${config.sessionKey || "(default)"}`);
     console.log(`[connection-details] conv_id → agent: ${config.conversation_id || "(none)"}`);
 
+    // When a roomName is supplied (avatar page joining an already-dispatched room),
+    // do NOT embed another RoomAgentDispatch — the agent was already started by
+    // start-agent/route.ts. Only dispatch in standalone/headless mode (no roomName).
+    const isPreDispatched = !!config.roomName;
+
     const participantToken = await createParticipantToken(
       { identity: participantIdentity, metadata: participantMetadata },
       roomName,
-      agentMetadata
+      agentMetadata,
+      !isPreDispatched            // dispatch only when NO existing room
     );
 
     return NextResponse.json(
@@ -119,7 +129,8 @@ async function handleConnection(config: {
 function createParticipantToken(
   userInfo: AccessTokenOptions & { metadata?: string },
   roomName: string,
-  agentMetadata: string = ""
+  agentMetadata: string = "",
+  dispatchAgent: boolean = false
 ) {
   const at = new AccessToken(API_KEY, API_SECRET, {
     identity: userInfo.identity,
@@ -134,16 +145,18 @@ function createParticipantToken(
     canSubscribe: true,
   });
 
-  // Dispatch the named agent and embed metadata into the job so agent.py
-  // receives conversation_id/job_id in ctx.job.metadata.
-  at.roomConfig = new RoomConfiguration({
-    agents: [
-      new RoomAgentDispatch({
-        agentName: 'clawdface',
-        metadata: agentMetadata,
-      }),
-    ],
-  });
+  // Only embed a RoomAgentDispatch when entering a fresh room without a
+  // pre-running agent. Avoids stray duplicate agents with missing conversation_id.
+  if (dispatchAgent && agentMetadata) {
+    at.roomConfig = new RoomConfiguration({
+      agents: [
+        new RoomAgentDispatch({
+          agentName: 'clawdface',
+          metadata: agentMetadata,
+        }),
+      ],
+    });
+  }
 
   return at.toJwt();
 }

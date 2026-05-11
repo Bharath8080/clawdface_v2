@@ -1,99 +1,137 @@
 import { NextResponse } from 'next/server';
-import { db, agents, bots, profiles } from '@/drizzle';
-import { eq } from 'drizzle-orm';
 import { RoomServiceClient, AgentDispatchClient } from 'livekit-server-sdk';
- 
-function generateTimestampId(prefix: string): string {
+
+function generateRoomId(): string {
   const now = new Date();
-  const format = now.toISOString()
-    .slice(0, 19)
-    .replace(/:/g, '-');
-  return `${prefix}-${format}`;
+  const format = now.toISOString().slice(0, 19).replace(/:/g, '-');
+  return `room-${format}`;
 }
- 
+
+function generateSessionKey(): string {
+  const now = new Date();
+  const format = now.toISOString().slice(0, 19).replace(/:/g, '-');
+  return `session-${format}`;
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { email, meetingUrl, startTime, roomId: requestedRoomId } = body;
- 
+    const {
+      email,
+      meetingUrl,
+      startTime,
+      roomId: requestedRoomId,
+      userName,
+      userId,
+    } = body;
+
     if (!email) {
       return NextResponse.json({ error: 'Missing email' }, { status: 400 });
     }
- 
-    const [result] = await db
-      .select({ agent: agents, userEmail: profiles.email })
-      .from(agents)
-      .leftJoin(bots, eq(agents.bot_id, bots.id))
-      .leftJoin(profiles, eq(bots.user_id, profiles.id))
-      .where(eq(agents.email, email))
-      .limit(1);
- 
-    if (!result || !result.agent) {
+
+    const roomName   = requestedRoomId || generateRoomId();
+    const sessionKey = generateSessionKey();
+    const isExternalMeeting = !!meetingUrl;
+
+    const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://qaapi.clawdface.ai';
+
+    const conversationRes = await fetch(`${BACKEND_BASE_URL}/v1/public/conversation/byemail`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        roomId:     roomName,
+        meetingURL: meetingUrl  || '',
+        startTime:  startTime   || new Date().toISOString(),
+        userName:   userName    || '',
+        userId:     userId      || email,
+        context:    { text: '' },
+        metadata:   { active: 'true' },
+      }),
+    });
+
+    if (!conversationRes.ok) {
+      const errText = await conversationRes.text().catch(() => '');
+      console.error('[start-agent] byemail error:', errText);
+      return NextResponse.json(
+        { error: `Failed to fetch agent details (${conversationRes.status})` },
+        { status: conversationRes.status }
+      );
+    }
+
+    const agentData = await conversationRes.json();
+
+    if (!agentData) {
       return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
     }
- 
-    const { agent, userEmail } = result;
- 
-    const roomId     = requestedRoomId || generateTimestampId('room');
-    const sessionKey = generateTimestampId('session');
- 
+
+    const conversationId = agentData.conversationId || '';
+    const avatarId       = agentData.id             || '';
+    const agentName      = email.split('@')[0]       || agentData.name || 'AI Assistant';
+    const openclawUrl    = agentData.openclaw_url   || '';
+    const gatewayToken   = agentData.gateway_token  || '';
+
     const API_KEY     = process.env.LIVEKIT_API_KEY;
     const API_SECRET  = process.env.LIVEKIT_API_SECRET;
     const LIVEKIT_URL = process.env.LIVEKIT_URL;
- 
+
     if (!LIVEKIT_URL || !API_KEY || !API_SECRET) {
       return NextResponse.json({ error: 'LiveKit configuration is missing' }, { status: 500 });
     }
- 
+
     const roomService    = new RoomServiceClient(LIVEKIT_URL, API_KEY, API_SECRET);
     const dispatchClient = new AgentDispatchClient(LIVEKIT_URL, API_KEY, API_SECRET);
- 
-    const createdRoom = await roomService.createRoom({
-      name: roomId,
-      emptyTimeout: 10 * 60,
+
+    await roomService.createRoom({
+      name:            roomName,
+      emptyTimeout:    10 * 60,
       maxParticipants: 10,
     });
-    
-    // Strictly rely on the LiveKit internal SID (RM_...) without fallback
-    const lkRoomSid = createdRoom.sid;
- 
+
     const metadata = JSON.stringify({
-      openclawUrl:  agent.openclaw_url  || '',
-      gatewayToken: agent.gateway_token || '',
-      sessionKey:   sessionKey          || '',
-      avatarId:     agent.avatar_id     || '',
-      meetingUrl:   meetingUrl          || '',
-      agentName:    agent.name          || 'AI Assistant',
-      recallBotId:  '',
-      roomId:       lkRoomSid, // Consistent SID inclusion
+      openclawUrl,
+      gatewayToken,
+      sessionKey,
+      avatarId,
+      name:            agentName,
+      agentName,
+      meetingUrl:      meetingUrl     || '',
+      recallBotId:     '',
+      roomName,
+      conversation_id: conversationId,
+      user_email:      email,
+      connection_type: isExternalMeeting ? 'email_dispatch' : 'website',
     });
- 
-    await dispatchClient.createDispatch(roomId, 'clawdface', { metadata });
-    console.log(`[start-agent] ✓ Dispatched → room=${roomId} bot=none`);
- 
-    const baseAppUrl = process.env.NEXT_PUBLIC_APP_URL;
-    if (!baseAppUrl) {
-      return NextResponse.json({ error: 'NEXT_PUBLIC_APP_URL not configured' }, { status: 500 });
+
+    await dispatchClient.createDispatch(roomName, 'clawdface', { metadata });
+    console.log(`[start-agent] ✓ Dispatched → room=${roomName} | avatarId=${avatarId} | convId=${conversationId}`);
+
+    const baseAppUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const videoUrl = `${baseAppUrl}/avatar?room=${encodeURIComponent(roomName)}&avatarId=${avatarId}&openclawUrl=${encodeURIComponent(openclawUrl)}&gatewayToken=${gatewayToken}&sessionKey=${sessionKey}&conversationId=${encodeURIComponent(conversationId)}&connection_type=${isExternalMeeting ? 'email_dispatch' : 'website'}`;
+
+    if (isExternalMeeting) {
+      await fetch(`${BACKEND_BASE_URL}/v1/ext/recall-trigger`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          meeting_url: meetingUrl,
+          room_name: roomName,
+          conversation_id: conversationId,
+          video_url: videoUrl,
+        }),
+      }).catch(err => console.error('[start-agent] Recall trigger failed:', err));
     }
- 
-    const videoUrl =
-      `${baseAppUrl}/avatar` +
-      `?room=${lkRoomSid}` +
-      `&avatarId=${agent.avatar_id}` +
-      `&openclawUrl=${encodeURIComponent(agent.openclaw_url)}` +
-      `&gatewayToken=${agent.gateway_token}` +
-      `&sessionKey=${sessionKey}`;
- 
+
     return NextResponse.json({
       videoUrl,
-      userEmail:   userEmail  || null,
-      agentName:   agent.name,
-      avatarId:    agent.avatar_id,
-      roomId:      lkRoomSid,
-      roomName:    roomId,
+      userEmail:      email,
+      agentName,
+      avatarId,
+      roomName,
       sessionKey,
+      conversationId,
     });
- 
+
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     console.error('[start-agent] Unhandled error:', error);

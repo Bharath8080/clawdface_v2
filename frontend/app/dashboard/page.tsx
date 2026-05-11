@@ -26,11 +26,8 @@ import { sendUsageData } from "@/app/services/usageService";
 import { Sidebar } from "@/components/Sidebar";
 import { SubscriptionView } from "@/components/SubscriptionView";
 import Image from "next/image";
-import {
-  createBotAction as createBot,
-  updateLastConfigAction as updateLastConfig,
-  syncUserAction,
-} from "@/lib/database-actions";
+import { generateAgentEmail } from "@/lib/utils";
+import { syncUserAction } from "@/lib/database-actions";
 import { type AvatarItem, fetchAvatars } from "@/app/services/avatarService";
 
 // Duplicate AvatarsContext removed
@@ -696,6 +693,7 @@ function ClientPage() {
   const [dbLastConfig, setDbLastConfig] = useState<any>(null);
   const [botHealth, setBotHealth] = useState<Record<string, 'healthy' | 'unhealthy' | 'checking' | 'unknown'>>({});
   const [showHealthAlert, setShowHealthAlert] = useState(false);
+  const [botNameError, setBotNameError] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialSessionApplied.current) return;
@@ -1055,7 +1053,6 @@ function ClientPage() {
       // 2. Sync to Supabase & local files
       const email = user?.primaryEmail || user?.displayName;
       if (email) {
-        await updateLastConfig(email, activeConfig);
         try {
           await fetch("/api/user-config", {
             method: "POST",
@@ -1206,6 +1203,7 @@ function ClientPage() {
         ...finalConfig,
         conversation_id: currentConversationIdRef.current || undefined,
         job_id: currentJobIdRef.current || undefined,
+        user_email: user?.primaryEmail || undefined,
       };
       if (abortConnectionRef.current) return;
 
@@ -1412,13 +1410,39 @@ function ClientPage() {
   const handleSaveBot = async () => {
     if (!profileId && !editingBotId) return;
     setIsLoadingBots(true);
+    setBotNameError(null);
     try {
       const apiKey = localStorage.getItem("defaultApiKey") ?? "";
+      const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || "https://api.clawdface.ai").replace(/\/$/, "");
 
       const selectedAvatar = avatars.find(a => a.id === config.avatarId);
       const botName = config.botName || (selectedAvatar ? `${selectedAvatar.name}'s Bot` : "My New Bot");
       
-      let botToUse;
+      // Perform Uniqueness Check
+      // Construct email as name@agent.clawdface.ai
+      const checkEmail = generateAgentEmail(botName);
+      
+      // Only check if it's a new bot OR if the name of an existing bot has changed
+      const isNewName = !editingBotId || (editingAgent && editingAgent.agent_name !== botName);
+      
+      if (isNewName && apiKey) {
+        try {
+          const checkResp = await fetch(`${baseUrl}/v1/agent/email/check?email=${encodeURIComponent(checkEmail)}`, {
+            headers: { "X-API-Key": apiKey }
+          });
+          if (checkResp.ok) {
+            const checkData = await checkResp.json();
+            if (checkData.unique === false) {
+              setBotNameError("This Name is Already Taken. Please choose another name.");
+              setIsLoadingBots(false);
+              return;
+            }
+          }
+        } catch (e) {
+          console.warn("⚠️ Uniqueness check failed, proceeding anyway:", e);
+        }
+      }
+
       if (editingBotId) {
         const agentToUpdate = editingAgent ?? bots.find(bot => bot.id === editingBotId);
 
@@ -1431,7 +1455,7 @@ function ClientPage() {
             agent_name: botName,
             agent_system_prompt: agentToUpdate.agent_system_prompt ?? "",
             default_system_prompt: agentToUpdate.default_system_prompt ?? false,
-            email: agentToUpdate.email || user?.primaryEmail || user?.displayName || "",
+            email: agentToUpdate.email || checkEmail, // Use existing or the checked one
             config: {
               ...(agentToUpdate.config ?? {}),
               openclaw_url: config.openclawUrl,
@@ -1451,7 +1475,7 @@ function ClientPage() {
             callback_events: agentToUpdate.callback_events ?? [],
             is_public: agentToUpdate.is_public ?? true,
             is_active: true,
-            type: agentToUpdate.type ?? "etev",
+            type: agentToUpdate.type ?? "vtva",
             add_on: agentToUpdate.add_on ?? [],
           };
 
@@ -1459,42 +1483,30 @@ function ClientPage() {
           if (error) throw new Error(error);
         }
       } else {
-        // Create new bot in Supabase
-        botToUse = await createBot({
-          user_id: profileId ?? "",
-          name: botName,
-          avatar_id: config.avatarId,
-          openclaw_url: config.openclawUrl,
-          gateway_token: config.gatewayToken,
-          session_key: config.sessionKey,
-          voice_id: "default",
-          thinking_enabled: config.thinkingEnabled,
-          thinking_delay: config.thinkingDelay,
-        });
-      }
+        // Create new agent ONLY via Backend API
+        if (apiKey) {
+          const agentPayload = {
+            agent_name: botName,
+            agent_system_prompt: "",
+            email: checkEmail, // This is the unique name@agent.clawdface.ai
+            config: {
+              openclaw_url: config.openclawUrl,
+              gateway_token: config.gatewayToken,
+              session_key: config.sessionKey,
+              thinking_enabled: config.thinkingEnabled === "true",
+              thinking_delay: parseFloat(config.thinkingDelay || "5.0"),
+            },
+            tools: {},
+            avatars: [{ avatar_key_id: config.avatarId }],
+            is_active: true,
+            is_public: false,
+            type: "vtva",
+            add_on: [],
+          };
 
-      // Sync with API
-      if (!editingBotId && apiKey && botToUse?.agent_email) {
-        const agentPayload = {
-          agent_name: botName,
-          agent_system_prompt: "",
-          email: botToUse.agent_email,
-          config: {
-            openclaw_url: config.openclawUrl,
-            gateway_token: config.gatewayToken,
-            session_key: config.sessionKey,
-            thinking_enabled: config.thinkingEnabled === "true",
-            thinking_delay: parseFloat(config.thinkingDelay || "5.0"),
-          },
-          tools: {},
-          avatars: [{ avatar_key_id: config.avatarId }],
-          is_active: true,
-          is_public: false,
-          type: "vtva",
-          add_on: [],
-        };
-
-        await createAgent(apiKey, agentPayload);
+          const { error } = await createAgent(apiKey, agentPayload);
+          if (error) throw new Error(error);
+        }
       }
       
       // Refresh and reset
@@ -1589,6 +1601,8 @@ function ClientPage() {
                 bots={activeSession === "My Bot" ? bots : []}
                 showConnectButton={activeSession === "My Bot"}
                 isConnecting={isValidatingCredit || room.state === "connecting"}
+                botNameError={botNameError}
+                onClearBotNameError={() => setBotNameError(null)}
               />
             ) : activeSession === "DirectCall" ? (
               <DirectCallDashboard
@@ -1793,6 +1807,8 @@ function SessionConfigForm({
   bots = [],
   isConnecting = false,
   showConnectButton = true,
+  botNameError = null,
+  onClearBotNameError,
 }: {
   onConnect: (e: React.FormEvent) => void;
   config: any;
@@ -1805,6 +1821,8 @@ function SessionConfigForm({
   bots?: AgentBot[];
   isConnecting?: boolean;
   showConnectButton?: boolean;
+  botNameError?: string | null;
+  onClearBotNameError?: () => void;
 }) {
   const avatars = useAvatars();
   const selectedAvatar = avatars.find((a) => a.id === config.avatarId);
@@ -1814,7 +1832,7 @@ function SessionConfigForm({
     onConnect(e as any);
   };
 
-  const field = (id: string, label: string, icon: React.ReactNode, placeholder: string, type: string = "text") => (
+  const field = (id: string, label: string, icon: React.ReactNode, placeholder: string, type: string = "text", error?: string | null) => (
     <div className="flex flex-col gap-1.5">
       <label className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#6b7280] flex items-center gap-1.5">
         <span className="text-[#9ca3af]">{icon}</span>
@@ -1825,10 +1843,21 @@ function SessionConfigForm({
           type={type}
           id={id}
           value={(config as any)[id]}
-          onChange={(e) => setConfig({ ...config, [id]: e.target.value })}
+          onChange={(e) => {
+            setConfig({ ...config, [id]: e.target.value });
+            if (id === "botName" && onClearBotNameError) onClearBotNameError();
+          }}
           placeholder={placeholder}
-          className="w-full bg-surface border border-[#242424] hover:border-brand/40 rounded-xl py-3 px-4 text-[14px] text-white focus:outline-none focus:border-brand transition-all placeholder:text-[#3a3a3a]"
+          className={`w-full bg-surface border ${error ? 'border-red-500/50 focus:border-red-500' : 'border-[#242424] focus:border-brand'} hover:border-brand/40 rounded-xl py-3 px-4 text-[14px] text-white focus:outline-none transition-all placeholder:text-[#3a3a3a]`}
         />
+        {error && (
+          <p className="text-red-500 text-[11px] mt-1.5 font-medium flex items-center gap-1">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            {error}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -1897,7 +1926,7 @@ function SessionConfigForm({
                 {field("openclawUrl",  "URL",     <LinkIcon />,   "http://localhost:18789")}
                 {field("gatewayToken", "Token",    <KeyIcon />,    "Enter token")}
               </div>
-              {field("botName",      "Agent Name",         <UserIcon />,   "Enter a custom name for this agent")}
+              {field("botName",      "Agent Name",         <UserIcon />,   "Enter a custom name for this agent", "text", botNameError)}
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#6b7280] flex items-center gap-1.5">
@@ -2411,6 +2440,8 @@ function SimpleVoiceAssistant({
   bots = [],
   showConnectButton = true,
   isConnecting: isConnectingProp = false,
+  botNameError = null,
+  onClearBotNameError,
 }: {
   onConnectButtonClicked: () => void;
   config: typeof DEFAULTS;
@@ -2423,6 +2454,8 @@ function SimpleVoiceAssistant({
   bots?: AgentBot[];
   showConnectButton?: boolean;
   isConnecting?: boolean;
+  botNameError?: string | null;
+  onClearBotNameError?: () => void;
 }) {
   const { state: agentState } = useVoiceAssistant();
   const [internalIsConnecting, setInternalIsConnecting] = useState(false);
@@ -2455,6 +2488,8 @@ function SimpleVoiceAssistant({
             onCancelEdit={onCancelEdit}
             bots={bots}
             showConnectButton={showConnectButton}
+            botNameError={botNameError}
+            onClearBotNameError={onClearBotNameError}
           />
         ) : (
           <ActiveVoiceAssistantView 

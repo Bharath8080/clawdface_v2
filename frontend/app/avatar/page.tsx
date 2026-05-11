@@ -99,6 +99,7 @@ function AvatarPageInner() {
   const sessionKey = searchParams.get("sessionKey");
   const meetingUrl = searchParams.get("meetingUrl");
   const connectionType = searchParams.get("connection_type");
+  const conversationId = searchParams.get("conversationId") || searchParams.get("conversation_id") || "";
 
   const [connectionDetails, setConnectionDetails] = useState<ConnectionDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -121,7 +122,8 @@ function AvatarPageInner() {
             gatewayToken: gatewayToken || "",
             sessionKey: sessionKey || "",
             meetingUrl: meetingUrl || "",
-            connection_type: connectionType || "",
+            connection_type: connectionType || "website",
+            conversation_id: conversationId,
           }),
         });
         
@@ -140,7 +142,7 @@ function AvatarPageInner() {
     }
 
     fetchToken();
-  }, [room, avatarId, openclawUrl, gatewayToken, sessionKey, connectionType, meetingUrl]);
+  }, [room, avatarId, openclawUrl, gatewayToken, sessionKey, connectionType, meetingUrl, conversationId]);
 
 
   if (error) {

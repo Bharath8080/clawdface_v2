@@ -26,6 +26,7 @@ app.py
 main.py
 tavus.py
 trugen.py
+manu.go
 
 # Python version pin (local dev only)
 .python-version
@@ -36,3 +37,4 @@ Thumbs.db
 
 # IDE
 .idea/
+
