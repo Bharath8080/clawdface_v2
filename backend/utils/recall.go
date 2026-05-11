@@ -1099,7 +1099,18 @@ func PostAvatarRequest(inboxID string, lkRoomID string, meetingUrl string, from 
 
 	frontendURL := os.Getenv("FRONTEND_URL")
 	if frontendURL == "" {
-		frontendURL = "https://clawdface.vercel.app"
+		// Smart fallback logic to determine the frontend environment
+		if strings.Contains(os.Getenv("API_URL"), "qa") {
+			frontendURL = "https://qaapi.clawdface.ai"
+		} else if strings.Contains(os.Getenv("API_URL"), "api.aws") {
+			frontendURL = "https://api.clawdface.ai"
+		} else if strings.Contains(os.Getenv("RAG_API_URL"), "172.31") {
+			frontendURL = "http://172.31.5.45:3077"
+		} else {
+			// Default Production URL
+			frontendURL = "https://clawdface.vercel.app"
+		}
+		log.Printf("[PostAvatarRequest] FRONTEND_URL not set, auto-detected: %s", frontendURL)
 	}
 	frontendURL = strings.TrimRight(frontendURL, "/")
 
