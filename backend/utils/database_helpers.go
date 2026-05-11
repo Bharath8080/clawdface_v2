@@ -60,6 +60,7 @@ type ScheduledJob struct {
 	UID          string `json:"uid,omitempty"`
 	CreatedAt    string `json:"created_at,omitempty"`
 	TraceID      string `json:"trace_id,omitempty"`
+	VideoURL     string `json:"video_url,omitempty"`
 }
 
 type JoinExternalMeetingsRequest struct {
@@ -506,6 +507,10 @@ type Agent struct {
 	Communication      *Communication  `json:"communication,omitempty"`
 	OpenClawURL        string          `json:"openclaw_url"`
 	GatewayToken       string          `json:"gateway_token"`
+	SessionKey         string          `json:"sessionKey"`
+	ConnectionType     string          `json:"connection_type"`
+	AvatarId           string          `json:"avatarId"`
+	ConversationId     string          `json:"conversation_id"`
 }
 
 // Actions
@@ -10615,6 +10620,14 @@ func HandleConversationCreation(
 
 	selectedAgent.AvatarName = avatarName
 	selectedAgent.RecordRoom = recordRoom
+	selectedAgent.SessionKey = "session-" + roomId
+	selectedAgent.AvatarId = selectedAgent.AvatarID
+	selectedAgent.ConversationId = conversationId
+	if externalMeeting {
+		selectedAgent.ConnectionType = "email_dispatch"
+	} else {
+		selectedAgent.ConnectionType = "website"
+	}
 
 	if callbackURL != "" {
 		selectedAgent.Callback = &Callback{
@@ -10840,28 +10853,23 @@ func HandleConversationCreation(
 	str := string(jsonStr)
 	log.Printf("Payload to Infra: %s", str)
 
-	// agentNameCon := configs.GetEnv("LIVEKIT_AGENTNAME")
-
-	// disErr := dispatchAgent(roomId, agentNameCon, str)
-	// if disErr != nil {
-	// 	delay = 10 * time.Second
-	// 	ScheduleOneTimeResetCreditJob(delay, conversationId)
-	// 	return "", "", Agent{}, fmt.Errorf("invalid dispatch response: %v", err)
-	// }
-
-	var jobResp struct {
-		ID string `json:"id"`
-	}
-	if err := json.Unmarshal([]byte(str), &jobResp); err != nil {
-		return "", "", Agent{}, fmt.Errorf("invalid job response: %v", err)
+	agentNameCon := configs.GetEnv("LIVEKIT_AGENTNAME")
+	if agentNameCon == "" {
+		agentNameCon = "clawdface"
 	}
 
-	// Update job_id quickly
+
+	disErr := dispatchAgent(roomId, agentNameCon, str)
+	if disErr != nil {
+		log.Printf("ERROR: dispatchAgent failed: %v", disErr)
+	}
+
+	// Update job_id
 	_, err = DB.Exec(`
         UPDATE conversations
         SET job_id = $1, updated_at = NOW()
         WHERE id = $2
-    `, jobResp.ID, conversationId)
+    `, roomId, conversationId)
 	if err != nil {
 		return "", "", Agent{}, fmt.Errorf("failed to update job_id: %v", err)
 	}
@@ -10903,10 +10911,10 @@ func HandleJoinExternalMeeting(w http.ResponseWriter, r *http.Request, roomId st
 
 	ConversationalContext := json.RawMessage(ctxBytes)
 
-	conversationId, url, agent, err := HandleConversationCreation(apiKey, request_payload.AgentID, apiKeyId, ConversationalContext, json.RawMessage("{}"), request_payload.UserName, request_payload.UserID, roomId, request_payload.MeetingURL, true, "", "")
+	conversationId, createdRoomID, agent, err := HandleConversationCreation(apiKey, request_payload.AgentID, apiKeyId, ConversationalContext, json.RawMessage("{}"), request_payload.UserName, request_payload.UserID, roomId, request_payload.MeetingURL, true, "", "")
 	if err != nil {
 		http.Error(w, "Error creating conversation: "+err.Error(), http.StatusInternalServerError)
-		log.Printf("Conversation created with ID: %s, %s, %s", conversationId, url, agent.AvatarID)
+		log.Printf("Conversation created with ID: %s, %s, %s", conversationId, createdRoomID, agent.AvatarID)
 		return
 	}
 
@@ -10922,9 +10930,30 @@ func HandleJoinExternalMeeting(w http.ResponseWriter, r *http.Request, roomId st
 		w.Write([]byte(err.Error()))
 	}
 
-	agentDisplayName := agentName
-	livekitRoom := roomId
-	isPosted, err := PostRecallRequest(request_payload.MeetingURL, agentDisplayName, livekitRoom)
+	var agentEmail string
+	err = DB.QueryRow(`
+        SELECT email
+        FROM agents
+        WHERE id = $1
+    `, request_payload.AgentID).Scan(
+		&agentEmail,
+	)
+	if err != nil {
+		log.Printf("[HandleJoinExternalMeeting] ERROR: could not get agent email: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
+	}
+
+	agentDisplayName, videoUrl, success, err := PostAvatarRequest(agentEmail, roomId, request_payload.MeetingURL, "Admin")
+	if err != nil || !success {
+		log.Printf("[HandleJoinExternalMeeting] ERROR: PostAvatarRequest failed: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(fmt.Sprintf("Failed to get avatar session: %v", err)))
+		return
+	}
+
+	isPosted, err := PostRecallRequest(request_payload.MeetingURL, agentDisplayName, roomId, videoUrl)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
@@ -10937,14 +10966,18 @@ func HandleJoinExternalMeeting(w http.ResponseWriter, r *http.Request, roomId st
 	w.Write([]byte(statusMessage))
 }
 
-func buildRecallRequestPayload(meetingUrl string, displayName string, lkRoomID string) ([]byte, string, error) {
+func buildRecallRequestPayload(meetingUrl string, displayName string, lkRoomID string, videoUrl string) ([]byte, string, error) {
 	avatarStream := os.Getenv("AVATAR_VIDEO_STREAM")
 	recallWS := os.Getenv("RECALL_VIDEO_WS_URL")
 	if recallWS == "" {
 		return nil, "", fmt.Errorf("RECALL_VIDEO_WS_URL is not set")
 	}
 
-	cameraURL := fmt.Sprintf("%s/%s?agent=%s", avatarStream, lkRoomID, url.QueryEscape(displayName))
+	cameraURL := videoUrl
+	if cameraURL == "" {
+		cleanAvatarStream := strings.TrimRight(avatarStream, "/")
+		cameraURL = fmt.Sprintf("%s/%s?agent=%s", cleanAvatarStream, lkRoomID, url.QueryEscape(displayName))
+	}
 	wsURL := fmt.Sprintf("%s/%s", recallWS, lkRoomID)
 
 	realtimeEndpoints := []map[string]interface{}{
@@ -11019,7 +11052,7 @@ func buildRecallRequestPayload(meetingUrl string, displayName string, lkRoomID s
 	return jsonBody, wsURL, nil
 }
 
-func postRecallRequestWithLabel(label string, meetingUrl string, displayName string, lkRoomID string) (bool, error) {
+func postRecallRequestWithLabel(label string, meetingUrl string, displayName string, lkRoomID string, videoUrl string) (bool, error) {
 	recallURL := os.Getenv("RECALL_API_URL")
 	recallToken := os.Getenv("RECALL_API_TOKEN")
 
@@ -11032,7 +11065,7 @@ func postRecallRequestWithLabel(label string, meetingUrl string, displayName str
 		return false, fmt.Errorf("RECALL_API_TOKEN is not set")
 	}
 
-	jsonBody, wsURL, err := buildRecallRequestPayload(meetingUrl, displayName, lkRoomID)
+	jsonBody, wsURL, err := buildRecallRequestPayload(meetingUrl, displayName, lkRoomID, videoUrl)
 	if err != nil {
 		return false, err
 	}
@@ -11070,13 +11103,69 @@ func postRecallRequestWithLabel(label string, meetingUrl string, displayName str
 }
 
 // Method to Post request to Recall.AI
-func PostRecallRequest(meetingUrl string, displayName string, lkRoomID string) (bool, error) {
-	return postRecallRequestWithLabel("PostRecallRequest", meetingUrl, displayName, lkRoomID)
+func PostRecallRequest(meetingUrl string, displayName string, lkRoomID string, videoUrl string) (bool, error) {
+	return postRecallRequestWithLabel("PostRecallRequest", meetingUrl, displayName, lkRoomID, videoUrl)
 }
 
 // PostRecallRequestV2 is kept for scheduled-job compatibility and uses the same payload as direct joins.
-func PostRecallRequestV2(meetingUrl string, displayName string, lkRoomID string) (bool, error) {
-	return postRecallRequestWithLabel("PostRecallRequestV2", meetingUrl, displayName, lkRoomID)
+func PostRecallRequestV2(meetingUrl string, displayName string, lkRoomID string, videoUrl string) (bool, error) {
+	return postRecallRequestWithLabel("PostRecallRequestV2", meetingUrl, displayName, lkRoomID, videoUrl)
+}
+
+// HandleRecallTrigger is a lightweight endpoint called by the Next.js start-agent route
+// when an external meeting is detected. It sends a Recall.AI bot into the meeting
+// using the LiveKit room that was already created and dispatched by the frontend.
+// It does NOT create a new conversation or room — those already exist.
+func HandleRecallTrigger(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	var req struct {
+		MeetingURL     string `json:"meeting_url"`
+		RoomName       string `json:"room_name"`
+		DisplayName    string `json:"display_name"`
+		ConversationID string `json:"conversation_id"`
+		VideoURL       string `json:"video_url"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	if req.MeetingURL == "" {
+		http.Error(w, "meeting_url is required", http.StatusBadRequest)
+		return
+	}
+	if req.RoomName == "" {
+		http.Error(w, "room_name is required", http.StatusBadRequest)
+		return
+	}
+
+	displayName := req.DisplayName
+	if displayName == "" {
+		displayName = "ClawdFace"
+	}
+
+	log.Printf("[recall-trigger] Sending Recall.AI bot → meeting=%s room=%s convId=%s",
+		req.MeetingURL, req.RoomName, req.ConversationID)
+
+	ok, err := PostRecallRequest(req.MeetingURL, displayName, req.RoomName, req.VideoURL)
+	if err != nil {
+		log.Printf("[recall-trigger] ERROR: %v", err)
+		http.Error(w, "Failed to send Recall bot: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if !ok {
+		http.Error(w, "Recall bot request failed", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("[recall-trigger] ✓ Recall bot dispatched → meeting=%s room=%s", req.MeetingURL, req.RoomName)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "ok",
+		"message": "Recall bot dispatched into meeting",
+		"room":    req.RoomName,
+	})
 }
 
 // HandleCheckAgentEmailUniqueness checks if an email is already assigned to any agent.

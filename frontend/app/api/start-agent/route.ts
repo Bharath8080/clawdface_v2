@@ -106,6 +106,9 @@ export async function POST(request: Request) {
     await dispatchClient.createDispatch(roomName, 'clawdface', { metadata });
     console.log(`[start-agent] ✓ Dispatched → room=${roomName} | avatarId=${avatarId} | convId=${conversationId}`);
 
+    const baseAppUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const videoUrl = `${baseAppUrl}/avatar?room=${encodeURIComponent(roomName)}&avatarId=${avatarId}&openclawUrl=${encodeURIComponent(openclawUrl)}&gatewayToken=${gatewayToken}&sessionKey=${sessionKey}&conversationId=${encodeURIComponent(conversationId)}&connection_type=${isExternalMeeting ? 'email_dispatch' : 'website'}`;
+
     if (isExternalMeeting) {
       await fetch(`${BACKEND_BASE_URL}/v1/ext/recall-trigger`, {
         method: 'POST',
@@ -114,16 +117,10 @@ export async function POST(request: Request) {
           meeting_url: meetingUrl,
           room_name: roomName,
           conversation_id: conversationId,
+          video_url: videoUrl,
         }),
       }).catch(err => console.error('[start-agent] Recall trigger failed:', err));
     }
-
-    const baseAppUrl = process.env.NEXT_PUBLIC_APP_URL;
-    if (!baseAppUrl) {
-      return NextResponse.json({ error: 'NEXT_PUBLIC_APP_URL not configured' }, { status: 500 });
-    }
-
-    const videoUrl = `${baseAppUrl}/avatar?room=${encodeURIComponent(roomName)}&avatarId=${avatarId}&openclawUrl=${encodeURIComponent(openclawUrl)}&gatewayToken=${gatewayToken}&sessionKey=${sessionKey}&conversationId=${encodeURIComponent(conversationId)}&connection_type=${isExternalMeeting ? 'email_dispatch' : 'website'}`;
 
     return NextResponse.json({
       videoUrl,

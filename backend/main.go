@@ -1236,6 +1236,12 @@ func main() {
 					//apikeyId := r.Context().Value("apiKeyId").(string)
 					utils.HandleJoinExternalMeeting(w, r, roomId)
 				})
+
+				// Lightweight Recall.AI bot trigger — called by Next.js start-agent when meetingUrl is present.
+				// Does NOT create a new conversation/room; those are already set up by start-agent.
+				r.Post("/recall-trigger", func(w http.ResponseWriter, r *http.Request) {
+					utils.HandleRecallTrigger(w, r)
+				})
 			})
 
 			// Protected endpoint example

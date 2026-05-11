@@ -52,14 +52,23 @@ logging.getLogger("livekit.agents").addFilter(SilencePaddingFilter())
 # CONFIG RESOLUTION
 # ---------------------------------------------------------------------------
 EMAIL_BOT_AVATAR_MAP = {
-    "amansbot": "0f160301", "jasonbot": "182b03e8", "sameerbot": "05a001fc",
-    "mikebot": "be5b2ce0", "johnnybot": "03ae0187", "amanbot": "0f160301",
-    "alexbot": "13550375", "amirbot": "48d778c9",
-    "jessicabot": "1a640442", "lisasbot": "1a640442",
-    "lisabot": "1a640442", "cathybot": "1a640442", "sofiabot": "1a640442",
-    "lucybot": "1a640442", "kiarabot": "1a640442", "jenniferbot": "1a640442",
-    "priyabot": "1a640442", "chloebot": "1a640442", "mishabot": "1a640442",
-    "alliebot": "1a640442"
+    "jennifer": "0de70332",
+    "jessica": "21ef04ad",
+    "cathy": "17de03e4",
+    "clara": "7e95996",
+    "misha": "05b401f3",
+    "sofia": "1928040f",
+    "chloe": "45e3f732",
+    "priya": "1e4ea106",
+    "lisa": "665a1170",
+    "jason": "05a001fc",
+    "lucy": "c5b563de",
+    "abdul": "2b130585",
+    "sameer": "60a0926a",
+    "akbar": "18c4043e",
+    "alex": "80b9095f",
+    "aman": "5daa73d5",
+    "mike": "03ae0187"
 }
 
 MALE_AVATAR_IDS = {
@@ -68,7 +77,14 @@ MALE_AVATAR_IDS = {
     "60a0926a", "5daa73d5", "2b130585"
 }
 
-
+FRONTEND_URLS = [
+    os.getenv("FRONTEND_URL", "").rstrip("/"),
+    "https://api.clawdface.ai",
+    "https://qaapi.clawdface.ai",
+    "http://172.31.5.45:3077",
+    "https://clawdface.vercel.app"
+]
+FRONTEND_URLS = [url for url in FRONTEND_URLS if url]
 # ---------------------------------------------------------------------------
 # BACKEND USAGE REPORTING
 # ---------------------------------------------------------------------------
@@ -95,33 +111,36 @@ async def post_backend_usage(usage: dict):
 
 async def register_conversation(config: dict, conversation_id: str):
     """Registers a new conversation with the backend."""
-    base_url = os.getenv("FRONTEND_URL", "").rstrip("/")
-    if not base_url:
-        logger.warning("[REGISTER] FRONTEND_URL not set, cannot register conversation.")
+    if not FRONTEND_URLS:
+        logger.warning("[REGISTER] No FRONTEND_URLS set, cannot register conversation.")
         return
     
-    endpoint = f"{base_url}/api/conversations/register"
     payload = {
         "conversation_id": conversation_id,
         "user_email": config.get("user_email") or config.get("userEmail") or config.get("ownerEmail") or config.get("email") or "system@clawdface.ai",
-        "bot_name": config.get("name") or "AI Assistant",
-        "bot_avatar": config.get("avatarId") or "0f160301",
+        "bot_name": config.get("name"),
+        "bot_avatar": config.get("avatarId"),
         "agent_id": config.get("agentId") or ""
     }
     
     logger.debug(f"[REGISTER] Sending payload: {json.dumps(payload)}")
     
     import aiohttp
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(endpoint, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                if resp.status == 200:
-                    logger.info(f"✅ [REGISTER] Session registered successfully | ID: {conversation_id}")
-                else:
-                    text = await resp.text()
-                    logger.error(f"❌ [REGISTER] Failed to register ID: {conversation_id} | Status: {resp.status} | Error: {text}")
-    except Exception as e:
-        logger.error(f"[REGISTER] Error during registration: {e}")
+    async with aiohttp.ClientSession() as session:
+        for base_url in FRONTEND_URLS:
+            endpoint = f"{base_url}/api/conversations/register"
+            try:
+                async with session.post(endpoint, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                    if resp.status == 200:
+                        logger.info(f"✅ [REGISTER] Session registered successfully at {endpoint} | ID: {conversation_id}")
+                        return
+                    else:
+                        text = await resp.text()
+                        logger.warning(f"⚠️ [REGISTER] Failed to register ID: {conversation_id} at {endpoint} | Status: {resp.status} | Error: {text}")
+            except Exception as e:
+                logger.debug(f"[REGISTER] Error during registration at {endpoint}: {e}")
+                
+    logger.error(f"❌ [REGISTER] Failed to register conversation {conversation_id} with all frontend URLs.")
 
 
 # ---------------------------------------------------------------------------
@@ -397,18 +416,17 @@ def resolve_config(ctx: agents.JobContext) -> tuple[dict, str]:
     room_id = ctx.room.name
     if room_id and not room_id.startswith("room-"):
         email = room_id if "@" in room_id else f"{room_id}@agent.clawdface.ai"
-        try:
-            base_url = os.getenv("FRONTEND_URL", "").rstrip("/")
-            if base_url:
-                logger.info(f"[CONFIG] Fetching sync config for {email}...")
+        for base_url in FRONTEND_URLS:
+            try:
+                logger.info(f"[CONFIG] Fetching sync config for {email} from {base_url}...")
                 resp = requests.get(f"{base_url}/api/agents/config?email={email}", timeout=5)
                 if resp.status_code == 200:
                     cfg = resp.json()
                     if cfg.get("openclawUrl"):
                         mode = "recall" if cfg.get("recallBotId") else "email_dispatch"
                         return cfg, mode
-        except Exception as e:
-            logger.debug(f"[CONFIG] Lookup error for {email}: {e}")
+            except Exception as e:
+                logger.debug(f"[CONFIG] Lookup error for {email} at {base_url}: {e}")
 
     return {}, "unknown"
 
@@ -790,7 +808,13 @@ async def my_agent(ctx: agents.JobContext):
     url = config.get("openclawUrl", "").strip()
     token = config.get("gatewayToken", "")
     key = config.get("sessionKey", "")
-    avatar_id = config.get("avatarId") or os.getenv("TRUGEN_AVATAR_ID")
+    avatar_id = config.get("avatarId")
+    if not avatar_id:
+        user_email = config.get("user_email") or config.get("userEmail") or config.get("ownerEmail") or config.get("email") or ""
+        if "@" in user_email:
+            prefix = user_email.split("@")[0].lower()
+            avatar_id = EMAIL_BOT_AVATAR_MAP.get(prefix)
+        
     voice_id = "CwhRBWXzGAHq8TQ4Fs17" if avatar_id in MALE_AVATAR_IDS else "FGY2WhTYpPnrIDTdsKH5"
     
     # Resolve dynamic thinking settings — check both snake_case and camelCase

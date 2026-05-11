@@ -1094,33 +1094,53 @@ func GetAllRecallParticipants(botId string) ([]RecallParticipant, error) {
 }
 
 // PostAvatarRequest resolves the agent by inbox email and creates a conversation directly.
-func PostAvatarRequest(inboxID string, lkRoomID string, meetingUrl string, from string) (string, bool, error) {
+func PostAvatarRequest(inboxID string, lkRoomID string, meetingUrl string, from string) (string, string, bool, error) {
 	log.Printf("[PostAvatarRequest] Starting — inboxID=%q lkRoomID=%q meetingUrl=%q from=%q", inboxID, lkRoomID, meetingUrl, from)
 
-	agentId, err := HandleGetAgentByEmail(inboxID)
+	frontendURL := os.Getenv("FRONTEND_URL")
+	if frontendURL == "" {
+		frontendURL = "https://clawdface.vercel.app"
+	}
+	frontendURL = strings.TrimRight(frontendURL, "/")
+
+	apiURL := frontendURL + "/api/start-agent"
+	
+	payload := map[string]string{
+		"email":      inboxID,
+		"meetingUrl": meetingUrl,
+		"roomId":     lkRoomID,
+	}
+
+	bodyBytes, _ := json.Marshal(payload)
+	req, err := http.NewRequest("POST", apiURL, bytes.NewBuffer(bodyBytes))
 	if err != nil {
-		log.Printf("[PostAvatarRequest] ERROR: could not get agent by email %q: %v", inboxID, err)
-		return "", false, err
+		return "", "", false, fmt.Errorf("failed to create frontend request: %v", err)
 	}
+	req.Header.Set("Content-Type", "application/json")
 
-	ctxPayload := json.RawMessage(`{"text":""}`)
-	metaPayload := json.RawMessage(`{"active":"true"}`)
-
-	_, _, agent, err := HandleConversationCreation("", agentId, "", ctxPayload, metaPayload, from, from, lkRoomID, meetingUrl, true, "", "")
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("[PostAvatarRequest] ERROR: conversation creation failed: %v", err)
-		return "", false, err
+		return "", "", false, fmt.Errorf("frontend request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return "", "", false, fmt.Errorf("frontend API error %d: %s", resp.StatusCode, string(respBody))
 	}
 
-	dn := agent.PersonaName
-	if dn == "" {
-		dn = agent.AvatarName // fallback to avatar name
+	var result struct {
+		VideoUrl  string `json:"videoUrl"`
+		AgentName string `json:"agentName"`
+		RoomId    string `json:"roomId"`
 	}
-	if dn == "" {
-		dn = "Lisa" // last-resort fallback
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", "", false, fmt.Errorf("failed to parse frontend response: %v", err)
 	}
-	log.Printf("[PostAvatarRequest] SUCCESS — botName=%q (PersonaName=%q AvatarName=%q)", dn, agent.PersonaName, agent.AvatarName)
-	return dn, true, nil
+
+	log.Printf("[PostAvatarRequest] SUCCESS (via Frontend API) — botName=%q videoUrl=%q", result.AgentName, result.VideoUrl)
+	return result.AgentName, result.VideoUrl, true, nil
 }
 
 var upgrader = websocket.Upgrader{
@@ -2488,6 +2508,9 @@ func HandleAddScheduledJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Println("Starting new Job from Rest API Trigger")
+	if newJob.ID == "" {
+		newJob.ID = uuid.New().String()
+	}
 	// Job Schedule Logic
 	if newJob.Expiry == "" || len(newJob.Expiry) <= 3 {
 		// If Expiry is not found; then set the default as 30 days
@@ -2689,6 +2712,7 @@ func joinMeeting(ctx context.Context, nj ScheduledJob, label string, failed *boo
 	maxAvatarAttempts := 3
 	avatarSuccess := false
 	dn := "Lisa" // fallback
+	generatedVideoUrl := ""
 	var avatarErr error
 
 	for attempt := 0; attempt < maxAvatarAttempts; attempt++ {
@@ -2700,12 +2724,14 @@ func joinMeeting(ctx context.Context, nj ScheduledJob, label string, failed *boo
 		logWithTrace(ctx, "[%s][Avatar] Attempt %d/%d — posting avatar request", label, attempt+1, maxAvatarAttempts)
 
 		var name string
-		name, avatarSuccess, avatarErr = PostAvatarRequest(nj.AgentEmailID, lkRoomID, nj.MeetingURL, nj.AgentEmailID)
+		var vUrl string
+		name, vUrl, avatarSuccess, avatarErr = PostAvatarRequest(nj.AgentEmailID, lkRoomID, nj.MeetingURL, nj.AgentEmailID)
 		if avatarSuccess {
 			if name != "" {
 				dn = name
 			}
-			logWithTrace(ctx, "[%s][Avatar] Attempt %d/%d SUCCESS — botName=%q", label, attempt+1, maxAvatarAttempts, dn)
+			generatedVideoUrl = vUrl
+			logWithTrace(ctx, "[%s][Avatar] Attempt %d/%d SUCCESS — botName=%q videoUrl=%q", label, attempt+1, maxAvatarAttempts, dn, generatedVideoUrl)
 			break
 		}
 		logWithTrace(ctx, "[%s][Avatar] Attempt %d/%d FAILED — error=%v", label, attempt+1, maxAvatarAttempts, avatarErr)
@@ -2716,6 +2742,13 @@ func joinMeeting(ctx context.Context, nj ScheduledJob, label string, failed *boo
 		*failed = true
 		return
 	}
+
+	// Prioritize VideoURL from the job request if provided
+	finalVideoUrl := nj.VideoURL
+	if finalVideoUrl == "" {
+		finalVideoUrl = generatedVideoUrl
+	}
+
 	//Recall Retry attempt
 	recallBackoff := []time.Duration{0, 5 * time.Second, 15 * time.Second}
 	maxRecallAttempts := 3
@@ -2729,7 +2762,7 @@ func joinMeeting(ctx context.Context, nj ScheduledJob, label string, failed *boo
 			time.Sleep(recallBackoff[attempt])
 		}
 		logWithTrace(ctx, "[%s][Recall] Attempt %d/%d — sending bot to meeting", label, attempt+1, maxRecallAttempts)
-		isSuccessful, err = PostRecallRequestV2(nj.MeetingURL, dn, lkRoomID)
+		isSuccessful, err = PostRecallRequestV2(nj.MeetingURL, dn, lkRoomID, finalVideoUrl)
 		if isSuccessful {
 			logWithTrace(ctx, "[%s][Recall] Attempt %d/%d SUCCESS — bot created", label, attempt+1, maxRecallAttempts)
 			UpdateJobStatusInDB(nj.ID, "scheduled")
