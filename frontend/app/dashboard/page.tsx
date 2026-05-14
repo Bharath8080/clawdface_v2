@@ -16,7 +16,7 @@ import TranscriptionView from "@/components/TranscriptionView";
 import useCombinedTranscriptions from "@/hooks/useCombinedTranscriptions";
 import { AVATARS } from "@/lib/constants";
 import { createBotAction as createBot, syncUserAction, updateLastConfigAction as updateLastConfig } from "@/lib/database-actions";
-import { formatDuration } from "@/lib/utils";
+import { formatDuration, generateAgentEmail } from "@/lib/utils";
 import { BarVisualizer, DisconnectButton, RoomAudioRenderer, VideoTrack } from "@livekit/components-react";
 // @ts-ignore - Internal context may not be exported in TS declaration
 import { RoomContext, useRoomContext, useVoiceAssistant } from "@livekit/components-react";
@@ -719,6 +719,7 @@ function ClientPage() {
   const [dbLastConfig, setDbLastConfig] = useState<any>(null);
   const [botHealth, setBotHealth] = useState<Record<string, 'healthy' | 'unhealthy' | 'checking' | 'unknown'>>({});
   const [licenseInfo, setLicenseInfo] = useState<ILicenseInfo | null>(null);
+  const [botNameError, setBotNameError] = useState<string | null>(null);
   const [showHealthAlert, setShowHealthAlert] = useState(false);
 
   useEffect(() => {
@@ -1459,11 +1460,38 @@ function ClientPage() {
   const handleSaveBot = async () => {
     if (!profileId && !editingBotId) return;
     setIsLoadingBots(true);
+    setBotNameError(null);
     try {
       const apiKey = localStorage.getItem("defaultApiKey") ?? "";
+      const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || "https://api.clawdface.ai").replace(/\/$/, "");
 
       const selectedAvatar = avatars.find(a => a.id === config.avatarId);
       const botName = config.botName || (selectedAvatar ? `${selectedAvatar.name}'s Bot` : "My New Bot");
+      
+      // Perform Uniqueness Check
+      // Construct email as name@agent.clawdface.ai
+      const checkEmail = generateAgentEmail(botName);
+      
+      // Only check if it's a new bot OR if the name of an existing bot has changed
+      const isNewName = !editingBotId || (editingAgent && editingAgent.agent_name !== botName);
+      
+      if (isNewName && apiKey) {
+        try {
+          const checkResp = await fetch(`${baseUrl}/v1/agent/email/check?email=${encodeURIComponent(checkEmail)}`, {
+            headers: { "X-API-Key": apiKey }
+          });
+          if (checkResp.ok) {
+            const checkData = await checkResp.json();
+            if (checkData.unique === false) {
+              setBotNameError("This Name is Already Taken. Please choose another name.");
+              setIsLoadingBots(false);
+              return;
+            }
+          }
+        } catch (e) {
+          console.warn("⚠️ Uniqueness check failed, proceeding anyway:", e);
+        }
+      }
       
       let botToUse;
       if (editingBotId) {
@@ -1654,6 +1682,8 @@ function ClientPage() {
                 isSavingBot={isLoadingBots}
                 isEditing={!!editingBotId}
                 licenseInfo={licenseInfo}
+                botNameError={botNameError}
+                setBotNameError={setBotNameError}
                 onCancelEdit={() => {
                   setEditingBotId(null);
                   setEditingAgent(null);
@@ -1880,6 +1910,8 @@ function SessionConfigForm({
   isConnecting?: boolean;
   showConnectButton?: boolean;
   licenseInfo?: ILicenseInfo | null;
+  botNameError?: string | null;
+  setBotNameError?: (err: string | null) => void;
 }) {
   const avatars = useAvatars();
   const selectedAvatar = avatars.find((a) => a.id === config.avatarId);
@@ -1911,7 +1943,7 @@ function SessionConfigForm({
     onConnect(e as any);
   };
 
-  const field = (id: string, label: string, icon: React.ReactNode, placeholder: string, type: string = "text") => (
+  const field = (id: string, label: string, icon: React.ReactNode, placeholder: string, type: string = "text", error: string | null = null) => (
     <div className="flex flex-col gap-1.5">
       <label className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#6b7280] flex items-center gap-1.5">
         <span className="text-[#9ca3af]">{icon}</span>
@@ -1922,10 +1954,21 @@ function SessionConfigForm({
           type={type}
           id={id}
           value={(config as any)[id]}
-          onChange={(e) => setConfig({ ...config, [id]: e.target.value })}
+          onChange={(e) => {
+            if (id === "botName" && setBotNameError) setBotNameError(null);
+            setConfig({ ...config, [id]: e.target.value });
+          }}
           placeholder={placeholder}
-          className="w-full bg-surface border border-[#242424] hover:border-brand/40 rounded-xl py-3 px-4 text-[14px] text-white focus:outline-none focus:border-brand transition-all placeholder:text-[#3a3a3a]"
+          className={`w-full bg-surface border ${error ? "border-red-500/50" : "border-[#242424] hover:border-brand/40"} rounded-xl py-3 px-4 text-[14px] text-white focus:outline-none focus:border-brand transition-all placeholder:text-[#3a3a3a]`}
         />
+        {error && (
+          <p className="mt-1.5 text-[11px] text-red-400 font-medium flex items-center gap-1.5 animate-in fade-in slide-in-from-top-1">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            {error}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -1994,7 +2037,7 @@ function SessionConfigForm({
                 {field("openclawUrl",  "URL",     <LinkIcon />,   "http://localhost:18789")}
                 {field("gatewayToken", "Token",    <KeyIcon />,    "Enter token")}
               </div>
-              {field("botName",      "Agent Name",         <UserIcon />,   "Enter a custom name for this agent")}
+              {field("botName",      "Agent Name",         <UserIcon />,   "Enter a custom name for this agent", "text", botNameError)}
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#6b7280] flex items-center gap-1.5">
