@@ -10,15 +10,9 @@ import datetime
 from dotenv import load_dotenv
 from livekit import agents
 from livekit.agents import Agent, AgentServer, AgentSession, cli, metrics, APIConnectOptions, StopResponse, llm
-from livekit.agents.telemetry import set_tracer_provider
 from livekit.agents.voice import MetricsCollectedEvent
 from livekit.agents.voice.agent_session import SessionConnectOptions
 from livekit.plugins import elevenlabs, openai, trugen, silero, deepgram
-
-# OTEL for Langfuse
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 import time
 import random
@@ -431,25 +425,6 @@ def resolve_config(ctx: agents.JobContext) -> tuple[dict, str]:
     return {}, "unknown"
 
 
-def setup_langfuse(metadata: dict):
-    pub = os.getenv("LANGFUSE_PUBLIC_KEY")
-    sec = os.getenv("LANGFUSE_SECRET_KEY")
-    host = os.getenv("LANGFUSE_HOST") or os.getenv("LANGFUSE_BASE_URL")
-
-    if not all([pub, sec, host]):
-        print("[LANGFUSE] Missing credentials, tracing disabled.")
-        return None
-
-    auth = base64.b64encode(f"{pub}:{sec}".encode()).decode()
-    safe_host = str(host).rstrip("/")
-    os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = f"{safe_host}/api/public/otel"
-    os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = f"Authorization=Basic {auth}"
-
-    tp = TracerProvider()
-    tp.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
-    set_tracer_provider(tp, metadata=metadata)
-    return tp
-
 class MyAgent(Agent):
     def __init__(self, *, groq_llm: llm.LLM | None = None, enable_thinking: bool = True, thinking_delay: float = 3.0, conversation_id: str = "", **kwargs) -> None:
         super().__init__(
@@ -829,20 +804,6 @@ async def my_agent(ctx: agents.JobContext):
     
     logger.info(f"[CONFIG] Thinking: {ENABLE_LET_ME_THINK} | Delay: {THINKING_DELAY}s")
 
-    tp = setup_langfuse({
-        "langfuse.session.id": ctx.room.name,
-        "langfuse.user.id": key,
-        "langfuse.tags": json.dumps(["production", f"source:{connection_type}", f"avatar:{avatar_id}"]),
-        "connection.type": connection_type,
-        "avatar.id": avatar_id,
-        "room.name": ctx.room.name
-    })
-
-    if tp:
-        async def _flush_sync() -> None:
-            tp.force_flush()
-        ctx.add_shutdown_callback(_flush_sync)
-
     import openai as _openai
     llm = openai.LLM(
         model="openclaw",
@@ -896,6 +857,29 @@ async def my_agent(ctx: agents.JobContext):
             preemptive_generation=False
         )
 
+        # ── MAX CALL DURATION ──
+        max_duration_str = config.get("maxCallDuration") or config.get("max_call_duration")
+        try:
+            # Treat value as minutes and convert to seconds for asyncio.sleep
+            MAX_CALL_DURATION = float(max_duration_str) * 60 if max_duration_str else None
+        except (ValueError, TypeError):
+            MAX_CALL_DURATION = None
+
+        async def _shutdown_after_delay(delay: float):
+            await asyncio.sleep(delay)
+            logger.info(f"⏰ [SESSION] Max duration ({delay}s) reached. Shutting down session...")
+            try:
+                # ── ANNOUNCE TO USER ──
+                if agent and agent.session:
+                    await agent.session.say("Maxcall limit reached. Thank you, goodbye!", allow_interruptions=False)
+                    # Give it a few seconds to speak before shutting down
+                    await asyncio.sleep(4)
+                
+                # Signal session shutdown immediately (drain=False for immediate room deletion)
+                session.shutdown(drain=False)
+            except Exception as e:
+                logger.error(f"❌ [SESSION] Failed to shutdown session gracefully: {e}")
+
         @session.on("metrics_collected")
         def _on_metrics_collected(ev: MetricsCollectedEvent):
             metrics.log_metrics(ev.metrics)
@@ -912,10 +896,14 @@ async def my_agent(ctx: agents.JobContext):
         )
 
         if connection_type in ("email_dispatch", "recall") or config.get("recallBotId"):
-            room_opts = RoomOptions(close_on_disconnect=False)
+            room_opts = RoomOptions(
+                close_on_disconnect=False,
+                delete_room_on_close=True,  # Ensure room is deleted even in meeting mode when session ends
+            )
             logger.info("[SESSION] Meeting mode active: close_on_disconnect=False")
         else:
-            room_opts = NOT_GIVEN
+            # Default behavior for non-meeting modes
+            room_opts = RoomOptions(delete_room_on_close=True)
 
         agent = MyAgent(
             llm=llm,
@@ -928,8 +916,17 @@ async def my_agent(ctx: agents.JobContext):
             conversation_id=conversation_id  # Pass conversation_id for transcript tracking
         )
 
-        ctx.add_shutdown_callback(agent._on_shutdown)
+        # ── START SESSION & TIMER ──────────────────────────────────────────
+        # Start the session (non-blocking by default)
         await session.start(agent, room=ctx.room, room_options=room_opts)
+        
+        # Initialize timer immediately after start for accurate duration reporting
+        session_start_time = time.time()
+        if MAX_CALL_DURATION:
+            logger.info(f"⏰ [CONFIG] Starting {MAX_CALL_DURATION}s countdown.")
+            asyncio.create_task(_shutdown_after_delay(MAX_CALL_DURATION))
+
+        # Send greeting
         await agent.session.say("Hello! Let's get started.")
         # ── Capture greeting in transcript ──
         await agent._add_to_transcript(
@@ -938,15 +935,12 @@ async def my_agent(ctx: agents.JobContext):
             message_type="message"
         )
 
-        # ── USAGE REPORTING ────────────────────────────────────────────────
-        # We fire the POST as a fully detached asyncio task the moment the
-        # session closes — BEFORE LiveKit's shutdown sequence begins.
-        # This means the HTTP request runs independently and is never subject
-        # to LiveKit's 8-10s process kill window. No shutdown callback needed.
-        session_start_time = time.time()
+        # ── Keep entrypoint alive until session closes ─────────────────────
+        session_closed = asyncio.Event()
 
         @session.on("close")
-        def _on_session_close():
+        def _on_session_close(*args, **kwargs):
+            session_closed.set()
             # Capture references to module-level functions in closure
             _push_transcript = push_transcript_to_s3
             _post_usage = post_backend_usage
@@ -989,6 +983,9 @@ async def my_agent(ctx: agents.JobContext):
 
             # Detached task — runs freely, not tied to shutdown window
             asyncio.ensure_future(_send_usage_and_transcript())
+
+        # Wait for closure event to keep entrypoint alive
+        await session_closed.wait()
 
     except Exception as e:
         error_msg = str(e)
