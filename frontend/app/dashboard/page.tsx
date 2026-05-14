@@ -1683,7 +1683,7 @@ function ClientPage() {
                 isEditing={!!editingBotId}
                 licenseInfo={licenseInfo}
                 botNameError={botNameError}
-                setBotNameError={setBotNameError}
+                onClearBotNameError={() => setBotNameError(null)}
                 onCancelEdit={() => {
                   setEditingBotId(null);
                   setEditingAgent(null);
@@ -1897,6 +1897,8 @@ function SessionConfigForm({
   isConnecting = false,
   showConnectButton = true,
   licenseInfo = null,
+  botNameError = null,
+  onClearBotNameError,
 }: {
   onConnect: (e: React.FormEvent) => void;
   config: any;
@@ -1911,7 +1913,7 @@ function SessionConfigForm({
   showConnectButton?: boolean;
   licenseInfo?: ILicenseInfo | null;
   botNameError?: string | null;
-  setBotNameError?: (err: string | null) => void;
+  onClearBotNameError?: () => void;
 }) {
   const avatars = useAvatars();
   const selectedAvatar = avatars.find((a) => a.id === config.avatarId);
@@ -1955,8 +1957,8 @@ function SessionConfigForm({
           id={id}
           value={(config as any)[id]}
           onChange={(e) => {
-            if (id === "botName" && setBotNameError) setBotNameError(null);
             setConfig({ ...config, [id]: e.target.value });
+            if (id === "botName" && onClearBotNameError) onClearBotNameError();
           }}
           placeholder={placeholder}
           className={`w-full bg-surface border ${error ? "border-red-500/50" : "border-[#242424] hover:border-brand/40"} rounded-xl py-3 px-4 text-[14px] text-white focus:outline-none focus:border-brand transition-all placeholder:text-[#3a3a3a]`}
@@ -2597,7 +2599,6 @@ function ActiveVoiceAssistantView({ onConnectButtonClicked }: { onConnectButtonC
     >
       <main className="flex-1 h-full flex flex-col relative bg-[#000000]">
         <div className="flex-1 flex items-center justify-center p-12">
-          {/* Only render visualizer when truly interactive, to prevent premature waving */}
           {isAgentInteractive && <AgentVisualizer />}
         </div>
         <div className="absolute bottom-12 left-0 right-0 flex justify-center">
@@ -2636,6 +2637,8 @@ function SimpleVoiceAssistant({
   showConnectButton = true,
   isConnecting: isConnectingProp = false,
   licenseInfo = null,
+  botNameError = null,
+  onClearBotNameError,
 }: {
   onConnectButtonClicked: () => void;
   config: typeof DEFAULTS;
@@ -2649,6 +2652,8 @@ function SimpleVoiceAssistant({
   showConnectButton?: boolean;
   isConnecting?: boolean;
   licenseInfo?: ILicenseInfo | null;
+  botNameError?: string | null;
+  onClearBotNameError?: () => void;
 }) {
   const { state: agentState } = useVoiceAssistant();
   const [internalIsConnecting, setInternalIsConnecting] = useState(false);
@@ -2682,6 +2687,8 @@ function SimpleVoiceAssistant({
             bots={bots}
             showConnectButton={showConnectButton}
             licenseInfo={licenseInfo}
+            botNameError={botNameError}
+            onClearBotNameError={onClearBotNameError}
           />
         ) : (
           <ActiveVoiceAssistantView 

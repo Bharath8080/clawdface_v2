@@ -873,7 +873,7 @@ async def my_agent(ctx: agents.JobContext):
                 if agent and agent.session:
                     await agent.session.say("Maxcall limit reached. Thank you, goodbye!", allow_interruptions=False)
                     # Give it a few seconds to speak before shutting down
-                    await asyncio.sleep(4)
+                    await asyncio.sleep(2)
                 
                 # Signal session shutdown immediately (drain=False for immediate room deletion)
                 session.shutdown(drain=False)
