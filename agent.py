@@ -218,11 +218,12 @@ def push_transcript_to_s3(transcript_data: list, conversation_id: str):
 # RECALL.AI STT — connects to relay with room_id in URL
 # ---------------------------------------------------------------------------
 class RecallAIDirectSTT(stt.STT):
-    def __init__(self, ctx: agents.JobContext, recall_bot_id: str = "", room_id: str = ""):
+    def __init__(self, ctx: agents.JobContext, recall_bot_id: str = "", room_id: str = "", bot_name: str = ""):
         super().__init__(capabilities=stt.STTCapabilities(streaming=True, interim_results=True))
         self._ctx = ctx
         self._recall_bot_id = recall_bot_id
         self._room_id = room_id  # ← LiveKit room name, used in relay URL
+        self._bot_name = bot_name  # ← Agent display name in the meeting (for echo suppression)
 
     @property
     def provider(self) -> str: return "recall-ai-direct"
@@ -238,16 +239,19 @@ class RecallAIDirectSTT(stt.STT):
             ctx=self._ctx,
             recall_bot_id=self._recall_bot_id,
             room_id=self._room_id,
+            bot_name=self._bot_name,
         )
 
 
 class RecallSpeechStream(stt.SpeechStream):
     def __init__(self, *, stt: RecallAIDirectSTT, conn_options: APIConnectOptions,
-                 ctx: agents.JobContext, recall_bot_id: str = "", room_id: str = "") -> None:
+                 ctx: agents.JobContext, recall_bot_id: str = "", room_id: str = "", bot_name: str = "") -> None:
         super().__init__(stt=stt, conn_options=conn_options)
         self._ctx = ctx
         self._recall_bot_id = recall_bot_id
         self._room_id = room_id
+        # Normalised bot name used to suppress echo (agent's own TTS captured by meeting bot)
+        self._bot_name_lower = bot_name.strip().lower() if bot_name else ""
         self._speaking = False
 
     def _emit_final(self, text: str):
@@ -337,6 +341,14 @@ class RecallSpeechStream(stt.SpeechStream):
                                 if event == "transcript.data":
                                     participant = inner_data.get("participant", {})
                                     speaker = participant.get("name", "Unknown") if isinstance(participant, dict) else "Unknown"
+                                    # ── ECHO SUPPRESSION ──────────────────────────────────────────
+                                    # Drop any transcript where the speaker is the agent itself.
+                                    # Recall.ai captures ALL meeting audio (including TTS output),
+                                    # so without this filter the agent's own speech gets fed back
+                                    # into the STT pipeline as a "user" message → infinite loop.
+                                    if self._bot_name_lower and speaker.strip().lower() == self._bot_name_lower:
+                                        logger.debug(f"[RECALL] ECHO suppressed | {speaker}: {text[:60]}")
+                                        continue
                                     logger.debug(f"[RECALL] FINAL | {speaker}: {text}")
                                     self._emit_final(f"{speaker}: {text}")
                                 else:
@@ -824,9 +836,12 @@ async def my_agent(ctx: agents.JobContext):
     if connection_type in ("email_dispatch", "recall") or config.get("recallBotId"):
         recall_bot_id = config.get("recallBotId", "") or ""
         livekit_room_id = config.get("roomId") or ctx.room.name
-        logger.info(f"[SESSION] Start: {connection_type} | Mode: RECALL | Bot: {recall_bot_id or 'none'}")
+        # bot_name = the agent's display name inside the meeting (e.g. "3", "Amir").
+        # Used by RecallSpeechStream to drop the agent's own TTS from STT input.
+        recall_bot_name = config.get("botName") or config.get("bot_name") or ""
+        logger.info(f"[SESSION] Start: {connection_type} | Mode: RECALL | Bot: {recall_bot_id or 'none'} | AgentName: {recall_bot_name or 'unset'}")
         logger.info(f"[STT] Meeting mode → RecallAIDirectSTT | room_sid={livekit_room_id}")
-        stt_provider = RecallAIDirectSTT(ctx=ctx, recall_bot_id=recall_bot_id, room_id=livekit_room_id)
+        stt_provider = RecallAIDirectSTT(ctx=ctx, recall_bot_id=recall_bot_id, room_id=livekit_room_id, bot_name=recall_bot_name)
     else:
         logger.info(f"[SESSION] Start: {connection_type} | Mode: STANDARD")
         logger.info(f"[STT] Standard mode → Deepgram STTv2 (Flux)")
@@ -872,8 +887,6 @@ async def my_agent(ctx: agents.JobContext):
                 # ── ANNOUNCE TO USER ──
                 if agent and agent.session:
                     await agent.session.say("Maxcall limit reached. Thank you, goodbye!", allow_interruptions=False)
-                    # Give it a few seconds to speak before shutting down
-                    await asyncio.sleep(2)
                 
                 # Signal session shutdown immediately (drain=False for immediate room deletion)
                 session.shutdown(drain=False)
@@ -948,8 +961,7 @@ async def my_agent(ctx: agents.JobContext):
             async def _send_usage_and_transcript():
                 try:
                     summary = usage_collector.get_summary()
-                    elapsed = time.time() - session_start_time
-                    total_duration = min(elapsed, MAX_CALL_DURATION) if MAX_CALL_DURATION else elapsed
+                    total_duration = time.time() - session_start_time
                     backend_payload = {
                         "conversation_id": conversation_id,
                         "job_id": job_id,
