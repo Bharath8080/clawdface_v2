@@ -10,15 +10,9 @@ import datetime
 from dotenv import load_dotenv
 from livekit import agents
 from livekit.agents import Agent, AgentServer, AgentSession, cli, metrics, APIConnectOptions, StopResponse, llm
-from livekit.agents.telemetry import set_tracer_provider
 from livekit.agents.voice import MetricsCollectedEvent
 from livekit.agents.voice.agent_session import SessionConnectOptions
 from livekit.plugins import elevenlabs, openai, trugen, silero, deepgram
-
-# OTEL for Langfuse
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 import time
 import random
@@ -224,11 +218,12 @@ def push_transcript_to_s3(transcript_data: list, conversation_id: str):
 # RECALL.AI STT — connects to relay with room_id in URL
 # ---------------------------------------------------------------------------
 class RecallAIDirectSTT(stt.STT):
-    def __init__(self, ctx: agents.JobContext, recall_bot_id: str = "", room_id: str = ""):
+    def __init__(self, ctx: agents.JobContext, recall_bot_id: str = "", room_id: str = "", bot_name: str = ""):
         super().__init__(capabilities=stt.STTCapabilities(streaming=True, interim_results=True))
         self._ctx = ctx
         self._recall_bot_id = recall_bot_id
         self._room_id = room_id  # ← LiveKit room name, used in relay URL
+        self._bot_name = bot_name  # ← Agent display name in the meeting (for echo suppression)
 
     @property
     def provider(self) -> str: return "recall-ai-direct"
@@ -244,16 +239,19 @@ class RecallAIDirectSTT(stt.STT):
             ctx=self._ctx,
             recall_bot_id=self._recall_bot_id,
             room_id=self._room_id,
+            bot_name=self._bot_name,
         )
 
 
 class RecallSpeechStream(stt.SpeechStream):
     def __init__(self, *, stt: RecallAIDirectSTT, conn_options: APIConnectOptions,
-                 ctx: agents.JobContext, recall_bot_id: str = "", room_id: str = "") -> None:
+                 ctx: agents.JobContext, recall_bot_id: str = "", room_id: str = "", bot_name: str = "") -> None:
         super().__init__(stt=stt, conn_options=conn_options)
         self._ctx = ctx
         self._recall_bot_id = recall_bot_id
         self._room_id = room_id
+        # Normalised bot name used to suppress echo (agent's own TTS captured by meeting bot)
+        self._bot_name_lower = bot_name.strip().lower() if bot_name else ""
         self._speaking = False
 
     def _emit_final(self, text: str):
@@ -343,6 +341,14 @@ class RecallSpeechStream(stt.SpeechStream):
                                 if event == "transcript.data":
                                     participant = inner_data.get("participant", {})
                                     speaker = participant.get("name", "Unknown") if isinstance(participant, dict) else "Unknown"
+                                    # ── ECHO SUPPRESSION ──────────────────────────────────────────
+                                    # Drop any transcript where the speaker is the agent itself.
+                                    # Recall.ai captures ALL meeting audio (including TTS output),
+                                    # so without this filter the agent's own speech gets fed back
+                                    # into the STT pipeline as a "user" message → infinite loop.
+                                    if self._bot_name_lower and speaker.strip().lower() == self._bot_name_lower:
+                                        logger.debug(f"[RECALL] ECHO suppressed | {speaker}: {text[:60]}")
+                                        continue
                                     logger.debug(f"[RECALL] FINAL | {speaker}: {text}")
                                     self._emit_final(f"{speaker}: {text}")
                                 else:
@@ -430,25 +436,6 @@ def resolve_config(ctx: agents.JobContext) -> tuple[dict, str]:
 
     return {}, "unknown"
 
-
-def setup_langfuse(metadata: dict):
-    pub = os.getenv("LANGFUSE_PUBLIC_KEY")
-    sec = os.getenv("LANGFUSE_SECRET_KEY")
-    host = os.getenv("LANGFUSE_HOST") or os.getenv("LANGFUSE_BASE_URL")
-
-    if not all([pub, sec, host]):
-        print("[LANGFUSE] Missing credentials, tracing disabled.")
-        return None
-
-    auth = base64.b64encode(f"{pub}:{sec}".encode()).decode()
-    safe_host = str(host).rstrip("/")
-    os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = f"{safe_host}/api/public/otel"
-    os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = f"Authorization=Basic {auth}"
-
-    tp = TracerProvider()
-    tp.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
-    set_tracer_provider(tp, metadata=metadata)
-    return tp
 
 class MyAgent(Agent):
     def __init__(self, *, groq_llm: llm.LLM | None = None, enable_thinking: bool = True, thinking_delay: float = 3.0, conversation_id: str = "", **kwargs) -> None:
@@ -829,20 +816,6 @@ async def my_agent(ctx: agents.JobContext):
     
     logger.info(f"[CONFIG] Thinking: {ENABLE_LET_ME_THINK} | Delay: {THINKING_DELAY}s")
 
-    tp = setup_langfuse({
-        "langfuse.session.id": ctx.room.name,
-        "langfuse.user.id": key,
-        "langfuse.tags": json.dumps(["production", f"source:{connection_type}", f"avatar:{avatar_id}"]),
-        "connection.type": connection_type,
-        "avatar.id": avatar_id,
-        "room.name": ctx.room.name
-    })
-
-    if tp:
-        async def _flush_sync() -> None:
-            tp.force_flush()
-        ctx.add_shutdown_callback(_flush_sync)
-
     import openai as _openai
     llm = openai.LLM(
         model="openclaw",
@@ -863,9 +836,12 @@ async def my_agent(ctx: agents.JobContext):
     if connection_type in ("email_dispatch", "recall") or config.get("recallBotId"):
         recall_bot_id = config.get("recallBotId", "") or ""
         livekit_room_id = config.get("roomId") or ctx.room.name
-        logger.info(f"[SESSION] Start: {connection_type} | Mode: RECALL | Bot: {recall_bot_id or 'none'}")
+        # bot_name = the agent's display name inside the meeting (e.g. "3", "Amir").
+        # Used by RecallSpeechStream to drop the agent's own TTS from STT input.
+        recall_bot_name = config.get("botName") or config.get("bot_name") or ""
+        logger.info(f"[SESSION] Start: {connection_type} | Mode: RECALL | Bot: {recall_bot_id or 'none'} | AgentName: {recall_bot_name or 'unset'}")
         logger.info(f"[STT] Meeting mode → RecallAIDirectSTT | room_sid={livekit_room_id}")
-        stt_provider = RecallAIDirectSTT(ctx=ctx, recall_bot_id=recall_bot_id, room_id=livekit_room_id)
+        stt_provider = RecallAIDirectSTT(ctx=ctx, recall_bot_id=recall_bot_id, room_id=livekit_room_id, bot_name=recall_bot_name)
     else:
         logger.info(f"[SESSION] Start: {connection_type} | Mode: STANDARD")
         logger.info(f"[STT] Standard mode → Deepgram STTv2 (Flux)")
@@ -896,6 +872,27 @@ async def my_agent(ctx: agents.JobContext):
             preemptive_generation=False
         )
 
+        # ── MAX CALL DURATION ──
+        max_duration_str = config.get("maxCallDuration") or config.get("max_call_duration")
+        try:
+            # Treat value as minutes and convert to seconds for asyncio.sleep
+            MAX_CALL_DURATION = float(max_duration_str) * 60 if max_duration_str else None
+        except (ValueError, TypeError):
+            MAX_CALL_DURATION = None
+
+        async def _shutdown_after_delay(delay: float):
+            await asyncio.sleep(delay)
+            logger.info(f"⏰ [SESSION] Max duration ({delay}s) reached. Shutting down session...")
+            try:
+                # ── ANNOUNCE TO USER ──
+                if agent and agent.session:
+                    await agent.session.say("Maxcall limit reached. Thank you, goodbye!", allow_interruptions=False)
+                
+                # Signal session shutdown immediately (drain=False for immediate room deletion)
+                session.shutdown(drain=False)
+            except Exception as e:
+                logger.error(f"❌ [SESSION] Failed to shutdown session gracefully: {e}")
+
         @session.on("metrics_collected")
         def _on_metrics_collected(ev: MetricsCollectedEvent):
             metrics.log_metrics(ev.metrics)
@@ -912,10 +909,14 @@ async def my_agent(ctx: agents.JobContext):
         )
 
         if connection_type in ("email_dispatch", "recall") or config.get("recallBotId"):
-            room_opts = RoomOptions(close_on_disconnect=False)
+            room_opts = RoomOptions(
+                close_on_disconnect=False,
+                delete_room_on_close=True,  # Ensure room is deleted even in meeting mode when session ends
+            )
             logger.info("[SESSION] Meeting mode active: close_on_disconnect=False")
         else:
-            room_opts = NOT_GIVEN
+            # Default behavior for non-meeting modes
+            room_opts = RoomOptions(delete_room_on_close=True)
 
         agent = MyAgent(
             llm=llm,
@@ -928,8 +929,17 @@ async def my_agent(ctx: agents.JobContext):
             conversation_id=conversation_id  # Pass conversation_id for transcript tracking
         )
 
-        ctx.add_shutdown_callback(agent._on_shutdown)
+        # ── START SESSION & TIMER ──────────────────────────────────────────
+        # Start the session (non-blocking by default)
         await session.start(agent, room=ctx.room, room_options=room_opts)
+        
+        # Initialize timer immediately after start for accurate duration reporting
+        session_start_time = time.time()
+        if MAX_CALL_DURATION:
+            logger.info(f"⏰ [CONFIG] Starting {MAX_CALL_DURATION}s countdown.")
+            asyncio.create_task(_shutdown_after_delay(MAX_CALL_DURATION))
+
+        # Send greeting
         await agent.session.say("Hello! Let's get started.")
         # ── Capture greeting in transcript ──
         await agent._add_to_transcript(
@@ -938,15 +948,12 @@ async def my_agent(ctx: agents.JobContext):
             message_type="message"
         )
 
-        # ── USAGE REPORTING ────────────────────────────────────────────────
-        # We fire the POST as a fully detached asyncio task the moment the
-        # session closes — BEFORE LiveKit's shutdown sequence begins.
-        # This means the HTTP request runs independently and is never subject
-        # to LiveKit's 8-10s process kill window. No shutdown callback needed.
-        session_start_time = time.time()
+        # ── Keep entrypoint alive until session closes ─────────────────────
+        session_closed = asyncio.Event()
 
         @session.on("close")
-        def _on_session_close():
+        def _on_session_close(*args, **kwargs):
+            session_closed.set()
             # Capture references to module-level functions in closure
             _push_transcript = push_transcript_to_s3
             _post_usage = post_backend_usage
@@ -989,6 +996,9 @@ async def my_agent(ctx: agents.JobContext):
 
             # Detached task — runs freely, not tied to shutdown window
             asyncio.ensure_future(_send_usage_and_transcript())
+
+        # Wait for closure event to keep entrypoint alive
+        await session_closed.wait()
 
     except Exception as e:
         error_msg = str(e)

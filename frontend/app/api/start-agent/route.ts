@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     const sessionKey = generateSessionKey();
     const isExternalMeeting = !!meetingUrl;
 
-    const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://qaapi.clawdface.ai';
+    const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://api.clawdface.ai';
 
     const conversationRes = await fetch(`${BACKEND_BASE_URL}/v1/public/conversation/byemail`, {
       method: 'POST',

@@ -29,6 +29,7 @@ export async function GET(req: Request) {
     thinking_delay:  searchParams.get("thinking_delay") || searchParams.get("thinkingDelay") || undefined,
     conversation_id: searchParams.get("conversation_id") || searchParams.get("conversationId") || undefined,
     user_email:      searchParams.get("user_email") || searchParams.get("userEmail") || undefined,
+    maxCallDuration: searchParams.get("maxCallDuration") || undefined,
   };
   return handleConnection(config);
 }
@@ -51,6 +52,7 @@ async function handleConnection(config: {
   thinking_delay?: string;
   conversation_id?: string;
   user_email?: string;
+  maxCallDuration?: string;
 }) {
   try {
     if (!LIVEKIT_URL) throw new Error("LIVEKIT_URL is not defined");
@@ -72,6 +74,7 @@ async function handleConnection(config: {
       thinking_delay:  config.thinking_delay  || "5.0",
       conversation_id: config.conversation_id || "",
       user_email:      config.user_email      || "",
+      maxCallDuration: config.maxCallDuration || "",
       job_id:          "",
     });
 
@@ -90,6 +93,7 @@ async function handleConnection(config: {
       connection_type: config.connection_type || "website",
       conversation_id: config.conversation_id || "",
       user_email:      config.user_email      || "",
+      maxCallDuration: config.maxCallDuration || "",
       job_id:          "",
     });
 
