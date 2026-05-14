@@ -1,12 +1,6 @@
 import { NextResponse } from 'next/server';
 import { RoomServiceClient, AgentDispatchClient } from 'livekit-server-sdk';
 
-function generateRoomId(): string {
-  const now = new Date();
-  const format = now.toISOString().slice(0, 19).replace(/:/g, '-');
-  return `room-${format}`;
-}
-
 function generateSessionKey(): string {
   const now = new Date();
   const format = now.toISOString().slice(0, 19).replace(/:/g, '-');
@@ -29,11 +23,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing email' }, { status: 400 });
     }
 
-    const roomName   = requestedRoomId || generateRoomId();
+    if (!requestedRoomId) {
+      return NextResponse.json({ error: 'Missing roomId' }, { status: 400 });
+    }
+
+    const roomName   = requestedRoomId;
     const sessionKey = generateSessionKey();
     const isExternalMeeting = !!meetingUrl;
 
-    const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://qaapi.clawdface.ai';
+    const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://api.clawdface.ai';
 
     const conversationRes = await fetch(`${BACKEND_BASE_URL}/v1/public/conversation/byemail`, {
       method: 'POST',

@@ -550,8 +550,8 @@ type ExtractedParts struct {
 
 // parses the DTSTART line directly from the ICS/email content and converts it to UTC using known timezone offsets
 func extractUTCFromICS(content string, field ...string) (string, bool) {
-	targetField :="DTSTART"
-	if len(field)> 0 && field[0] != ""{
+	targetField := "DTSTART"
+	if len(field) > 0 && field[0] != "" {
 		targetField = field[0]
 	}
 	// timezone offset map
@@ -1101,9 +1101,9 @@ func PostAvatarRequest(inboxID string, lkRoomID string, meetingUrl string, from 
 	if frontendURL == "" {
 		// Smart fallback logic to determine the frontend environment
 		if strings.Contains(os.Getenv("API_URL"), "qa") {
-			frontendURL = "https://qaapi.clawdface.ai"
+			frontendURL = "https://qaapp.clawdface.ai"
 		} else if strings.Contains(os.Getenv("API_URL"), "api.aws") {
-			frontendURL = "https://api.clawdface.ai"
+			frontendURL = "https://app.clawdface.ai"
 		} else if strings.Contains(os.Getenv("RAG_API_URL"), "172.31") {
 			frontendURL = "http://172.31.5.45:3077"
 		} else {
@@ -1115,7 +1115,7 @@ func PostAvatarRequest(inboxID string, lkRoomID string, meetingUrl string, from 
 	frontendURL = strings.TrimRight(frontendURL, "/")
 
 	apiURL := frontendURL + "/api/start-agent"
-	
+
 	payload := map[string]string{
 		"email":      inboxID,
 		"meetingUrl": meetingUrl,
@@ -1911,7 +1911,7 @@ func HandleAWSLLM(w http.ResponseWriter, r *http.Request) {
 							continue
 						}
 						// Only advance if nextRun is actually after the currently scheduled StartTime
-						// This prevents moving a future series (e.g. starting in June) backward 
+						// This prevents moving a future series (e.g. starting in June) backward
 						// just because an earlier occurrence was cancelled.
 						if currentST, err := time.Parse(time.RFC3339, j.StartTime); err == nil {
 							if nextRun.Before(currentST) || nextRun.Equal(currentST) {
@@ -1934,7 +1934,7 @@ func HandleAWSLLM(w http.ResponseWriter, r *http.Request) {
 								}
 							}
 							scheduleMu.Unlock()
-							
+
 							// If we skipped the current/upcoming occurrence, also remove any pending bootstrap OneTime job.
 							Scheduler.RemoveByTags(j.ID + ":bootstrap")
 							logWithTrace(ctx, "[HandleAWSLLM] Single-occurrence cancel: processed bootstrap job removal for %s", j.ID)
@@ -2001,71 +2001,71 @@ func HandleAWSLLM(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-    // Handle single-occurrence update (RecurrenceID present)
-    if ev.RecurrenceID != "" {
-        // Parse the new start time
-        newStart, err := time.Parse(time.RFC3339, ev.StartTimeUTC)
-        if err != nil {
-            logWithTrace(ctx, "[HandleAWSLLM] UPDATE: invalid start_time %q", ev.StartTimeUTC)
-            w.WriteHeader(http.StatusBadRequest)
-            _ = json.NewEncoder(w).Encode(map[string]string{"status": "error", "reason": "invalid_start_time"})
-            return
-        }
-        if newStart.After(time.Now().UTC()) {
-            // Schedule a one-time job for this specific occurrence
-            logWithTrace(ctx, "[HandleAWSLLM] UPDATE: scheduling future occurrence for RecurrenceID %q", ev.RecurrenceID)
-            // Proceed to cancel previous one-time jobs but KEEP the series job
-        } else {
-            // Occurrence is in the past; no need to schedule a new job.
-            logWithTrace(ctx, "[HandleAWSLLM] UPDATE: occurrence %q is in the past – no reschedule", ev.RecurrenceID)
-            w.WriteHeader(http.StatusOK)
-            _ = json.NewEncoder(w).Encode(map[string]string{"status": "no_action", "reason": "occurrence_in_past"})
-            return
-        }
-    } else {
-        // Full series or one-time job update (no RecurrenceID)
-        // Parse the new start time to decide if we should reschedule
-        newStart, parseErr := time.Parse(time.RFC3339, ev.StartTimeUTC)
-        if parseErr == nil && newStart.Before(time.Now().UTC()) && ev.RRule == "" && ev.Cron == "" {
-            logWithTrace(ctx, "[HandleAWSLLM] UPDATE: start_time %q is in the past for a non-recurring event — no reschedule", ev.StartTimeUTC)
-            w.WriteHeader(http.StatusOK)
-            _ = json.NewEncoder(w).Encode(map[string]string{"status": "no_action", "reason": "start_time_in_past"})
-            return
-        }
-    }
+		// Handle single-occurrence update (RecurrenceID present)
+		if ev.RecurrenceID != "" {
+			// Parse the new start time
+			newStart, err := time.Parse(time.RFC3339, ev.StartTimeUTC)
+			if err != nil {
+				logWithTrace(ctx, "[HandleAWSLLM] UPDATE: invalid start_time %q", ev.StartTimeUTC)
+				w.WriteHeader(http.StatusBadRequest)
+				_ = json.NewEncoder(w).Encode(map[string]string{"status": "error", "reason": "invalid_start_time"})
+				return
+			}
+			if newStart.After(time.Now().UTC()) {
+				// Schedule a one-time job for this specific occurrence
+				logWithTrace(ctx, "[HandleAWSLLM] UPDATE: scheduling future occurrence for RecurrenceID %q", ev.RecurrenceID)
+				// Proceed to cancel previous one-time jobs but KEEP the series job
+			} else {
+				// Occurrence is in the past; no need to schedule a new job.
+				logWithTrace(ctx, "[HandleAWSLLM] UPDATE: occurrence %q is in the past – no reschedule", ev.RecurrenceID)
+				w.WriteHeader(http.StatusOK)
+				_ = json.NewEncoder(w).Encode(map[string]string{"status": "no_action", "reason": "occurrence_in_past"})
+				return
+			}
+		} else {
+			// Full series or one-time job update (no RecurrenceID)
+			// Parse the new start time to decide if we should reschedule
+			newStart, parseErr := time.Parse(time.RFC3339, ev.StartTimeUTC)
+			if parseErr == nil && newStart.Before(time.Now().UTC()) && ev.RRule == "" && ev.Cron == "" {
+				logWithTrace(ctx, "[HandleAWSLLM] UPDATE: start_time %q is in the past for a non-recurring event — no reschedule", ev.StartTimeUTC)
+				w.WriteHeader(http.StatusOK)
+				_ = json.NewEncoder(w).Encode(map[string]string{"status": "no_action", "reason": "start_time_in_past"})
+				return
+			}
+		}
 
-    // Cancel existing job for this meeting, then fall through to re-schedule below
-    existing, err := GetAllJobsFromDB([]string{})
-    if err != nil {
-        logWithTrace(ctx, "[HandleAWSLLM] Update: DB error: %v", err)
-        http.Error(w, "db error", http.StatusInternalServerError)
-        return
-    }
-    for _, j := range existing {
-        matchByUID := ev.UID != "" && j.UID == ev.UID
-        matchByURL := ev.MeetingLink != "" && j.MeetingURL == ev.MeetingLink
-        if (matchByUID || matchByURL) && (j.Status == "scheduled" || j.Status == "" || j.Status == "processing" || j.Status == "retrying") {
-            // CRITICAL: If this is a single occurrence update, do NOT cancel the series job
-            if ev.RecurrenceID != "" && j.Cron != "" {
-                logWithTrace(ctx, "[HandleAWSLLM] Update: keeping series job %s while updating occurrence %q", j.ID, ev.RecurrenceID)
-                continue
-            }
+		// Cancel existing job for this meeting, then fall through to re-schedule below
+		existing, err := GetAllJobsFromDB([]string{})
+		if err != nil {
+			logWithTrace(ctx, "[HandleAWSLLM] Update: DB error: %v", err)
+			http.Error(w, "db error", http.StatusInternalServerError)
+			return
+		}
+		for _, j := range existing {
+			matchByUID := ev.UID != "" && j.UID == ev.UID
+			matchByURL := ev.MeetingLink != "" && j.MeetingURL == ev.MeetingLink
+			if (matchByUID || matchByURL) && (j.Status == "scheduled" || j.Status == "" || j.Status == "processing" || j.Status == "retrying") {
+				// CRITICAL: If this is a single occurrence update, do NOT cancel the series job
+				if ev.RecurrenceID != "" && j.Cron != "" {
+					logWithTrace(ctx, "[HandleAWSLLM] Update: keeping series job %s while updating occurrence %q", j.ID, ev.RecurrenceID)
+					continue
+				}
 
-            if matchByUID {
-                logWithTrace(ctx, "[HandleAWSLLM] Update: matched old job %s by UID=%q", j.ID, ev.UID)
-            } else {
-                logWithTrace(ctx, "[HandleAWSLLM] Update: matched old job %s by URL=%q", j.ID, j.MeetingURL)
-            }
-            if jobUUID, err := uuid.Parse(j.ID); err == nil {
-                Scheduler.RemoveJob(jobUUID)
-                cancelCronJobIfExists(j.ID)
-            }
-            ScheduledJobs = RemoveScheduleJob(ScheduledJobs, j.ID)
-            UpdateJobStatusInDB(j.ID, "superseded")
-            logWithTrace(ctx, "[HandleAWSLLM] Update: cancelled old job %s (will reschedule at new time)", j.ID)
-        }
-    }
-    logWithTrace(ctx, "[HandleAWSLLM] Update: old job removal complete, rescheduling at new start time %q", ev.StartTimeUTC)
+				if matchByUID {
+					logWithTrace(ctx, "[HandleAWSLLM] Update: matched old job %s by UID=%q", j.ID, ev.UID)
+				} else {
+					logWithTrace(ctx, "[HandleAWSLLM] Update: matched old job %s by URL=%q", j.ID, j.MeetingURL)
+				}
+				if jobUUID, err := uuid.Parse(j.ID); err == nil {
+					Scheduler.RemoveJob(jobUUID)
+					cancelCronJobIfExists(j.ID)
+				}
+				ScheduledJobs = RemoveScheduleJob(ScheduledJobs, j.ID)
+				UpdateJobStatusInDB(j.ID, "superseded")
+				logWithTrace(ctx, "[HandleAWSLLM] Update: cancelled old job %s (will reschedule at new time)", j.ID)
+			}
+		}
+		logWithTrace(ctx, "[HandleAWSLLM] Update: old job removal complete, rescheduling at new start time %q", ev.StartTimeUTC)
 	}
 
 	if ev.EventType == "none" {
@@ -2319,7 +2319,7 @@ func HandleAWSLLM(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to schedule job", http.StatusInternalServerError)
 		return
 	}
-	// CRITICAL: Stop overwriting job.ID with gocron's ID. 
+	// CRITICAL: Stop overwriting job.ID with gocron's ID.
 	// The internal UUID generated above must be used for consistency in DB and Registry.
 	logWithTrace(ctx, "[HandleAWSLLM] Job scheduled successfully id=%s", job.ID)
 
