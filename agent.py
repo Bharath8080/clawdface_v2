@@ -948,7 +948,8 @@ async def my_agent(ctx: agents.JobContext):
             async def _send_usage_and_transcript():
                 try:
                     summary = usage_collector.get_summary()
-                    total_duration = time.time() - session_start_time
+                    elapsed = time.time() - session_start_time
+                    total_duration = min(elapsed, MAX_CALL_DURATION) if MAX_CALL_DURATION else elapsed
                     backend_payload = {
                         "conversation_id": conversation_id,
                         "job_id": job_id,
