@@ -84,7 +84,7 @@ export const useAvatars = () => useContext(AvatarsContext);
 // ─── Error Toast ────────────────────────────────────────────────────────────
 function ErrorToast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
   useEffect(() => {
-    const t = setTimeout(onDismiss, 6000);
+    const t = setTimeout(onDismiss, 3000);
     return () => clearTimeout(t);
   }, [message, onDismiss]);
 
@@ -1466,8 +1466,61 @@ function ClientPage() {
       const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || "https://api.clawdface.ai").replace(/\/$/, "");
 
       const selectedAvatar = avatars.find(a => a.id === config.avatarId);
-      const botName = config.botName || (selectedAvatar ? `${selectedAvatar.name}'s Bot` : "My New Bot");
       
+      // ─── Required Fields Validation ──────────────────────────────────────
+      if (!config.openclawUrl?.trim()) {
+        setApiError("URL is required.");
+        setIsLoadingBots(false);
+        return;
+      }
+      if (!config.gatewayToken?.trim()) {
+        setApiError("Token is required.");
+        setIsLoadingBots(false);
+        return;
+      }
+      if (!config.botName?.trim()) {
+        setBotNameError("Agent Name is required. Please enter a custom name for this agent.");
+        setIsLoadingBots(false);
+        return;
+      }
+      if (!config.avatarId?.trim()) {
+        setApiError("Avatar is required. Please select an avatar.");
+        setIsLoadingBots(false);
+        return;
+      }
+      // ──────────────────────────────────────────────────────────────────
+
+      const botName = config.botName.trim();
+      
+      // ─── Bot Name Validation ───────────────────────────────────────────
+      const trimmedName = botName;
+
+      // Rule 1: Reject if ONLY numbers (no letters at all)
+      const onlyNumbersRegex = /^\d+$/;
+      if (onlyNumbersRegex.test(trimmedName)) {
+        setBotNameError("Agent name cannot be numbers only. Please include at least one letter.");
+        setIsLoadingBots(false);
+        return;
+      }
+
+      // Rule 2: Reject if contains ANY special characters
+      // Allowed: letters (a-z, A-Z), numbers (0-9), spaces, hyphens, underscores
+      const specialCharRegex = /[^a-zA-Z0-9\s\-_]/;
+      if (specialCharRegex.test(trimmedName)) {
+        setBotNameError("Agent name cannot contain special characters. Only letters, numbers, spaces, hyphens and underscores are allowed.");
+        setIsLoadingBots(false);
+        return;
+      }
+
+      // Rule 3: Must contain at least one letter (catches edge cases like "---", "___", "   ")
+      const hasLetterRegex = /[a-zA-Z]/;
+      if (!hasLetterRegex.test(trimmedName)) {
+        setBotNameError("Agent name must contain at least one letter.");
+        setIsLoadingBots(false);
+        return;
+      }
+      // ──────────────────────────────────────────────────────────────────
+
       // Perform Uniqueness Check
       // Construct email as name@agent.clawdface.ai
       const checkEmail = generateAgentEmail(botName);
@@ -2275,7 +2328,7 @@ function SessionConfigForm({
 
                 <button
                   onClick={onSaveAsBot}
-                  disabled={isSavingBot || !config.openclawUrl}
+                  disabled={isSavingBot}
                   className="w-full py-3 bg-white/[0.03] hover:bg-white/[0.08] disabled:opacity-40 text-white/90 font-semibold rounded-xl transition-all border border-white/5 hover:border-white/10 text-[14px] flex items-center justify-center gap-2 shadow-sm"
                 >
                   {isSavingBot ? (
