@@ -101,6 +101,9 @@ export async function POST(request: Request) {
       conversation_id: conversationId,
       user_email:      email,
       connection_type: isExternalMeeting ? 'email_dispatch' : 'website',
+      max_call_duration: agentData.max_call_duration,
+      thinking_delay:    agentData.thinking_delay,
+      thinking_enabled:  agentData.thinking_enabled,
     });
 
     await dispatchClient.createDispatch(roomName, 'clawdface', { metadata });
@@ -130,6 +133,9 @@ export async function POST(request: Request) {
       roomName,
       sessionKey,
       conversationId,
+      max_call_duration: agentData.max_call_duration,
+      thinking_delay:    agentData.thinking_delay,
+      thinking_enabled:  agentData.thinking_enabled,
     });
 
   } catch (error: unknown) {
