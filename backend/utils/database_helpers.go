@@ -511,6 +511,9 @@ type Agent struct {
 	ConnectionType     string          `json:"connection_type"`
 	AvatarId           string          `json:"avatarId"`
 	ConversationId     string          `json:"conversation_id"`
+	MaxCallDuration    int             `json:"max_call_duration"`
+	ThinkingDelay      float64         `json:"thinking_delay"`
+	ThinkingEnabled    bool            `json:"thinking_enabled"`
 }
 
 // Actions
@@ -10684,6 +10687,8 @@ func HandleConversationCreation(
 
 	selectedAgent.GatewayToken = agentConfig["gateway_token"].(string)
 	selectedAgent.OpenClawURL = agentConfig["openclaw_url"].(string)
+	selectedAgent.ThinkingDelay = agentConfig["thinking_delay"].(float64)
+	selectedAgent.ThinkingEnabled = agentConfig["thinking_enabled"].(bool)
 
 	// MCP
 	mcpRows, mcperr := tx.Query(`
@@ -10792,6 +10797,8 @@ func HandleConversationCreation(
 
 	delay := time.Duration(maxCallDuration+5) * time.Minute
 	ScheduleOneTimeResetCreditJob(delay, conversationId)
+
+	selectedAgent.MaxCallDuration = maxCallDuration
 
 	if mode != "" {
 		selectedAgent.Mode = mode

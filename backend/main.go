@@ -829,15 +829,18 @@ func main() {
 				})
 
 				response := types.StartConversationResponse{
-					ConversationId: conversationId,
-					URL:            url,
-					LivekitURL:     configs.GetEnv("LIVEKIT_URL"),
-					Token:          token,
-					ImageURL:       agent.AvatarImageURL,
-					Name:           agent.AvatarName,
-					ID:             agent.AvatarID,
-					OpenClawURL:    agent.OpenClawURL,
-					GatewayToken:   agent.GatewayToken,
+					ConversationId:  conversationId,
+					URL:             url,
+					LivekitURL:      configs.GetEnv("LIVEKIT_URL"),
+					Token:           token,
+					ImageURL:        agent.AvatarImageURL,
+					Name:            agent.AvatarName,
+					ID:              agent.AvatarID,
+					OpenClawURL:     agent.OpenClawURL,
+					GatewayToken:    agent.GatewayToken,
+					MaxCallDuration: agent.MaxCallDuration,
+					ThinkingDelay:   agent.ThinkingDelay,
+					ThinkingEnabled: agent.ThinkingEnabled,
 				}
 
 				w.Header().Set("Content-Type", "application/json")
@@ -868,13 +871,16 @@ func main() {
 				}
 
 				response := types.StartConversationResponse{
-					ConversationId: conversationId,
-					URL:            url,
-					OpenClawURL:    agent.OpenClawURL,
-					GatewayToken:   agent.GatewayToken,
-					ImageURL:       agent.AvatarImageURL,
-					Name:           agent.AvatarName,
-					ID:             agent.AvatarID,
+					ConversationId:  conversationId,
+					URL:             url,
+					OpenClawURL:     agent.OpenClawURL,
+					GatewayToken:    agent.GatewayToken,
+					ImageURL:        agent.AvatarImageURL,
+					Name:            agent.AvatarName,
+					ID:              agent.AvatarID,
+					MaxCallDuration: agent.MaxCallDuration,
+					ThinkingDelay:   agent.ThinkingDelay,
+					ThinkingEnabled: agent.ThinkingEnabled,
 				}
 
 				w.Header().Set("Content-Type", "application/json")
