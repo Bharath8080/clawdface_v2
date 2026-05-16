@@ -68,7 +68,7 @@ EMAIL_BOT_AVATAR_MAP = {
 MALE_AVATAR_IDS = {
     "182b03e8", "05a001fc", "be5b2ce0", "03ae0187",
     "1fa504ff", "0f160301", "13550375", "18c4043e", "48d778c9",
-    "60a0926a", "5daa73d5", "2b130585"
+    "60a0926a", "5daa73d5", "2b130585", "80b9095f"
 }
 
 FRONTEND_URLS = [
@@ -331,29 +331,48 @@ class RecallSpeechStream(stt.SpeechStream):
                             if isinstance(inner_data, dict) and "data" in inner_data:
                                 inner_data = inner_data.get("data", {})
 
+                            # Extract speaker upfront — used for both final and partial checks
+                            participant = inner_data.get("participant", {}) if isinstance(inner_data, dict) else {}
+                            speaker = participant.get("name", "").strip() if isinstance(participant, dict) else ""
+
                             words = inner_data.get("words", []) if isinstance(inner_data, dict) else []
                             text = " ".join(
                                 w.get("text", "") for w in words
                                 if isinstance(w, dict) and w.get("text")
                             ).strip()
 
-                            if text:
-                                if event == "transcript.data":
-                                    participant = inner_data.get("participant", {})
-                                    speaker = participant.get("name", "Unknown") if isinstance(participant, dict) else "Unknown"
-                                    # ── ECHO SUPPRESSION ──────────────────────────────────────────
-                                    # Drop any transcript where the speaker is the agent itself.
-                                    # Recall.ai captures ALL meeting audio (including TTS output),
-                                    # so without this filter the agent's own speech gets fed back
-                                    # into the STT pipeline as a "user" message → infinite loop.
-                                    if self._bot_name_lower and speaker.strip().lower() == self._bot_name_lower:
-                                        logger.debug(f"[RECALL] ECHO suppressed | {speaker}: {text[:60]}")
+                            if not text:
+                                continue
+
+                            # ── SPEAKER IDENTITY CHECKS ──────────────────────────────────────
+                            # 1. Drop events with no speaker name — likely echo or system noise
+                            if not speaker:
+                                logger.debug(f"[RECALL] Skipping: empty speaker name, text_len={len(text)}")
+                                continue
+
+                            # 2. Echo suppression — Phase 1: string-based bot names only.
+                            #    If bot_name has letters (e.g. "Amir"), match and drop.
+                            #    Purely numeric names (e.g. "4") are skipped until Phase 2.
+                            bot_name = self._bot_name_lower
+                            if bot_name:
+                                if any(c.isalpha() for c in bot_name):
+                                    if speaker.lower() == bot_name:
+                                        logger.info(f"[RECALL] ECHO suppressed | speaker={speaker!r} text={text[:60]!r}")
                                         continue
-                                    logger.debug(f"[RECALL] FINAL | {speaker}: {text}")
-                                    self._emit_final(f"{speaker}: {text}")
                                 else:
-                                    logger.debug(f"[RECALL] PARTIAL: {text}")
-                                    self._emit_interim(text)
+                                    logger.warning(
+                                        f"[RECALL] bot_name={bot_name!r} is numeric — "
+                                        f"echo suppression skipped (Phase 2). speaker={speaker!r}"
+                                    )
+                            else:
+                                logger.warning("[RECALL] bot_name not set — echo suppression inactive. Set botName in agent config.")
+
+                            if event == "transcript.data":
+                                logger.info(f"[RECALL] FINAL | speaker={speaker!r} text={text!r}")
+                                self._emit_final(f"{speaker}: {text}")
+                            else:
+                                logger.debug(f"[RECALL] PARTIAL | speaker={speaker!r} text={text!r}")
+                                self._emit_interim(text)
 
                         elif event == "participant_events.join":
                             participant = msg.get("data", {}).get("data", {}).get("participant", {})
@@ -838,7 +857,7 @@ async def my_agent(ctx: agents.JobContext):
         livekit_room_id = config.get("roomId") or ctx.room.name
         # bot_name = the agent's display name inside the meeting (e.g. "3", "Amir").
         # Used by RecallSpeechStream to drop the agent's own TTS from STT input.
-        recall_bot_name = config.get("botName") or config.get("bot_name") or ""
+        recall_bot_name = config.get("botName") or config.get("bot_name") or config.get("name") or ""
         logger.info(f"[SESSION] Start: {connection_type} | Mode: RECALL | Bot: {recall_bot_id or 'none'} | AgentName: {recall_bot_name or 'unset'}")
         logger.info(f"[STT] Meeting mode → RecallAIDirectSTT | room_sid={livekit_room_id}")
         stt_provider = RecallAIDirectSTT(ctx=ctx, recall_bot_id=recall_bot_id, room_id=livekit_room_id, bot_name=recall_bot_name)
@@ -881,12 +900,20 @@ async def my_agent(ctx: agents.JobContext):
             MAX_CALL_DURATION = None
 
         async def _shutdown_after_delay(delay: float):
+            nonlocal session_end_time
             await asyncio.sleep(delay)
+            session_end_time = time.time()  # Snapshot BEFORE goodbye TTS overhead
             logger.info(f"⏰ [SESSION] Max duration ({delay}s) reached. Shutting down session...")
             try:
                 # ── ANNOUNCE TO USER ──
                 if agent and agent.session:
-                    await agent.session.say("Maxcall limit reached. Thank you, goodbye!", allow_interruptions=False)
+                    goodbye_msg = "Maxcall limit reached. Thank you, goodbye!"
+                    await agent.session.say(goodbye_msg, allow_interruptions=False)
+                    await agent._add_to_transcript(
+                        role="assistant",
+                        content=goodbye_msg,
+                        message_type="message"
+                    )
                 
                 # Signal session shutdown immediately (drain=False for immediate room deletion)
                 session.shutdown(drain=False)
@@ -935,6 +962,7 @@ async def my_agent(ctx: agents.JobContext):
         
         # Initialize timer immediately after start for accurate duration reporting
         session_start_time = time.time()
+        session_end_time = None  # Set when max duration fires; None = natural hang-up
         if MAX_CALL_DURATION:
             logger.info(f"⏰ [CONFIG] Starting {MAX_CALL_DURATION}s countdown.")
             asyncio.create_task(_shutdown_after_delay(MAX_CALL_DURATION))
@@ -961,7 +989,7 @@ async def my_agent(ctx: agents.JobContext):
             async def _send_usage_and_transcript():
                 try:
                     summary = usage_collector.get_summary()
-                    total_duration = time.time() - session_start_time
+                    total_duration = (session_end_time - session_start_time) if session_end_time else (time.time() - session_start_time)
                     backend_payload = {
                         "conversation_id": conversation_id,
                         "job_id": job_id,
