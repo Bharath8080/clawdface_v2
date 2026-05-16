@@ -3,16 +3,19 @@ package types
 import "time"
 
 type StartConversationResponse struct {
-	ConversationId string `json:"conversationId"`
-	URL            string `json:"url"`
-	LivekitURL     string `json:"livekit_url"`
-	Token          string `json:"token"`
-	ImageURL       string `json:"image_url"`
-	Name           string `json:"name"`
-	ID             string `json:"id"`
-	RunID          string `json:"run_id"`
-	OpenClawURL    string `json:"openclaw_url"`
-	GatewayToken   string `json:"gateway_token"`
+	ConversationId  string  `json:"conversationId"`
+	URL             string  `json:"url"`
+	LivekitURL      string  `json:"livekit_url"`
+	Token           string  `json:"token"`
+	ImageURL        string  `json:"image_url"`
+	Name            string  `json:"name"`
+	ID              string  `json:"id"`
+	RunID           string  `json:"run_id"`
+	OpenClawURL     string  `json:"openclaw_url"`
+	GatewayToken    string  `json:"gateway_token"`
+	MaxCallDuration int     `json:"max_call_duration"`
+	ThinkingDelay   float64 `json:"thinking_delay"`
+	ThinkingEnabled bool    `json:"thinking_enabled"`
 }
 
 type StartConversationResponse11Lab struct {
