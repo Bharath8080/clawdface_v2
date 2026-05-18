@@ -113,16 +113,48 @@ export async function POST(request: Request) {
     const videoUrl = `${baseAppUrl}/avatar?room=${encodeURIComponent(roomName)}&avatarId=${avatarId}&openclawUrl=${encodeURIComponent(openclawUrl)}&gatewayToken=${gatewayToken}&sessionKey=${sessionKey}&conversationId=${encodeURIComponent(conversationId)}&connection_type=${isExternalMeeting ? 'email_dispatch' : 'website'}`;
 
     if (isExternalMeeting) {
-      await fetch(`${BACKEND_BASE_URL}/v1/ext/recall-trigger`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          meeting_url: meetingUrl,
-          room_name: roomName,
-          conversation_id: conversationId,
-          video_url: videoUrl,
-        }),
-      }).catch(err => console.error('[start-agent] Recall trigger failed:', err));
+      try {
+        const recallRes = await fetch(`${BACKEND_BASE_URL}/v1/ext/recall-trigger`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            meeting_url:     meetingUrl,
+            room_name:       roomName,
+            conversation_id: conversationId,
+            video_url:       videoUrl,
+          }),
+        });
+        if (recallRes.ok) {
+          const recallData  = await recallRes.json();
+          const recallBotId = recallData.botId || '';
+          if (recallBotId) {
+            // Patch room metadata with the real recallBotId so agent.py can use it to kick the bot on max_call_duration
+            const updatedMetadata = JSON.stringify({
+              openclawUrl,
+              gatewayToken,
+              sessionKey,
+              avatarId,
+              name:              agentName,
+              agentName,
+              meetingUrl:        meetingUrl || '',
+              recallBotId,
+              roomName,
+              conversation_id:   conversationId,
+              user_email:        email,
+              connection_type:   'email_dispatch',
+              max_call_duration: agentData.max_call_duration,
+              thinking_delay:    agentData.thinking_delay,
+              thinking_enabled:  agentData.thinking_enabled,
+            });
+            await roomService.updateRoomMetadata(roomName, updatedMetadata);
+            console.log(`[start-agent] ✓ recallBotId patched into room metadata: ${recallBotId}`);
+          }
+        } else {
+          console.error('[start-agent] Recall trigger returned error:', recallRes.status);
+        }
+      } catch (err) {
+        console.error('[start-agent] Recall trigger failed:', err);
+      }
     }
 
     return NextResponse.json({
