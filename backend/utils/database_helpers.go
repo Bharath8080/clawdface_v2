@@ -10958,14 +10958,14 @@ func HandleJoinExternalMeeting(w http.ResponseWriter, r *http.Request, roomId st
 		return
 	}
 
-	isPosted, err := PostRecallRequest(request_payload.MeetingURL, agentDisplayName, roomId, videoUrl)
+	recallBotId, err := PostRecallRequest(request_payload.MeetingURL, agentDisplayName, roomId, videoUrl)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
 	}
 	w.WriteHeader(http.StatusOK)
 	statusMessage := "Agent request successfully created."
-	if !isPosted {
+	if recallBotId == "" {
 		statusMessage = "Unable to create agent request."
 	}
 	w.Write([]byte(statusMessage))
@@ -11057,22 +11057,22 @@ func buildRecallRequestPayload(meetingUrl string, displayName string, lkRoomID s
 	return jsonBody, wsURL, nil
 }
 
-func postRecallRequestWithLabel(label string, meetingUrl string, displayName string, lkRoomID string, videoUrl string) (bool, error) {
+func postRecallRequestWithLabel(label string, meetingUrl string, displayName string, lkRoomID string, videoUrl string) (string, error) {
 	recallURL := os.Getenv("RECALL_API_URL")
 	recallToken := os.Getenv("RECALL_API_TOKEN")
 
 	log.Printf("[%s] meetingUrl=%s displayName=%s lkRoomID=%s", label, meetingUrl, displayName, lkRoomID)
 
 	if recallURL == "" {
-		return false, fmt.Errorf("RECALL_API_URL is not set")
+		return "", fmt.Errorf("RECALL_API_URL is not set")
 	}
 	if recallToken == "" {
-		return false, fmt.Errorf("RECALL_API_TOKEN is not set")
+		return "", fmt.Errorf("RECALL_API_TOKEN is not set")
 	}
 
 	jsonBody, wsURL, err := buildRecallRequestPayload(meetingUrl, displayName, lkRoomID, videoUrl)
 	if err != nil {
-		return false, err
+		return "", err
 	}
 
 	log.Printf("[%s] Recall WS endpoint - url=%s", label, wsURL)
@@ -11080,7 +11080,7 @@ func postRecallRequestWithLabel(label string, meetingUrl string, displayName str
 
 	req, err := http.NewRequest("POST", recallURL, bytes.NewBuffer(jsonBody))
 	if err != nil {
-		return false, fmt.Errorf("failed to create recall request: %w", err)
+		return "", fmt.Errorf("failed to create recall request: %w", err)
 	}
 	req.Header.Set("Authorization", recallToken)
 	req.Header.Set("Content-Type", "application/json")
@@ -11088,32 +11088,39 @@ func postRecallRequestWithLabel(label string, meetingUrl string, displayName str
 	client := &http.Client{Timeout: 30 * time.Second}
 	res, err := client.Do(req)
 	if err != nil {
-		return false, fmt.Errorf("recall API request failed: %w", err)
+		return "", fmt.Errorf("recall API request failed: %w", err)
 	}
 	defer res.Body.Close()
 
 	respBody, err := io.ReadAll(res.Body)
 	if err != nil {
-		return false, fmt.Errorf("failed to read recall response: %w", err)
+		return "", fmt.Errorf("failed to read recall response: %w", err)
 	}
 
 	log.Printf("[%s] Response status=%d body=%s", label, res.StatusCode, string(respBody))
 
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return false, fmt.Errorf("recall API returned status %d: %s", res.StatusCode, string(respBody))
+		return "", fmt.Errorf("recall API returned status %d: %s", res.StatusCode, string(respBody))
 	}
 
-	log.Printf("[%s] SUCCESS bot created", label)
-	return true, nil
+	var recallResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(respBody, &recallResp); err != nil {
+		return "", fmt.Errorf("failed to parse recall response: %w", err)
+	}
+
+	log.Printf("[%s] SUCCESS bot created — id=%s", label, recallResp.ID)
+	return recallResp.ID, nil
 }
 
 // Method to Post request to Recall.AI
-func PostRecallRequest(meetingUrl string, displayName string, lkRoomID string, videoUrl string) (bool, error) {
+func PostRecallRequest(meetingUrl string, displayName string, lkRoomID string, videoUrl string) (string, error) {
 	return postRecallRequestWithLabel("PostRecallRequest", meetingUrl, displayName, lkRoomID, videoUrl)
 }
 
 // PostRecallRequestV2 is kept for scheduled-job compatibility and uses the same payload as direct joins.
-func PostRecallRequestV2(meetingUrl string, displayName string, lkRoomID string, videoUrl string) (bool, error) {
+func PostRecallRequestV2(meetingUrl string, displayName string, lkRoomID string, videoUrl string) (string, error) {
 	return postRecallRequestWithLabel("PostRecallRequestV2", meetingUrl, displayName, lkRoomID, videoUrl)
 }
 
@@ -11153,24 +11160,49 @@ func HandleRecallTrigger(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[recall-trigger] Sending Recall.AI bot → meeting=%s room=%s convId=%s",
 		req.MeetingURL, req.RoomName, req.ConversationID)
 
-	ok, err := PostRecallRequest(req.MeetingURL, displayName, req.RoomName, req.VideoURL)
+	botId, err := PostRecallRequest(req.MeetingURL, displayName, req.RoomName, req.VideoURL)
 	if err != nil {
 		log.Printf("[recall-trigger] ERROR: %v", err)
 		http.Error(w, "Failed to send Recall bot: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if !ok {
-		http.Error(w, "Recall bot request failed", http.StatusInternalServerError)
+	if botId == "" {
+		http.Error(w, "Recall bot request failed: empty bot ID", http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("[recall-trigger] ✓ Recall bot dispatched → meeting=%s room=%s", req.MeetingURL, req.RoomName)
+	log.Printf("[recall-trigger] ✓ Recall bot dispatched → meeting=%s room=%s botId=%s", req.MeetingURL, req.RoomName, botId)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{
 		"status":  "ok",
 		"message": "Recall bot dispatched into meeting",
 		"room":    req.RoomName,
+		"botId":   botId,
 	})
+}
+
+// PatchRecallBotIdToRoom updates the LiveKit room metadata to include the recallBotId.
+// This is called after the Recall.AI bot is created so the agent can receive the ID
+// via the room metadata_changed event and use it to kick the bot on max_call_duration.
+func PatchRecallBotIdToRoom(ctx context.Context, lkRoomID string, recallBotId string) {
+	if lkRoomID == "" || recallBotId == "" {
+		return
+	}
+	client := newRoomServiceClient()
+	metadataBytes, err := json.Marshal(map[string]string{"recallBotId": recallBotId})
+	if err != nil {
+		log.Printf("[PatchRecallBotIdToRoom] Failed to marshal metadata: %v", err)
+		return
+	}
+	_, err = client.UpdateRoomMetadata(ctx, &livekit.UpdateRoomMetadataRequest{
+		Room:     lkRoomID,
+		Metadata: string(metadataBytes),
+	})
+	if err != nil {
+		log.Printf("[PatchRecallBotIdToRoom] ⚠️ Failed to update room %s metadata: %v", lkRoomID, err)
+		return
+	}
+	log.Printf("[PatchRecallBotIdToRoom] ✓ Patched recallBotId=%s into room=%s", recallBotId, lkRoomID)
 }
 
 // HandleCheckAgentEmailUniqueness checks if an email is already assigned to any agent.

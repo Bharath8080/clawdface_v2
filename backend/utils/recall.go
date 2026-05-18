@@ -2753,7 +2753,7 @@ func joinMeeting(ctx context.Context, nj ScheduledJob, label string, failed *boo
 	//Recall Retry attempt
 	recallBackoff := []time.Duration{0, 5 * time.Second, 15 * time.Second}
 	maxRecallAttempts := 3
-	var isSuccessful bool
+	var recallBotId string
 	var err error
 
 	for attempt := 0; attempt < maxRecallAttempts; attempt++ {
@@ -2763,21 +2763,25 @@ func joinMeeting(ctx context.Context, nj ScheduledJob, label string, failed *boo
 			time.Sleep(recallBackoff[attempt])
 		}
 		logWithTrace(ctx, "[%s][Recall] Attempt %d/%d — sending bot to meeting", label, attempt+1, maxRecallAttempts)
-		isSuccessful, err = PostRecallRequestV2(nj.MeetingURL, dn, lkRoomID, finalVideoUrl)
-		if isSuccessful {
-			logWithTrace(ctx, "[%s][Recall] Attempt %d/%d SUCCESS — bot created", label, attempt+1, maxRecallAttempts)
+		recallBotId, err = PostRecallRequestV2(nj.MeetingURL, dn, lkRoomID, finalVideoUrl)
+		if recallBotId != "" {
+			logWithTrace(ctx, "[%s][Recall] Attempt %d/%d SUCCESS — bot created id=%s", label, attempt+1, maxRecallAttempts, recallBotId)
 			UpdateJobStatusInDB(nj.ID, "scheduled")
 			break
 		}
 		logWithTrace(ctx, "[%s][Recall] Attempt %d/%d FAILED — error=%v", label, attempt+1, maxRecallAttempts, err)
 	}
 
-	if !isSuccessful {
+	if recallBotId == "" {
 		logWithTrace(ctx, "[%s][Recall] All %d attempts failed — marking job failed", label, maxRecallAttempts)
 		UpdateJobStatusInDB(nj.ID, "failed")
 		*failed = true
 		return
 	}
+
+	// Push recallBotId into LiveKit room metadata so the agent can receive it
+	// via the room metadata_changed event and use it to kick the bot on max_call_duration.
+	go PatchRecallBotIdToRoom(ctx, lkRoomID, recallBotId)
 }
 
 // scheduleCronJob registers a pure cron job (used for the 2nd+ occurrences of a recurring meeting).

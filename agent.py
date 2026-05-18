@@ -138,6 +138,45 @@ async def register_conversation(config: dict, conversation_id: str):
 
 
 # ---------------------------------------------------------------------------
+# RECALL BOT — FORCE LEAVE MEETING
+# ---------------------------------------------------------------------------
+async def recall_bot_leave(recall_bot_id: str):
+    """
+    Instructs the Recall.ai bot to leave the external meeting (Zoom/Teams/Google Meet).
+    Called when max_call_duration is reached.
+    Requires EXTERNAL_MEETINGS_API_TOKEN in environment.
+    """
+    if not recall_bot_id:
+        logger.info("[RECALL] No recallBotId provided — skipping bot leave call.")
+        return
+
+    recall_api_key = os.getenv("EXTERNAL_MEETINGS_API_TOKEN", "").strip()
+    if not recall_api_key:
+        logger.warning("[RECALL] EXTERNAL_MEETINGS_API_TOKEN not set — cannot remove bot from meeting.")
+        return
+
+    import aiohttp
+    leave_url = f"https://us-west-2.recall.ai/api/v1/bot/{recall_bot_id}/leave_call/"
+    try:
+        async with aiohttp.ClientSession() as http_session:
+            async with http_session.post(
+                leave_url,
+                headers={
+                    "Authorization": f"Token {recall_api_key}",
+                    "Content-Type": "application/json"
+                },
+                timeout=aiohttp.ClientTimeout(total=10)
+            ) as resp:
+                if resp.status in (200, 204):
+                    logger.info(f"✅ [RECALL] Bot {recall_bot_id} successfully removed from meeting.")
+                else:
+                    text = await resp.text()
+                    logger.warning(f"⚠️ [RECALL] Failed to remove bot {recall_bot_id}. Status: {resp.status} | {text}")
+    except Exception as e:
+        logger.error(f"❌ [RECALL] Error removing bot from meeting: {e}")
+
+
+# ---------------------------------------------------------------------------
 # TRANSCRIPT S3 UPLOAD
 # ---------------------------------------------------------------------------
 def push_transcript_to_s3(transcript_data: list, conversation_id: str):
@@ -852,6 +891,7 @@ async def my_agent(ctx: agents.JobContext):
     )
 
     vad_provider = silero.VAD.load()
+    recall_bot_id = ""  # Always initialized; populated below for external meeting sessions
     if connection_type in ("email_dispatch", "recall") or config.get("recallBotId"):
         recall_bot_id = config.get("recallBotId", "") or ""
         livekit_room_id = config.get("roomId") or ctx.room.name
@@ -868,6 +908,22 @@ async def my_agent(ctx: agents.JobContext):
             model="flux-general-en",
             eager_eot_threshold=0.4,
         )
+
+    # ── RECALL BOT ID — LATE ARRIVAL HANDLER ─────────────────────────────
+    # The backend (recall.go) creates the Recall.AI bot AFTER the agent starts.
+    # It then pushes the recallBotId into the LiveKit room metadata.
+    # We listen for that update here so _shutdown_after_delay can use the real ID.
+    @ctx.room.on("room_metadata_changed")
+    def _on_room_metadata_changed(old_metadata: str, new_metadata: str):
+        nonlocal recall_bot_id
+        try:
+            new_meta = json.loads(new_metadata or "{}")
+            bot_id = new_meta.get("recallBotId", "")
+            if bot_id and not recall_bot_id:
+                recall_bot_id = bot_id
+                logger.info(f"[RECALL] ✓ recallBotId received via room metadata update: {bot_id}")
+        except Exception as e:
+            logger.debug(f"[RECALL] room_metadata_changed parse error: {e}")
 
     # ── METRICS / USAGE COLLECTION ─────────────────────────────────────────
     usage_collector = metrics.UsageCollector()
@@ -919,6 +975,11 @@ async def my_agent(ctx: agents.JobContext):
                 session.shutdown(drain=False)
             except Exception as e:
                 logger.error(f"❌ [SESSION] Failed to shutdown session gracefully: {e}")
+
+            # ── KICK RECALL BOT OUT OF EXTERNAL MEETING ──────────────────
+            if recall_bot_id:
+                logger.info(f"[RECALL] Max duration reached — kicking bot {recall_bot_id} from external meeting...")
+                await recall_bot_leave(recall_bot_id)
 
         @session.on("metrics_collected")
         def _on_metrics_collected(ev: MetricsCollectedEvent):
