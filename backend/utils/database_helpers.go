@@ -10950,36 +10950,15 @@ func HandleJoinExternalMeeting(w http.ResponseWriter, r *http.Request, roomId st
 		return
 	}
 
-	agentDisplayName, videoUrl, success, err := PostAvatarRequest(agentEmail, roomId, request_payload.MeetingURL, "Admin")
+	_, _, success, err := PostAvatarRequest(agentEmail, roomId, request_payload.MeetingURL, "Admin")
 	if err != nil || !success {
 		log.Printf("[HandleJoinExternalMeeting] ERROR: PostAvatarRequest failed: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("Failed to get avatar session: %v", err)))
 		return
 	}
-
-	recallBotId, err := PostRecallRequest(request_payload.MeetingURL, agentDisplayName, roomId, videoUrl)
-	if err != nil {
-		log.Printf("[HandleJoinExternalMeeting] ERROR: PostRecallRequest failed: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
-		return
-	}
-
-	// Patch recallBotId into LiveKit room metadata so agent.py can receive it
-	// via the room_metadata_changed event and kick the bot on max_call_duration.
-	// This was missing for the "add people via email" flow — now consistent with
-	// the API trigger (HandleRecallTrigger) and scheduled job (recall.go) flows.
-	if recallBotId != "" {
-		go PatchRecallBotIdToRoom(context.Background(), roomId, recallBotId)
-	}
-
 	w.WriteHeader(http.StatusOK)
-	statusMessage := "Agent request successfully created."
-	if recallBotId == "" {
-		statusMessage = "Unable to create agent request."
-	}
-	w.Write([]byte(statusMessage))
+	w.Write([]byte("Agent request successfully created."))
 }
 
 func buildRecallRequestPayload(meetingUrl string, displayName string, lkRoomID string, videoUrl string) ([]byte, string, error) {

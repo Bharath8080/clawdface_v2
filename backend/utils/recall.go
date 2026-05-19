@@ -1107,10 +1107,10 @@ func PostAvatarRequest(inboxID string, lkRoomID string, meetingUrl string, from 
 	apiURL := frontendURL + "/api/start-agent"
 
 	payload := map[string]interface{}{
-		"email":              inboxID,
-		"meetingUrl":         meetingUrl,
-		"roomId":             lkRoomID,
-		"skipRecallTrigger":  true, // backend owns bot creation for the email invite flow
+		"email":             inboxID,
+		"meetingUrl":        meetingUrl,
+		"roomId":            lkRoomID,
+		"skipRecallTrigger": false, // let frontend handle bot creation before dispatching the agent
 	}
 
 	bodyBytes, _ := json.Marshal(payload)
