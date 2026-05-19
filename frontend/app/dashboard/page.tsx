@@ -6,7 +6,7 @@ import { initDefaultApiKey } from "@/app/services/apiKeyService";
 import { type AvatarItem, fetchAvatars } from "@/app/services/avatarService";
 import { getConversationById, getConversations } from "@/app/services/conversationService";
 import { createUserServiceServer } from "@/app/services/createUserService";
-import { type ILicenseInfo, getLicenseDetails } from "@/app/services/pricingPaymentService";
+import { type ILicenseInfo, getLicenseDetails, getPublicPricingPlans } from "@/app/services/pricingPaymentService";
 import { sendUsageData } from "@/app/services/usageService";
 import { CloseIcon } from "@/components/CloseIcon";
 import { NoAgentNotification } from "@/components/NoAgentNotification";
@@ -720,6 +720,7 @@ function ClientPage() {
   const [botHealth, setBotHealth] = useState<Record<string, 'healthy' | 'unhealthy' | 'checking' | 'unknown'>>({});
   const [licenseInfo, setLicenseInfo] = useState<ILicenseInfo | null>(null);
   const [botNameError, setBotNameError] = useState<string | null>(null);
+  const [creditsPerMinute, setCreditsPerMinute] = useState(50);
   const [showHealthAlert, setShowHealthAlert] = useState(false);
 
   useEffect(() => {
@@ -973,6 +974,20 @@ function ClientPage() {
                 console.error("License fetch error:", licErr);
               }
 
+              // Fetch credits-per-minute rate from plans API
+              try {
+                const { data: plans } = await getPublicPricingPlans();
+                if (plans) {
+                  const rate = plans
+                    .flatMap((p) => (Array.isArray(p.details) ? p.details : []))
+                    .find((d) => d.creditConsumptionPerMinute > 0)
+                    ?.creditConsumptionPerMinute;
+                  if (rate) setCreditsPerMinute(rate);
+                }
+              } catch (planErr) {
+                console.error("Plans fetch error:", planErr);
+              }
+
               if (profile.last_config) {
                 setDbLastConfig(profile.last_config);
                 // If nothing in localStorage, initialize form from DB config
@@ -1072,7 +1087,7 @@ function ClientPage() {
     // Pre-flight outside try so the throw propagates to the caller (shows toast + navigates back)
     const activeConfig = forcedConfig || config;
     if (licenseInfo !== null) {
-      const remainingMinutes = Math.floor((licenseInfo.balanceCredit ?? 0) / 50);
+      const remainingMinutes = Math.floor(((licenseInfo.balanceCredit ?? 0) + (licenseInfo.purchasedCredit ?? 0)) / creditsPerMinute);
       const requestedMinutes = parseInt(activeConfig.maxCallDuration || "10");
       if (requestedMinutes > remainingMinutes) {
         connectionLockRef.current = false;
@@ -1737,6 +1752,7 @@ function ClientPage() {
                 licenseInfo={licenseInfo}
                 botNameError={botNameError}
                 onClearBotNameError={() => setBotNameError(null)}
+                creditsPerMinute={creditsPerMinute}
                 onCancelEdit={() => {
                   setEditingBotId(null);
                   setEditingAgent(null);
@@ -1952,6 +1968,7 @@ function SessionConfigForm({
   licenseInfo = null,
   botNameError = null,
   onClearBotNameError,
+  creditsPerMinute = 50,
 }: {
   onConnect: (e: React.FormEvent) => void;
   config: any;
@@ -1967,12 +1984,12 @@ function SessionConfigForm({
   licenseInfo?: ILicenseInfo | null;
   botNameError?: string | null;
   onClearBotNameError?: () => void;
+  creditsPerMinute?: number;
 }) {
   const avatars = useAvatars();
   const selectedAvatar = avatars.find((a) => a.id === config.avatarId);
-  console.log('licenseInfo:', licenseInfo);
 
-  const creditsInMinutes = Math.floor((licenseInfo?.balanceCredit ?? 0) / 50);
+  const creditsInMinutes = Math.floor(((licenseInfo?.balanceCredit ?? 0) + (licenseInfo?.purchasedCredit ?? 0)) / creditsPerMinute);
   const sessionCapInMinutes = licenseInfo?.maxSessionDuration ?? 0;
   // Binding constraint is whichever is smaller: plan session cap or remaining credits
   const maxAllowedMinutes = licenseInfo
@@ -1980,7 +1997,6 @@ function SessionConfigForm({
       ? sessionCapInMinutes
       : creditsInMinutes
     : 0;
-  console.log('Calculated maxAllowedMinutes:', maxAllowedMinutes);
 
   const savedMaxCallDuration = useRef(parseInt(config.maxCallDuration || "10"));
 
@@ -2692,6 +2708,7 @@ function SimpleVoiceAssistant({
   licenseInfo = null,
   botNameError = null,
   onClearBotNameError,
+  creditsPerMinute = 50,
 }: {
   onConnectButtonClicked: () => void;
   config: typeof DEFAULTS;
@@ -2707,6 +2724,7 @@ function SimpleVoiceAssistant({
   licenseInfo?: ILicenseInfo | null;
   botNameError?: string | null;
   onClearBotNameError?: () => void;
+  creditsPerMinute?: number;
 }) {
   const { state: agentState } = useVoiceAssistant();
   const [internalIsConnecting, setInternalIsConnecting] = useState(false);
@@ -2742,6 +2760,7 @@ function SimpleVoiceAssistant({
             licenseInfo={licenseInfo}
             botNameError={botNameError}
             onClearBotNameError={onClearBotNameError}
+            creditsPerMinute={creditsPerMinute}
           />
         ) : (
           <ActiveVoiceAssistantView 

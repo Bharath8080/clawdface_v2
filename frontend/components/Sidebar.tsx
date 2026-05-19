@@ -88,7 +88,7 @@ function ColIconBtn({ label, icon, isActive, onClick }: NavItemProps) {
 }
 
 // ---- Profile Dropdown ----
-function ProfileDropdown({ user, initials, onClose, planLabel, onNavigate, className = "bottom-full left-0 mb-2 w-full" }: { user: any; initials: string; onClose: () => void; planLabel: string; onNavigate?: (action: () => void) => void; className?: string }) {
+function ProfileDropdown({ user, initials, onClose, planLabel, onNavigate, className = "bottom-full left-0 mb-2 w-full" }: { user: any; initials: string; onClose: () => void; planLabel: string | null; onNavigate?: (action: () => void) => void; className?: string }) {
   const router = useRouter();
   const app = useStackApp();
 
@@ -143,13 +143,13 @@ function ProfileDropdown({ user, initials, onClose, planLabel, onNavigate, class
         )}
         <div className="flex flex-col min-w-0">
           <span className="text-white text-[13px] font-semibold truncate">{user.primaryEmail || user.displayName}</span>
-          <span className="text-[#6b7280] text-[11px]">{planLabel}</span>
+          {planLabel !== null && <span className="text-[#6b7280] text-[11px]">{planLabel}</span>}
         </div>
       </div>
 
       {/* Menu items */}
       <div className="py-1">
-        {planLabel === "Free Plan" && menuItem(<CrownIcon />, "Upgrade to Pro", () => navigate("/dashboard/settings/billing-and-subscription"), "text-yellow-400")}
+        {planLabel === "Free Plan" && menuItem(<CrownIcon />, "Upgrade to Pro", () => navigate("/dashboard/settings/billing-and-subscription"), "text-yellow-400 hover:text-yellow-300")}
         <div className="border-[#1f1f1f] my-1" />
         {menuItem(<CardIcon />, "Billing & Plans", () => navigate("/dashboard/settings/billing-and-subscription"))}
         <div className="border-t border-[#1f1f1f] my-1" />
@@ -224,7 +224,7 @@ export function Sidebar({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [planLabel, setPlanLabel] = useState("Free Plan");
+  const [planLabel, setPlanLabel] = useState<string | null>(null);
   const [quickCallOpen, setQuickCallOpen] = useState(false);
 
   const user = useUser();
@@ -252,7 +252,6 @@ export function Sidebar({
       getLicenseDetails(apiKey).then(({ data }) => {
         if (cancelled || !data?.slug) return;
         const slug = data.slug;
-        console.log("License slug:", slug);
         if (slug.includes("ente_ente")) setPlanLabel("Enterprise Plan");
         else if (slug.startsWith("pro")) setPlanLabel("Pro Plan");
         else setPlanLabel("Free Plan");
@@ -393,7 +392,7 @@ export function Sidebar({
               <span className="text-white text-[14px] font-semibold leading-tight truncate">
                 {user ? (user.primaryEmail || user.displayName) : "Loading..."}
               </span>
-              <span className="text-[#5a5a5a] text-[12px] leading-tight font-medium">{planLabel}</span>
+              {planLabel !== null && <span className="text-[#5a5a5a] text-[12px] leading-tight font-medium">{planLabel}</span>}
             </div>
             <button className="text-[#5a5a5a] hover:text-[#9ca3af] transition-colors p-1 shrink-0">
               <DotsIcon />
