@@ -23,6 +23,7 @@ export async function POST(request: Request) {
       roomId: requestedRoomId,
       userName,
       userId,
+      skipRecallTrigger, // when true, backend owns Recall bot creation (email invite path)
     } = body;
 
     if (!email) {
@@ -112,7 +113,10 @@ export async function POST(request: Request) {
     const baseAppUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const videoUrl = `${baseAppUrl}/avatar?room=${encodeURIComponent(roomName)}&avatarId=${avatarId}&openclawUrl=${encodeURIComponent(openclawUrl)}&gatewayToken=${gatewayToken}&sessionKey=${sessionKey}&conversationId=${encodeURIComponent(conversationId)}&connection_type=${isExternalMeeting ? 'email_dispatch' : 'website'}`;
 
-    if (isExternalMeeting) {
+    // Only trigger Recall bot creation from the frontend if the backend hasn't already
+    // taken ownership. When skipRecallTrigger=true, the Go backend (HandleJoinExternalMeeting
+    // or recall.go) will create the bot and patch the room metadata itself.
+    if (isExternalMeeting && !skipRecallTrigger) {
       try {
         const recallRes = await fetch(`${BACKEND_BASE_URL}/v1/ext/recall-trigger`, {
           method: 'POST',

@@ -10960,9 +10960,20 @@ func HandleJoinExternalMeeting(w http.ResponseWriter, r *http.Request, roomId st
 
 	recallBotId, err := PostRecallRequest(request_payload.MeetingURL, agentDisplayName, roomId, videoUrl)
 	if err != nil {
+		log.Printf("[HandleJoinExternalMeeting] ERROR: PostRecallRequest failed: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
+		return
 	}
+
+	// Patch recallBotId into LiveKit room metadata so agent.py can receive it
+	// via the room_metadata_changed event and kick the bot on max_call_duration.
+	// This was missing for the "add people via email" flow — now consistent with
+	// the API trigger (HandleRecallTrigger) and scheduled job (recall.go) flows.
+	if recallBotId != "" {
+		go PatchRecallBotIdToRoom(context.Background(), roomId, recallBotId)
+	}
+
 	w.WriteHeader(http.StatusOK)
 	statusMessage := "Agent request successfully created."
 	if recallBotId == "" {
@@ -11181,28 +11192,47 @@ func HandleRecallTrigger(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// PatchRecallBotIdToRoom updates the LiveKit room metadata to include the recallBotId.
-// This is called after the Recall.AI bot is created so the agent can receive the ID
-// via the room metadata_changed event and use it to kick the bot on max_call_duration.
+// PatchRecallBotIdToRoom safely merges the recallBotId into the existing LiveKit
+// room metadata without destroying other fields (openclawUrl, sessionKey, etc.).
+// It reads the current metadata, injects recallBotId, then writes the merged result.
+// Called after Recall.AI bot creation so agent.py receives the ID via room_metadata_changed.
 func PatchRecallBotIdToRoom(ctx context.Context, lkRoomID string, recallBotId string) {
 	if lkRoomID == "" || recallBotId == "" {
 		return
 	}
 	client := newRoomServiceClient()
-	metadataBytes, err := json.Marshal(map[string]string{"recallBotId": recallBotId})
+
+	// Step 1: Read the current room metadata so we don't destroy existing fields.
+	existingMeta := map[string]interface{}{}
+	listResp, err := client.ListRooms(ctx, &livekit.ListRoomsRequest{
+		Names: []string{lkRoomID},
+	})
 	if err != nil {
-		log.Printf("[PatchRecallBotIdToRoom] Failed to marshal metadata: %v", err)
+		log.Printf("[PatchRecallBotIdToRoom] ⚠️ Could not read room %s metadata (will write fresh): %v", lkRoomID, err)
+	} else if listResp != nil && len(listResp.Rooms) > 0 && listResp.Rooms[0].Metadata != "" {
+		if parseErr := json.Unmarshal([]byte(listResp.Rooms[0].Metadata), &existingMeta); parseErr != nil {
+			log.Printf("[PatchRecallBotIdToRoom] ⚠️ Could not parse existing metadata for room %s: %v", lkRoomID, parseErr)
+		}
+	}
+
+	// Step 2: Inject recallBotId — all other fields survive.
+	existingMeta["recallBotId"] = recallBotId
+
+	// Step 3: Write the merged metadata back.
+	mergedBytes, err := json.Marshal(existingMeta)
+	if err != nil {
+		log.Printf("[PatchRecallBotIdToRoom] Failed to marshal merged metadata: %v", err)
 		return
 	}
 	_, err = client.UpdateRoomMetadata(ctx, &livekit.UpdateRoomMetadataRequest{
 		Room:     lkRoomID,
-		Metadata: string(metadataBytes),
+		Metadata: string(mergedBytes),
 	})
 	if err != nil {
 		log.Printf("[PatchRecallBotIdToRoom] ⚠️ Failed to update room %s metadata: %v", lkRoomID, err)
 		return
 	}
-	log.Printf("[PatchRecallBotIdToRoom] ✓ Patched recallBotId=%s into room=%s", recallBotId, lkRoomID)
+	log.Printf("[PatchRecallBotIdToRoom] ✓ Merged recallBotId=%s into room=%s metadata", recallBotId, lkRoomID)
 }
 
 // HandleCheckAgentEmailUniqueness checks if an email is already assigned to any agent.
