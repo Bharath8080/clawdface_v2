@@ -1780,7 +1780,7 @@ func saveExpiredJob(ctx context.Context, ev *LLMEvent, recipientEmail string, st
 
 func HandleAWSLLM(w http.ResponseWriter, r *http.Request) {
 	traceID := "Email-" + uuid.New().String()[:5] //Trace
-	ctx := context.WithValue(r.Context(), traceKey, traceID)
+	ctx := context.WithValue(context.Background(), traceKey, traceID)
 	log.Printf("[trace=%s] START HandleAWSLLM", traceID)
 	if r.Method != http.MethodPost {
 		http.Error(w, "Only POST allowed", http.StatusMethodNotAllowed)
