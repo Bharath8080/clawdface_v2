@@ -11264,13 +11264,13 @@ func dispatchAgent(roomName, agentName, metaData string) error {
 
 // HandleGetAgentByEmail retrieves a specific agent ID by email
 func HandleGetAgentByEmail(email string) (string, error) {
-
+	email = strings.ToLower(strings.TrimSpace(email))
 	log.Printf("Fetching Agent with email ID: %s", email)
 
 	query := `
         SELECT id
         FROM agents
-        WHERE email = $1
+        WHERE LOWER(email) = $1
 		ORDER BY created_at desc
 		LIMIT 1`
 
