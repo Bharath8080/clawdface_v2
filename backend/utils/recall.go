@@ -1107,10 +1107,10 @@ func PostAvatarRequest(inboxID string, lkRoomID string, meetingUrl string, from 
 	apiURL := frontendURL + "/api/start-agent"
 
 	payload := map[string]interface{}{
-		"email":              inboxID,
-		"meetingUrl":         meetingUrl,
-		"roomId":             lkRoomID,
-		"skipRecallTrigger":  true, // backend owns bot creation for the email invite flow
+		"email":             inboxID,
+		"meetingUrl":        meetingUrl,
+		"roomId":            lkRoomID,
+		"skipRecallTrigger": false, // let frontend handle bot creation before dispatching the agent
 	}
 
 	bodyBytes, _ := json.Marshal(payload)
@@ -1780,7 +1780,7 @@ func saveExpiredJob(ctx context.Context, ev *LLMEvent, recipientEmail string, st
 
 func HandleAWSLLM(w http.ResponseWriter, r *http.Request) {
 	traceID := "Email-" + uuid.New().String()[:5] //Trace
-	ctx := context.WithValue(r.Context(), traceKey, traceID)
+	ctx := context.WithValue(context.Background(), traceKey, traceID)
 	log.Printf("[trace=%s] START HandleAWSLLM", traceID)
 	if r.Method != http.MethodPost {
 		http.Error(w, "Only POST allowed", http.StatusMethodNotAllowed)

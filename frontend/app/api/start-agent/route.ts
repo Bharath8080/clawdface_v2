@@ -89,29 +89,10 @@ export async function POST(request: Request) {
       maxParticipants: 10,
     });
 
-    const metadata = JSON.stringify({
-      openclawUrl,
-      gatewayToken,
-      sessionKey,
-      avatarId,
-      name:            agentName,
-      agentName,
-      meetingUrl:      meetingUrl     || '',
-      recallBotId:     '',
-      roomName,
-      conversation_id: conversationId,
-      user_email:      email,
-      connection_type: isExternalMeeting ? 'email_dispatch' : 'website',
-      max_call_duration: agentData.max_call_duration,
-      thinking_delay:    agentData.thinking_delay,
-      thinking_enabled:  agentData.thinking_enabled,
-    });
-
-    await dispatchClient.createDispatch(roomName, 'clawdface', { metadata });
-    console.log(`[start-agent] ✓ Dispatched → room=${roomName} | avatarId=${avatarId} | convId=${conversationId}`);
-
     const baseAppUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const videoUrl = `${baseAppUrl}/avatar?room=${encodeURIComponent(roomName)}&avatarId=${avatarId}&openclawUrl=${encodeURIComponent(openclawUrl)}&gatewayToken=${gatewayToken}&sessionKey=${sessionKey}&conversationId=${encodeURIComponent(conversationId)}&connection_type=${isExternalMeeting ? 'email_dispatch' : 'website'}`;
+
+    let finalRecallBotId = '';
 
     // Only trigger Recall bot creation from the frontend if the backend hasn't already
     // taken ownership. When skipRecallTrigger=true, the Go backend (HandleJoinExternalMeeting
@@ -130,28 +111,9 @@ export async function POST(request: Request) {
         });
         if (recallRes.ok) {
           const recallData  = await recallRes.json();
-          const recallBotId = recallData.botId || '';
-          if (recallBotId) {
-            // Patch room metadata with the real recallBotId so agent.py can use it to kick the bot on max_call_duration
-            const updatedMetadata = JSON.stringify({
-              openclawUrl,
-              gatewayToken,
-              sessionKey,
-              avatarId,
-              name:              agentName,
-              agentName,
-              meetingUrl:        meetingUrl || '',
-              recallBotId,
-              roomName,
-              conversation_id:   conversationId,
-              user_email:        email,
-              connection_type:   'email_dispatch',
-              max_call_duration: agentData.max_call_duration,
-              thinking_delay:    agentData.thinking_delay,
-              thinking_enabled:  agentData.thinking_enabled,
-            });
-            await roomService.updateRoomMetadata(roomName, updatedMetadata);
-            console.log(`[start-agent] ✓ recallBotId patched into room metadata: ${recallBotId}`);
+          finalRecallBotId = recallData.botId || '';
+          if (finalRecallBotId) {
+            console.log(`[start-agent] ✓ recallBotId generated: ${finalRecallBotId}`);
           }
         } else {
           console.error('[start-agent] Recall trigger returned error:', recallRes.status);
@@ -160,6 +122,28 @@ export async function POST(request: Request) {
         console.error('[start-agent] Recall trigger failed:', err);
       }
     }
+
+    const metadata = JSON.stringify({
+      openclawUrl,
+      gatewayToken,
+      sessionKey,
+      avatarId,
+      name:              agentName,
+      agentName,
+      meetingUrl:        meetingUrl || '',
+      recallBotId:       finalRecallBotId,
+      roomName,
+      conversation_id:   conversationId,
+      user_email:        email,
+      connection_type:   isExternalMeeting ? 'email_dispatch' : 'website',
+      max_call_duration: agentData.max_call_duration,
+      thinking_delay:    agentData.thinking_delay,
+      thinking_enabled:  agentData.thinking_enabled,
+    });
+
+    await dispatchClient.createDispatch(roomName, 'clawdface', { metadata });
+    console.log(`[start-agent] ✓ Dispatched → room=${roomName} | avatarId=${avatarId} | convId=${conversationId} | recallBotId=${finalRecallBotId || 'none'}`);
+
 
     return NextResponse.json({
       videoUrl,
