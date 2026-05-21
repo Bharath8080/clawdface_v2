@@ -7,12 +7,11 @@ import { Sidebar } from "@/components/Sidebar";
 import Image from "next/image";
 import { getAgents, type AgentBot } from "@/app/services/agentService";
 import { fetchAvatars, type AvatarItem } from "@/app/services/avatarService";
-import { AVATARS } from "@/lib/constants";
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [bots, setBots] = useState<AgentBot[]>([]);
-  const [avatars, setAvatars] = useState<AvatarItem[]>(AVATARS);
+  const [avatars, setAvatars] = useState<AvatarItem[]>([]);
   const router = useRouter();
   const user = useUser();
 
