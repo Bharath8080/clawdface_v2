@@ -6,28 +6,28 @@ import { useState } from "react";
 
 const avatars = [
   {
-    id: "lisa",
-    name: "Lisa",
-    role: "Support Bot",
-    image: "/avatars/lisa.png",
-  },
-  {
     id: "chloe",
     name: "Chloe",
     role: "Career Coach",
-    image: "/avatars/chole.jpeg",
+    image: "https://assets.trugen.ai/images/avatarImages/chole-wide.jpeg",
+  },
+  {
+    id: "priya",
+    name: "Priya",
+    role: "Support Bot",
+    image: "https://assets.trugen.ai/images/avatarImages/priya-wide.jpg",
   },
   {
     id: "aman",
     name: "Aman",
     role: "AI Interviewer",
-    image: "/avatars/aman.jpg",
+    image: "https://assets.trugen.ai/images/avatarImages/aman-wide.jpg",
   },
   {
     id: "matt",
     name: "Matt",
     role: "Assistant",
-    image: "/avatars/kevin.jpg",
+    image: "https://assets.trugen.ai/images/avatarImages/matt.jpeg",
   },
 ];
 

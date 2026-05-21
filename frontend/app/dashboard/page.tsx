@@ -14,7 +14,6 @@ import { Sidebar } from "@/components/Sidebar";
 import { SubscriptionView } from "@/components/SubscriptionView";
 import TranscriptionView from "@/components/TranscriptionView";
 import useCombinedTranscriptions from "@/hooks/useCombinedTranscriptions";
-import { AVATARS } from "@/lib/constants";
 import { createBotAction as createBot, syncUserAction, updateLastConfigAction as updateLastConfig } from "@/lib/database-actions";
 import { formatDuration, generateAgentEmail } from "@/lib/utils";
 import { BarVisualizer, DisconnectButton, RoomAudioRenderer, VideoTrack } from "@livekit/components-react";
@@ -78,7 +77,7 @@ const DASHBOARD_SESSIONS = new Set([
 ]);
 
 
-export const AvatarsContext = createContext<AvatarItem[]>(AVATARS);
+export const AvatarsContext = createContext<AvatarItem[]>([]);
 export const useAvatars = () => useContext(AvatarsContext);
 
 // ─── Error Toast ────────────────────────────────────────────────────────────
@@ -110,9 +109,10 @@ function ErrorToast({ message, onDismiss }: { message: string; onDismiss: () => 
 }
 
 // ─── Icons ──────────────────────────────────────────────────────────────────
-const UserIcon = ({ size = 15 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+const UserIcon = ({ size = 15, className = "" }: { size?: number, className?: string }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+    <circle cx="12" cy="7" r="4"/>
   </svg>
 );
 const SmileIcon = ({ size = 15, className = "" }: { size?: number, className?: string }) => (
@@ -121,12 +121,16 @@ const SmileIcon = ({ size = 15, className = "" }: { size?: number, className?: s
   </svg>
 );
 const LibraryIcon = ({ size = 15, className = "" }: { size?: number, className?: string }) => (
-  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect width="16" height="20" x="4" y="2" rx="2" ry="2"/>
-    <line x1="8" x2="16" y1="6" y2="6"/>
-    <line x1="8" x2="16" y1="10" y2="10"/>
-    <line x1="8" x2="16" y1="14" y2="14"/>
-    <line x1="8" x2="16" y1="18" y2="18"/>
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+  </svg>
+);
+const HistoryIcon = ({ size = 20, className = "" }: { size?: number, className?: string }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+    <path d="M3 3v5h5"/>
+    <path d="M12 7v5l4 2"/>
   </svg>
 );
 const LinkIcon = ({ size = 16 }: { size?: number }) => (
@@ -359,21 +363,29 @@ const GatewayChecklist = () => (
 );
 
 // ─── Doctor View ─────────────────────────────────────────────────────────────
-function DoctorView({ bots, onHealthUpdate }: { bots: AgentBot[], onHealthUpdate?: (key: string, status: 'healthy' | 'unhealthy') => void }) {
-  const [url, setUrl] = useState("");
+function DoctorView({ 
+  bots, 
+  url, 
+  setUrl, 
+  onHealthUpdate 
+}: { 
+  bots: AgentBot[], 
+  url: string, 
+  setUrl: (u: string) => void, 
+  onHealthUpdate?: (key: string, status: 'healthy' | 'unhealthy') => void 
+}) {
   const [status, setStatus] = useState<"idle" | "checking" | "healthy" | "error_404" | "error_connection">( "idle" );
   const [lastCheck, setLastCheck] = useState<Date | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
-  const hasManualInputRef = useRef(false);
-
-  useEffect(() => {
-    if (!hasManualInputRef.current && bots.length > 0) {
-      setUrl(bots[0].config?.openclaw_url ?? "");
-    }
-  }, [bots]);
+  const [inputError, setInputError] = useState<string | null>(null);
 
   const runDiagnostics = async () => {
-    if (!url) return;
+    if (!url) {
+      setInputError("Please add your OpenClaw Gateway URL");
+      setStatus("idle");
+      return;
+    }
+    setInputError(null);
     setStatus("checking");
     setApiError(null);
 
@@ -404,7 +416,7 @@ function DoctorView({ bots, onHealthUpdate }: { bots: AgentBot[], onHealthUpdate
         if (onHealthUpdate && activeBot) onHealthUpdate(activeBot.id, 'healthy');
       } else if (data.status === 404) {
         setApiError("The domain returned a 404. The gateway service may not be running or the URL may be incorrect.");
-        setStatus("error_connection");
+        setStatus("error_404");
         if (onHealthUpdate && activeBot) onHealthUpdate(activeBot.id, 'unhealthy');
       } else if (data.error) {
         setApiError(data.error);
@@ -446,11 +458,13 @@ function DoctorView({ bots, onHealthUpdate }: { bots: AgentBot[], onHealthUpdate
                 </div>
                 <input
                   type="text"
-                  placeholder="Your Domain Name"
+                  placeholder="Your Domain URL"
                   value={url}
                   onChange={(e) => {
-                    hasManualInputRef.current = true;
                     setUrl(e.target.value);
+                    if (e.target.value.trim() !== "") {
+                      setInputError(null);
+                    }
                   }}
                   className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-white font-medium focus:outline-none focus:border-brand/40 transition-all placeholder:text-neutral-700"
                 />
@@ -473,6 +487,11 @@ function DoctorView({ bots, onHealthUpdate }: { bots: AgentBot[], onHealthUpdate
                 )}
               </button>
             </div>
+            {inputError && (
+              <p className="mt-3 text-[12px] text-red-500 font-medium relative z-10 animate-in fade-in slide-in-from-top-1 duration-200">
+                {inputError}
+              </p>
+            )}
             {lastCheck && (
               <p className="mt-4 text-[11px] text-neutral-600 font-medium relative z-10 flex items-center gap-1.5">
                 <ClockIcon size={12} className="opacity-50" />
@@ -509,36 +528,28 @@ function DoctorView({ bots, onHealthUpdate }: { bots: AgentBot[], onHealthUpdate
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                className="space-y-6"
+                className="bg-red-500/10 border border-red-500/20 rounded-3xl p-8 flex items-start gap-6 shadow-[0_0_40px_rgba(239,68,68,0.05)]"
               >
-                <div className="bg-red-500/10 border border-red-500/20 rounded-3xl p-8 flex items-start gap-6 shadow-[0_0_40px_rgba(239,68,68,0.05)]">
-                  <div className="w-12 h-12 rounded-2xl bg-red-500/20 flex items-center justify-center text-red-500 shrink-0 shadow-[0_0_20px_rgba(239,68,68,0.2)]">
-                    <AlertCircleIcon size={24} />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-red-400 mb-2 font-outfit">Endpoint Disabled (404)</h3>
-                    <p className="text-[15px] text-red-400/70 font-medium leading-relaxed">
-                      The gateway is reachable, but the <code className="text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded font-mono">chat/completions</code> endpoint is toggled OFF.
-                    </p>
-                  </div>
+                <div className="w-12 h-12 rounded-2xl bg-red-500/20 flex items-center justify-center text-red-500 shrink-0 shadow-[0_0_20px_rgba(239,68,68,0.2)]">
+                  <AlertCircleIcon size={24} />
                 </div>
-
-                <div className="bg-surface-card border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
-                  <div className="p-6 border-b border-white/5 bg-white/[0.02]">
-                    <h4 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
-                      <TerminalIcon size={16} className="text-brand" />
-                      Resolution Steps
-                    </h4>
-                  </div>
-                  <div className="p-8 space-y-8">
-                    <div className="space-y-4">
-                      <p className="text-[14px] text-neutral-400 font-medium">1. Run this command to enable the endpoint:</p>
-                      <CopyableCommand command="openclaw config set gateway.http.endpoints.chatCompletions.enabled true" />
-                    </div>
-                    
-                    <div className="space-y-4">
-                      <p className="text-[14px] text-neutral-400 font-medium">2. Restart your gateway:</p>
-                      <CopyableCommand command="openclaw gateway restart" />
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-red-400 mb-2 font-outfit">Gateway Unreachable</h3>
+                  <p className="text-[15px] text-red-400/70 font-medium leading-relaxed mb-6">
+                    The domain returned a 404. The gateway service may not be running or the URL may be incorrect.
+                  </p>
+                  
+                  <div className="space-y-3">
+                    <p className="text-[13px] text-neutral-400 font-semibold uppercase tracking-widest">Quick Fix (If OpenClaw Is Running)</p>
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <p className="text-[13px] text-neutral-400 font-medium">Option A: Run this command</p>
+                        <CopyableCommand command="openclaw config set gateway.http.endpoints.chatCompletions.enabled true" />
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-[13px] text-neutral-400 font-medium">Option B: Send this message to OpenClaw</p>
+                        <CopyableCommand command="Please enable the chat/completions endpoint (gateway.http.endpoints.chatCompletions.enabled = true) and restart the gateway." />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -553,8 +564,8 @@ function DoctorView({ bots, onHealthUpdate }: { bots: AgentBot[], onHealthUpdate
                 exit={{ opacity: 0, y: -20 }}
                 className="bg-red-500/10 border border-red-500/20 rounded-3xl p-8 flex items-start gap-6 shadow-[0_0_40px_rgba(239,68,68,0.05)]"
               >
-                 <div className="w-12 h-12 rounded-2xl bg-red-500/20 flex items-center justify-center text-red-500 shrink-0 shadow-[0_0_20px_rgba(239,68,68,0.2)]">
-                  <CrossIcon size={24} />
+                <div className="w-12 h-12 rounded-2xl bg-red-500/20 flex items-center justify-center text-red-500 shrink-0 shadow-[0_0_20px_rgba(239,68,68,0.2)]">
+                  <AlertCircleIcon size={24} />
                 </div>
                 <div className="flex-1">
                   <h3 className="text-lg font-bold text-red-400 mb-2 font-outfit">Gateway Unreachable</h3>
@@ -563,20 +574,6 @@ function DoctorView({ bots, onHealthUpdate }: { bots: AgentBot[], onHealthUpdate
                   </p>
                   
                   <GatewayChecklist />
-
-                  <div className="mt-6 space-y-3">
-                    <p className="text-[13px] text-neutral-400 font-semibold uppercase tracking-widest">Quick Fix (If OpenClaw Is Running)</p>
-                    <div className="space-y-3">
-                      <div className="space-y-2">
-                        <p className="text-[13px] text-neutral-400 font-medium">Option A: Run this command</p>
-                        <CopyableCommand command="openclaw config set gateway.http.endpoints.chatCompletions.enabled true" />
-                      </div>
-                      <div className="space-y-2">
-                        <p className="text-[13px] text-neutral-400 font-medium">Option B: Send this message to OpenClaw</p>
-                        <CopyableCommand command="Please enable the chat/completions endpoint (gateway.http.endpoints.chatCompletions.enabled = true) and restart the gateway." />
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </motion.div>
             )}
@@ -702,7 +699,7 @@ function ClientPage() {
   const [isValidatingCredit, setIsValidatingCredit] = useState(false);
   const user = useUser();
   const [authChecked, setAuthChecked] = useState(false);
-  const [avatars, setAvatars] = useState<AvatarItem[]>(AVATARS);
+  const [avatars, setAvatars] = useState<AvatarItem[]>([]);
   const [apiError, setApiError] = useState<string | null>(null);
   const apiKeyInitialized = useRef(false);
 
@@ -722,6 +719,16 @@ function ClientPage() {
   const [botNameError, setBotNameError] = useState<string | null>(null);
   const [creditsPerMinute, setCreditsPerMinute] = useState(50);
   const [showHealthAlert, setShowHealthAlert] = useState(false);
+  const [doctorUrl, setDoctorUrl] = useState<string>("");
+
+  useEffect(() => {
+    if (activeSession !== "Doctor") {
+      const hasUnhealthy = Object.values(botHealth).some(status => status === 'unhealthy');
+      if (hasUnhealthy) {
+        setShowHealthAlert(true);
+      }
+    }
+  }, [activeSession, botHealth]);
 
   useEffect(() => {
     if (initialSessionApplied.current) return;
@@ -1761,6 +1768,7 @@ function ClientPage() {
                 bots={activeSession === "My Bot" ? bots : []}
                 showConnectButton={activeSession === "My Bot"}
                 isConnecting={isValidatingCredit || room.state === "connecting"}
+                isAddAgent={activeSession === "AddBot"}
               />
             ) : activeSession === "DirectCall" ? (
               <DirectCallDashboard
@@ -1784,6 +1792,8 @@ function ClientPage() {
             ) : activeSession === "Doctor" ? (
               <DoctorView 
                 bots={bots} 
+                url={doctorUrl}
+                setUrl={setDoctorUrl}
                 onHealthUpdate={(id, status) => {
                   const bot = bots.find(b => b.id === id);
                   if (bot) {
@@ -1922,7 +1932,7 @@ function ClientPage() {
           config={config}
         />
         <AnimatePresence>
-          {showHealthAlert && (
+          {showHealthAlert && activeSession !== "Doctor" && (
             <HealthAlertNotification 
               onClose={() => setShowHealthAlert(false)} 
               onFix={() => {
@@ -1969,6 +1979,7 @@ function SessionConfigForm({
   botNameError = null,
   onClearBotNameError,
   creditsPerMinute = 50,
+  isAddAgent = false,
 }: {
   onConnect: (e: React.FormEvent) => void;
   config: any;
@@ -1985,6 +1996,7 @@ function SessionConfigForm({
   botNameError?: string | null;
   onClearBotNameError?: () => void;
   creditsPerMinute?: number;
+  isAddAgent?: boolean;
 }) {
   const avatars = useAvatars();
   const selectedAvatar = avatars.find((a) => a.id === config.avatarId);
@@ -2055,12 +2067,20 @@ function SessionConfigForm({
       <div className="w-full max-w-[620px] mx-auto px-6 py-8">
         <div className="mb-6 text-center">
           <h2 className="text-[22px] font-bold text-white tracking-tight">
-            {isEditing ? "Edit Agent Configuration" : (isSavingBot ? "Save Agent to Library" : "Quick Call")}
+            {isEditing 
+              ? "Edit Agent Configuration" 
+              : (isAddAgent 
+                  ? "Add Agent" 
+                  : (isSavingBot ? "Save Agent to Library" : "Quick Call")
+                )}
           </h2>
           <p className="text-[#6b7280] text-[13px] mt-1">
             {isEditing 
               ? "Update your agent settings below" 
-              : "Manual configuration for a one-time connection"}
+              : (isAddAgent 
+                  ? "Configure and save your new custom AI agent" 
+                  : "Manual configuration for a one-time connection"
+                )}
           </p>
         </div>
 
@@ -2121,11 +2141,10 @@ function SessionConfigForm({
                 >
                   {selectedAvatar ? (
                     <>
-                      <Image 
+                      <img 
                         src={selectedAvatar.image} 
                         alt={selectedAvatar.name} 
-                        fill 
-                        className="object-cover opacity-60 group-hover:opacity-80 transition-opacity"
+                        className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                       <div className="relative z-10 flex flex-col items-center gap-1">
@@ -2542,10 +2561,26 @@ function AvatarPickerModal({
               >
                 <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-white/5 shadow-inner">
                   <img src={avatar.image} alt={avatar.name} className={`w-full h-full object-cover transition-transform duration-300 ${tempId === avatar.id ? "scale-105" : "group-hover:scale-105"}`} loading="lazy" />
-                  <div className="absolute top-2 left-2"><span className="px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md text-[11px] text-white font-semibold border border-white/10 shadow-lg">{avatar.name}</span></div>
-                  <div className="absolute top-2 right-2"><span className="px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md text-[11px] text-white/80 font-medium border border-white/10 shadow-lg">Huma-2</span></div>
-                  <div className="absolute bottom-3 left-3"><span className="text-[10px] text-white font-bold uppercase tracking-wider">PRO</span></div>
-                  <div className="absolute bottom-3 right-3"><span className="text-[10px] text-white/70 font-mono">id:{avatar.id}</span></div>
+                  <div className="absolute top-2.5 left-2.5">
+                    <span className="px-2.5 py-1 rounded-full bg-black/80 backdrop-blur-md text-[11px] text-white font-bold border border-white/15 shadow-lg select-none">
+                      {avatar.name}
+                    </span>
+                  </div>
+                  <div className="absolute top-2.5 right-2.5">
+                    <span className="px-2.5 py-1 rounded-full bg-black/80 backdrop-blur-md text-[11px] text-white font-bold border border-white/15 shadow-lg select-none">
+                      Huma-2
+                    </span>
+                  </div>
+                  <div className="absolute bottom-3 left-3">
+                    <span className="px-2 py-0.5 rounded bg-brand text-black font-extrabold text-[9px] uppercase tracking-wider shadow-md select-none">
+                      PRO
+                    </span>
+                  </div>
+                  <div className="absolute bottom-3 right-3">
+                    <span className="px-2 py-0.5 rounded bg-black/80 backdrop-blur-md text-[9px] text-white font-bold font-mono border border-white/15 shadow-md select-none">
+                      ID: {avatar.id}
+                    </span>
+                  </div>
                   {tempId === avatar.id && (
                     <div className="absolute inset-0 bg-brand/10 flex items-center justify-center backdrop-blur-[1px]">
                       <div className="w-10 h-10 rounded-full bg-brand text-black flex items-center justify-center shadow-xl ring-4 ring-brand/20">
@@ -2575,7 +2610,7 @@ function AvatarGallery() {
       <div className="max-w-6xl mx-auto pb-20">
         <header className="mb-10 text-center md:text-left">
           <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
-            <SmileIcon size={32} className="text-brand" />
+            <UserIcon size={32} className="text-brand" />
             Stock Avatars
           </h1>
           <p className="text-[#6b7280] mt-2">Design your AI companions with advanced customization</p>
@@ -2585,10 +2620,26 @@ function AvatarGallery() {
             <div key={avatar.id} className="group relative rounded-2xl transition-all duration-200 overflow-hidden border border-white/5 hover:border-white/10">
               <div className="relative w-full aspect-video">
                 <img src={avatar.image} alt={avatar.name} className="w-full h-full object-cover transition-transform duration-400 group-hover:scale-105" loading="lazy" />
-                <div className="absolute top-2 left-2"><span className="px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md text-[11px] text-white font-semibold border border-white/10 shadow-lg">{avatar.name}</span></div>
-                <div className="absolute top-2 right-2"><span className="px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md text-[11px] text-white/80 font-medium border border-white/10 shadow-lg">Huma-2</span></div>
-                <div className="absolute bottom-3 left-3"><span className="text-[10px] text-white font-bold uppercase tracking-wider">PRO</span></div>
-                <div className="absolute bottom-3 right-3"><span className="text-[10px] text-white/70 font-mono">id:{avatar.id}</span></div>
+                <div className="absolute top-2.5 left-2.5">
+                  <span className="px-2.5 py-1 rounded-full bg-black/80 backdrop-blur-md text-[11px] text-white font-bold border border-white/15 shadow-lg select-none">
+                    {avatar.name}
+                  </span>
+                </div>
+                <div className="absolute top-2.5 right-2.5">
+                  <span className="px-2.5 py-1 rounded-full bg-black/80 backdrop-blur-md text-[11px] text-white font-bold border border-white/15 shadow-lg select-none">
+                    Huma-2
+                  </span>
+                </div>
+                <div className="absolute bottom-3 left-3">
+                  <span className="px-2 py-0.5 rounded bg-brand text-black font-extrabold text-[9px] uppercase tracking-wider shadow-md select-none">
+                    PRO
+                  </span>
+                </div>
+                <div className="absolute bottom-3 right-3">
+                  <span className="px-2 py-0.5 rounded bg-black/80 backdrop-blur-md text-[9px] text-white font-bold font-mono border border-white/15 shadow-md select-none">
+                    ID: {avatar.id}
+                  </span>
+                </div>
               </div>
             </div>
           ))}
@@ -2709,6 +2760,7 @@ function SimpleVoiceAssistant({
   botNameError = null,
   onClearBotNameError,
   creditsPerMinute = 50,
+  isAddAgent = false,
 }: {
   onConnectButtonClicked: () => void;
   config: typeof DEFAULTS;
@@ -2725,6 +2777,7 @@ function SimpleVoiceAssistant({
   botNameError?: string | null;
   onClearBotNameError?: () => void;
   creditsPerMinute?: number;
+  isAddAgent?: boolean;
 }) {
   const { state: agentState } = useVoiceAssistant();
   const [internalIsConnecting, setInternalIsConnecting] = useState(false);
@@ -2761,6 +2814,7 @@ function SimpleVoiceAssistant({
             botNameError={botNameError}
             onClearBotNameError={onClearBotNameError}
             creditsPerMinute={creditsPerMinute}
+            isAddAgent={isAddAgent}
           />
         ) : (
           <ActiveVoiceAssistantView 
@@ -3145,26 +3199,89 @@ function ConversationsListView({
   onSelect: (conv: any) => void;
 }) {
   const avatars = useAvatars();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
+  const [isPageSizeDropdownOpen, setIsPageSizeDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, pageSize]);
+
+  const filteredConversations = conversations.filter((conv) => {
+    // Search filter
+    if (searchTerm.trim() !== "") {
+      const term = searchTerm.toLowerCase();
+      const name = (conv.agent_name || conv.bot_name || conv.userName || "").toLowerCase();
+      const id = (conv.session_key || conv.agentId || conv.id || "").toLowerCase();
+      const userId = (conv.userId || "").toLowerCase();
+      if (!name.includes(term) && !id.includes(term) && !userId.includes(term)) {
+        return false;
+      }
+    }
+    
+    return true;
+  });
+
+  const totalItems = filteredConversations.length;
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const activePage = Math.min(Math.max(1, currentPage), totalPages || 1);
+  
+  const startIndex = (activePage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
+  const paginatedConversations = filteredConversations.slice(startIndex, endIndex);
+
   return (
     <div className="absolute inset-0 overflow-y-auto p-6 md:p-10 custom-scrollbar bg-canvas z-10">
       <div className="max-w-6xl mx-auto pb-20">
         <header className="mb-10">
           <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
-            <RefreshCwIcon size={32} className="text-brand" />
+            <HistoryIcon size={32} className="text-brand" />
             Conversations
           </h1>
           <p className="text-[#6b7280] mt-2 text-sm">Review past interactions and transcripts</p>
         </header>
 
+        {/* Filters Header */}
+        <div className="mb-6 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-white/[0.02] p-4 border border-white/5 rounded-2xl shadow-xl">
+          {/* Search Box */}
+          <div className="relative flex-1 max-w-md">
+            <svg
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-500"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="11" cy="11" r="8" /><line x1="21" x2="16.65" y1="21" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search conversations..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-white/5 hover:bg-white/[0.07] focus:bg-white/[0.07] border border-white/5 hover:border-white/10 focus:border-brand/40 rounded-xl px-4 py-2.5 pl-10 text-sm text-white focus:outline-none focus:ring-1 focus:ring-brand/20 transition-all font-medium placeholder-neutral-500"
+            />
+          </div>
+        </div>
+
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
             <RefreshCwIcon className="animate-spin text-brand" size={32} />
           </div>
-        ) : conversations.length === 0 ? (
+        ) : filteredConversations.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-white/5 rounded-3xl bg-white/[0.02]">
             <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center text-[#4b5563] mb-4"><MessageIcon size={32} /></div>
             <h3 className="text-lg font-semibold text-white">No Conversations Found</h3>
-            <p className="text-[#6b7280] text-[13px] mt-1 max-w-xs text-center">Your interaction history will appear here after your first call.</p>
+            <p className="text-[#6b7280] text-[13px] mt-1 max-w-xs text-center">
+              {conversations.length === 0
+                ? "Your interaction history will appear here after your first call."
+                : "No conversations match your search criteria or date range."}
+            </p>
           </div>
         ) : (
           <div className="bg-surface border border-white/5 rounded-2xl overflow-hidden">
@@ -3179,7 +3296,7 @@ function ConversationsListView({
                 </tr>
               </thead>
               <tbody>
-                {conversations.map((conv) => {
+                {paginatedConversations.map((conv) => {
                   const getStatusStyles = (status: string) => {
                     const normalized = status?.toLowerCase();
                     if (normalized === "completed") return "bg-green-500/10 text-green-500 border-green-500/20";
@@ -3194,7 +3311,7 @@ function ConversationsListView({
                   const displayId = conv.session_key || conv.agentId || conv.id;
                   const displayDate = conv.created_at ? new Date(conv.created_at) : null;
                   return (
-                    <tr key={conv.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors cursor-pointer group" onClick={() => onSelect(conv)}>
+                    <tr key={conv.id} className="border-b border-white/5 hover:bg-white/[0.01] transition-colors group">
                       <td className="px-6 py-4">
                         <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase border ${getStatusStyles(conv.status || "Completed")}`}>
                           {conv.status || "Completed"}
@@ -3212,7 +3329,7 @@ function ConversationsListView({
                           <div className="flex flex-col min-w-0">
                             <span className="text-[#6b7280] text-[10px] font-bold uppercase tracking-widest mb-0.5 opacity-60">Video Companion</span>
                             <span className="text-white text-[14px] font-bold truncate leading-tight">{displayName}</span>
-                            <span className="text-[#3a3a3a] text-[9px] font-mono truncate mt-0.5">ID: {displayId}</span>
+                            <span className="text-zinc-300 text-[11px] font-mono mt-0.5 select-all" title={displayId}>ID: {displayId}</span>
                           </div>
                         </div>
                       </td>
@@ -3222,17 +3339,138 @@ function ConversationsListView({
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
                           <span className="text-white text-[13px]">{displayDate ? displayDate.toLocaleDateString() : '—'}</span>
-                          <span className="text-[#3a3a3a] text-[11px]">{displayDate ? displayDate.toLocaleTimeString() : ''}</span>
+                          <span className="text-zinc-500 text-[11px]">{displayDate ? displayDate.toLocaleTimeString() : ''}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <button className="px-4 py-1.5 rounded-lg bg-white/5 hover:bg-brand/20 hover:text-brand transition-all text-[12px] font-semibold text-white/70">View History</button>
+                        <button
+                          onClick={() => onSelect(conv)}
+                          className="px-4 py-1.5 rounded-lg bg-white/5 hover:bg-brand/20 hover:text-brand transition-all text-[12px] font-semibold text-white/90 shadow-sm cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                        >
+                          View History
+                        </button>
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+
+            {/* Pagination Footer */}
+            <div className="px-6 py-5 border-t border-white/5 bg-white/[0.01] flex flex-col sm:flex-row items-center justify-between gap-4">
+              {/* Left: Page Size Selector */}
+              <div className="flex items-center gap-2 text-sm text-[#9ca3af]">
+                <span>View</span>
+                <div className="relative">
+                  <button
+                    onClick={() => setIsPageSizeDropdownOpen(!isPageSizeDropdownOpen)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white font-semibold border border-white/10 transition-all text-xs flex items-center justify-center"
+                  >
+                    <span>{pageSize}</span>
+                    <svg
+                      className={`w-3.5 h-3.5 transition-transform duration-200 ${isPageSizeDropdownOpen ? "rotate-180" : ""}`}
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                  </button>
+
+                  {/* Dropdown Menu (Expanding Upwards) */}
+                  {isPageSizeDropdownOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setIsPageSizeDropdownOpen(false)} />
+                      <div className="absolute bottom-full left-0 mb-2 z-50 w-24 bg-[#161616] border border-white/10 rounded-xl shadow-2xl p-1 overflow-hidden">
+                        {[5, 10, 20].map((size) => (
+                          <button
+                            key={size}
+                            onClick={() => {
+                              setPageSize(size);
+                              setIsPageSizeDropdownOpen(false);
+                            }}
+                            className="w-full flex items-center justify-between px-3 py-2 text-left rounded-lg text-xs font-semibold hover:bg-white/5 transition-all text-white/90"
+                          >
+                            <span>{size}</span>
+                            {pageSize === size && (
+                              <svg className="w-3.5 h-3.5 text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+                <span>per page</span>
+              </div>
+
+              {/* Right: Showing status and Page controls */}
+              <div className="flex flex-wrap items-center gap-6">
+                <span className="text-xs text-[#9ca3af] font-medium">
+                  Showing {totalItems > 0 ? startIndex + 1 : 0}–{endIndex} of {totalItems} Conversations
+                </span>
+
+                <div className="flex items-center gap-1">
+                  {/* First page button */}
+                  <button
+                    disabled={activePage === 1}
+                    onClick={() => setCurrentPage(1)}
+                    className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-all disabled:opacity-30 disabled:pointer-events-none"
+                    title="First Page"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="11 17 6 12 11 7" /><polyline points="18 17 13 12 18 7" />
+                    </svg>
+                  </button>
+
+                  {/* Previous page button */}
+                  <button
+                    disabled={activePage === 1}
+                    onClick={() => setCurrentPage(activePage - 1)}
+                    className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-all disabled:opacity-30 disabled:pointer-events-none"
+                    title="Previous Page"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="15 18 9 12 15 6" />
+                    </svg>
+                  </button>
+
+                  {/* Page numbers indicator */}
+                  <div className="w-8 h-8 rounded-full bg-brand/10 text-brand flex items-center justify-center border border-brand/20 text-xs font-bold shadow-md select-none">
+                    {activePage}
+                  </div>
+
+                  {/* Next page button */}
+                  <button
+                    disabled={activePage === totalPages || totalPages === 0}
+                    onClick={() => setCurrentPage(activePage + 1)}
+                    className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-all disabled:opacity-30 disabled:pointer-events-none"
+                    title="Next Page"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                  </button>
+
+                  {/* Last page button */}
+                  <button
+                    disabled={activePage === totalPages || totalPages === 0}
+                    onClick={() => setCurrentPage(totalPages)}
+                    className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-all disabled:opacity-30 disabled:pointer-events-none"
+                    title="Last Page"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="13 17 18 12 13 7" /><polyline points="6 17 11 12 6 7" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -3257,7 +3495,7 @@ function ConversationDetailView({
               <ChevronDownIcon className="rotate-90" />
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-white tracking-tight">Conversation with {conversation.agent_name || conversation.bot_name || conversation.userName || "Agent"} ({conversation.userName || "own"})</h1>
+              <h1 className="text-2xl font-bold text-white tracking-tight">Conversation with {conversation.agent_name || conversation.bot_name || conversation.userName || "Agent"}</h1>
               <p className="text-[#6b7280] text-sm mt-1">{conversation.created_at ? new Date(conversation.created_at).toLocaleString() : "—"}{conversation.duration ? ` • ${parseFloat(String(conversation.duration)).toFixed(1)}s` : ""}</p>
             </div>
           </div>
@@ -3354,7 +3592,7 @@ function DirectCallDashboard({
   const [isConnecting, setIsConnecting] = useState(autoStart || false);
   const room = useRoomContext();
   const avatars = useAvatars();
-  const selectedAvatar = avatars.find(a => a.id === config.avatarId) || avatars[0];
+  const selectedAvatar = avatars.find(a => a.id === config.avatarId) || avatars[0] || { id: "", name: "Agent", image: "" };
 
   const handleStartCall = async () => {
     setIsConnecting(true);
@@ -3430,11 +3668,10 @@ function DirectCallDashboard({
         <div className="flex flex-col items-center space-y-12">
           <div className="w-56 h-56 rounded-full p-1.5 border-2 border-brand/30 shadow-[0_0_40px_rgba(0,227,170,0.15)] relative">
             <div className="w-full h-full rounded-full overflow-hidden relative">
-              <Image
+              <img
                 src={selectedAvatar.image}
                 alt={selectedAvatar.name}
-                fill
-                className="object-cover"
+                className="absolute inset-0 w-full h-full object-cover"
               />
             </div>
             <div className="absolute bottom-4 right-4 w-6 h-6 rounded-full bg-brand border-4 border-[#0A0A0A] shadow-lg animate-pulse" />

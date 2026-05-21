@@ -5,10 +5,9 @@ import { useRouter, usePathname } from 'next/navigation';
 import { getInitials } from '@/lib/auth';
 import { useUser, useStackApp } from '@stackframe/stack';
 import { getLicenseDetails } from '@/app/services/pricingPaymentService';
+import { fetchAvatars, type AvatarItem } from '@/app/services/avatarService';
 import { clearApiKey } from '@/app/services/apiKeyService';
 import { type AgentBot } from '@/app/services/agentService';
-import { AVATARS } from '@/lib/constants';
-import { fetchAvatars, type AvatarItem } from '@/app/services/avatarService';
 
 // ---- Icons ----
 const BotIcon = () => <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="10" x="3" y="11" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" x2="8" y1="16" y2="16"/><line x1="16" x2="16" y1="16" y2="16"/></svg>;
@@ -151,7 +150,7 @@ function ProfileDropdown({ user, initials, onClose, planLabel, onNavigate, class
       <div className="py-1">
         {planLabel === "Free Plan" && menuItem(<CrownIcon />, "Upgrade to Pro", () => navigate("/dashboard/settings/billing-and-subscription"), "text-yellow-400 hover:text-yellow-300")}
         <div className="border-[#1f1f1f] my-1" />
-        {menuItem(<CardIcon />, "Billing & Plans", () => navigate("/dashboard/settings/billing-and-subscription"))}
+        {menuItem(<CardIcon />, "Plan & Billing", () => navigate("/dashboard/settings/billing-and-subscription"))}
         <div className="border-t border-[#1f1f1f] my-1" />
         {/* Light mode — dummy (coming soon) */}
         {menuItem(<SignOutIcon />, "Sign Out", handleLogoutRequest, "text-red-400")}
@@ -187,7 +186,7 @@ function QuickCallDropdown({ bots, avatars, onSelect, onClose, className = "bott
               >
                 <div className="w-8 h-8 rounded-full overflow-hidden border border-white/10 shrink-0 group-hover:border-[#00E3AA]/40 transition-colors">
                   {avatar ? (
-                    <Image src={avatar.image} alt={bot.agent_name} width={40} height={40} className="w-full h-full object-cover object-top" />
+                    <img src={avatar.image} alt={bot.agent_name} className="w-full h-full object-cover object-top" />
                   ) : (
                     <div className="w-full h-full bg-[#1c2e28] flex items-center justify-center text-[10px] font-bold text-[#00E3AA]">
                       {bot.agent_name.charAt(0)}
@@ -209,7 +208,7 @@ function QuickCallDropdown({ bots, avatars, onSelect, onClose, className = "bott
 
 // ─── Main Sidebar ─────────────────────────────────────────────────────────────
 export function Sidebar({
-  activeSession, setActiveSession, isMobileMenuOpen, setIsMobileMenuOpen, bots = [], onQuickCall = () => {}, avatars = AVATARS, gatewayError = false, onNavigate
+  activeSession, setActiveSession, isMobileMenuOpen, setIsMobileMenuOpen, bots = [], onQuickCall = () => {}, avatars = [], gatewayError = false, onNavigate
 }: {
   activeSession: string;
   setActiveSession: (s: string) => void;
@@ -333,25 +332,32 @@ export function Sidebar({
       <nav className="flex-1 overflow-y-auto px-3 pb-2 flex flex-col gap-0.5 custom-scrollbar">
         <NavRow label="Agent Library" icon={<LibraryIcon />} isActive={activeSession === "Library" || activeSession === "DirectCall"} onClick={() => handleNav("Library")} />
         <NavRow label="Add Agent" icon={<BotIcon />} isActive={activeSession === "AddBot"} onClick={() => handleNav("AddBot")} />
-        <NavRow label="Gateway Doctor" icon={<ActivityIcon />} onClick={() => handleNav("Doctor")} isActive={activeSession === "Doctor"} badge={gatewayError ? "Offline" : "Active"} badgeCls={gatewayError ? "border-red-500/40 text-red-400 bg-red-500/10" : "border-[#00E3AA]/20 text-[#00E3AA]"} />
+        <NavRow 
+          label="Gateway Doctor" 
+          icon={<ActivityIcon />} 
+          onClick={() => handleNav("Doctor")} 
+          isActive={activeSession === "Doctor"} 
+          badge={bots.length === 0 ? "Inactive" : (gatewayError ? "Offline" : "Active")} 
+          badgeCls={bots.length === 0 ? "border-neutral-500/30 text-neutral-400 bg-neutral-500/5" : (gatewayError ? "border-red-500/40 text-red-400 bg-red-500/10" : "border-[#00E3AA]/20 text-[#00E3AA]")} 
+        />
         <NavRow label="Stock Avatars" icon={<UserIcon />}     isActive={activeSession === "Avatars"}   onClick={() => handleNav("Avatars")} />
 
         <NavRow label="Conversations" icon={<HistoryIcon />} onClick={() => handleNav("Conversations")} isActive={activeSession === "Conversations"} />
         <button onClick={() => setSettingsOpen(!settingsOpen)}
           className="w-full flex items-center gap-3 px-3 py-[11px] rounded-lg text-left text-[#9ca3af] hover:bg-[#1c1c1c] hover:text-white transition-all duration-150">
-          <span className="shrink-0"><GearIcon /></span>
-          <span className="flex-1 text-[15px] font-medium leading-none">Settings</span>
+          <span className="shrink-0"><CardIcon /></span>
+          <span className="flex-1 text-[15px] font-medium leading-none">Billing</span>
           <span className={`transition-transform duration-200 ${settingsOpen ? '' : '-rotate-90'}`}><ChevronDown /></span>
         </button>
         {settingsOpen && <div className="flex flex-col gap-0.5">
           <SubRow
-            label="Billing & Plans"
+            label="Plan & Subscription"
             icon={<CardIcon />}
             onClick={() => handleRoute("/dashboard/settings/billing-and-subscription")}
             isActive={pathname === "/dashboard/settings/billing-and-subscription"}
           />
           <SubRow
-            label="Invoices"
+            label="Invoice History"
             icon={<FileTextIcon />}
             onClick={() => handleRoute("/dashboard/settings/invoices")}
             isActive={pathname === "/dashboard/settings/invoices"}
@@ -421,7 +427,7 @@ export function Sidebar({
         <ColIconBtn label="Doctor" icon={<ActivityIcon />} isActive={activeSession === "Doctor"} onClick={() => handleNav("Doctor")} />
         <ColIconBtn label="Stock Avatars" icon={<UserIcon />}     isActive={activeSession === "Avatars"}   onClick={() => handleNav("Avatars")} />
         <ColIconBtn label="Conversations" icon={<HistoryIcon />} isActive={activeSession === "Conversations"} onClick={() => handleNav("Conversations")} />
-        <ColIconBtn label="Billing & Plans" icon={<CardIcon />} isActive={!!pathname?.startsWith("/dashboard/settings")} onClick={() => handleRoute("/dashboard/settings/billing-and-subscription")} />
+        <ColIconBtn label="Billing" icon={<CardIcon />} isActive={!!pathname?.startsWith("/dashboard/settings")} onClick={() => handleRoute("/dashboard/settings/billing-and-subscription")} />
       </nav>
       <div className="flex flex-col items-center px-2 pb-4 shrink-0 gap-2">
         <div className="border-t border-[#232323] w-full mb-1" />
