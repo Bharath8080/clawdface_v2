@@ -38,3 +38,6 @@ Thumbs.db
 # IDE
 .idea/
 
+# Scratch / local-only backend files
+newbackend/
+oldbackend/
