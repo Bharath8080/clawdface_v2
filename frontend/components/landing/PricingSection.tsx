@@ -4,6 +4,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useUser } from "@stackframe/stack";
 import { getPublicPricingPlans, type PlanType } from "@/app/services/pricingPaymentService";
 
 interface DisplayPlan {
@@ -98,6 +99,7 @@ function SkeletonCard() {
 // ── Section ────────────────────────────────────────────────────────────────
 export function PricingSection() {
   const router = useRouter();
+  const user = useUser();
   const [plans, setPlans] = useState<DisplayPlan[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -117,8 +119,10 @@ export function PricingSection() {
   }, []);
 
   const handleCta = (cta: string) => {
-    if (cta === "Get Started" || cta === "Upgrade to Pro") {
-      router.push("/sign-up");
+    if (cta === "Upgrade to Pro") {
+      router.push(user ? "/dashboard/settings/billing-and-subscription" : "/sign-up");
+    } else if (cta === "Get Started") {
+      router.push(user ? "/dashboard" : "/sign-up");
     } else if (cta === "Contact Sales") {
       document.getElementById("contact")?.scrollIntoView({ behavior: "smooth" });
     }
