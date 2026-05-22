@@ -29,7 +29,7 @@ const FileTextIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill=
 
 function Tooltip({ label }: { label: string }) {
   return (
-    <div className="absolute left-full ml-3 z-[100] px-2.5 py-1.5 bg-[#1e1e1e] text-white text-xs font-medium rounded-lg border border-white/10 shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity duration-150">
+    <div className="absolute left-full ml-4 z-[100] px-3 py-1.5 bg-[#0e0e0e]/95 border border-white/10 backdrop-blur-md text-white text-[11px] font-semibold tracking-wide uppercase rounded-lg shadow-2xl opacity-0 scale-95 translate-x-[-4px] group-hover:opacity-100 group-hover:scale-100 group-hover:translate-x-0 pointer-events-none whitespace-nowrap transition-all duration-200">
       {label}
     </div>
   );
@@ -50,13 +50,28 @@ interface NavRowProps extends NavItemProps {
 
 function NavRow({ label, icon, isActive, onClick, badge, badgeCls, showChevron }: NavRowProps) {
   return (
-    <button onClick={onClick}
-      className={`w-full flex items-center gap-3 px-3 py-[11px] rounded-lg text-left transition-all duration-150
-        ${isActive ? 'bg-[#252525] text-white' : 'text-[#9ca3af] hover:bg-[#1c1c1c] hover:text-white'}`}>
-      <span className="shrink-0">{icon}</span>
-      <span className="flex-1 text-[15px] font-medium leading-none">{label}</span>
-      {badge && <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full border ${badgeCls}`}>{badge}</span>}
-      {showChevron && <span className="text-[#5a5a5a]"><ChevronDown /></span>}
+    <button 
+      onClick={onClick}
+      className={`group/row w-full flex items-center gap-3.5 px-3.5 py-[11px] rounded-xl text-left transition-all duration-300 border border-transparent relative overflow-hidden
+        ${isActive 
+          ? 'bg-gradient-to-r from-[#00E3AA]/10 to-[#00b589]/5 text-[#00E3AA] border-[#00E3AA]/20 shadow-[0_4px_20px_-4px_rgba(0,227,170,0.15)] font-semibold' 
+          : 'text-[#9ca3af] hover:bg-white/[0.03] hover:text-white hover:border-white/5'
+        }`}
+    >
+      {/* Sleek active left glow line */}
+      {isActive && (
+        <span className="absolute left-0 top-[20%] bottom-[20%] w-[3px] bg-gradient-to-b from-[#00E3AA] to-[#00b589] rounded-r-full shadow-[0_0_10px_#00E3AA]" />
+      )}
+      <span className={`shrink-0 transition-transform duration-300 group-hover/row:scale-110 ${isActive ? 'text-[#00E3AA]' : 'text-[#9ca3af] group-hover/row:text-white'}`}>
+        {icon}
+      </span>
+      <span className="flex-1 text-[14.5px] font-medium leading-none tracking-wide">{label}</span>
+      {badge && (
+        <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full border tracking-wider ${badgeCls}`}>
+          {badge}
+        </span>
+      )}
+      {showChevron && <span className="text-[#5a5a5a] group-hover/row:text-white transition-colors"><ChevronDown /></span>}
     </button>
   );
 }
@@ -65,22 +80,42 @@ function SubRow({ label, icon, badge, badgeCls, onClick, isActive }: { label: st
   return (
     <div 
       onClick={onClick}
-      className={`flex items-center gap-3 pl-[42px] pr-3 py-[9px] rounded-lg cursor-pointer transition-all duration-150
-        ${isActive ? 'bg-[#252525]/50 text-white' : 'text-[#9ca3af] hover:text-white hover:bg-[#1c1c1c]'}`}
+      className={`group/sub flex items-center gap-3 pl-[44px] pr-3.5 py-[9px] rounded-xl cursor-pointer transition-all duration-300 border border-transparent
+        ${isActive 
+          ? 'bg-gradient-to-r from-white/[0.04] to-transparent text-white font-medium border-white/5' 
+          : 'text-[#9ca3af] hover:text-white hover:bg-white/[0.02]'
+        }`}
     >
-      <span className="shrink-0">{icon}</span>
-      <span className="flex-1 text-[14px] font-medium">{label}</span>
-      {badge && <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full border ${badgeCls}`}>{badge}</span>}
+      <span className={`shrink-0 transition-transform duration-300 group-hover/sub:scale-105 ${isActive ? 'text-white' : 'text-[#7a7a7a] group-hover/sub:text-[#9ca3af]'}`}>
+        {icon}
+      </span>
+      <span className="flex-1 text-[13.5px] font-medium leading-none tracking-wide">{label}</span>
+      {badge && (
+        <span className={`text-[9.5px] font-bold uppercase px-2 py-0.5 rounded-full border tracking-wide ${badgeCls}`}>
+          {badge}
+        </span>
+      )}
     </div>
   );
 }
 
 function ColIconBtn({ label, icon, isActive, onClick }: NavItemProps) {
   return (
-    <button onClick={onClick} title={label}
-      className={`group relative w-full flex items-center justify-center p-2.5 rounded-lg transition-all duration-150
-        ${isActive ? 'bg-[#252525] text-white' : 'text-[#9ca3af] hover:bg-[#1c1c1c] hover:text-white'}`}>
-      {icon}
+    <button 
+      onClick={onClick}
+      className={`group relative w-11 h-11 flex items-center justify-center rounded-xl transition-all duration-300 border
+        ${isActive 
+          ? 'bg-gradient-to-br from-[#00E3AA]/15 to-[#00b589]/5 text-[#00E3AA] border-[#00E3AA]/30 shadow-[0_0_15px_rgba(0,227,170,0.15)]' 
+          : 'text-[#9ca3af] hover:bg-white/[0.04] hover:text-white border-transparent hover:border-white/5'
+        }`}
+    >
+      {/* Left indicator line */}
+      {isActive && (
+        <span className="absolute left-[-4px] top-[25%] bottom-[25%] w-[3px] bg-gradient-to-b from-[#00E3AA] to-[#00b589] rounded-r-full shadow-[0_0_8px_#00E3AA]" />
+      )}
+      <span className="transition-transform duration-300 group-hover:scale-110">
+        {icon}
+      </span>
       <Tooltip label={label} />
     </button>
   );
@@ -304,9 +339,25 @@ export function Sidebar({
   };
 
   const UserAvatar = ({ size = "w-9 h-9" }: { size?: string }) => (
-    user?.profileImageUrl
-      ? <Image src={user.profileImageUrl} alt={initials} width={36} height={36} className={`${size} rounded-xl object-cover shrink-0`} />
-      : <div className={`${size} rounded-xl bg-gradient-to-br from-[#00E3AA] to-[#00b589] flex items-center justify-center text-black font-bold text-[13px] shrink-0`}>{initials}</div>
+    user?.profileImageUrl ? (
+      <div className={`relative ${size} shrink-0 group-hover:scale-105 transition-all duration-300`}>
+        <Image 
+          src={user.profileImageUrl} 
+          alt={initials} 
+          width={36} 
+          height={36} 
+          className="w-full h-full rounded-xl object-cover border border-white/10 group-hover:border-[#00E3AA]/40 transition-colors" 
+        />
+        <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-[#00E3AA] border-2 border-[#09090b] shadow-[0_0_8px_#00E3AA]" />
+      </div>
+    ) : (
+      <div className={`relative ${size} shrink-0 group-hover:scale-105 transition-all duration-300`}>
+        <div className="w-full h-full rounded-xl bg-gradient-to-br from-[#00E3AA] to-[#00b589] flex items-center justify-center text-black font-bold text-[13px] shadow-[0_2px_8px_rgba(0,227,170,0.2)]">
+          {initials}
+        </div>
+        <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-[#00E3AA] border-2 border-[#09090b] shadow-[0_0_8px_#00E3AA]" />
+      </div>
+    )
   );
 
   // ---- Expanded Layout ----
@@ -315,15 +366,19 @@ export function Sidebar({
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-5 pb-4 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#1c2e28] flex items-center justify-center shrink-0 overflow-hidden">
-            <Image src="/clawdface-logo.svg" alt="ClawdFace" width={50} height={50} className="object-contain" />
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00E3AA]/20 to-[#00b589]/5 border border-[#00E3AA]/20 flex items-center justify-center shrink-0 overflow-hidden shadow-[0_0_15px_rgba(0,227,170,0.1)]">
+            <Image src="/clawdface-logo.svg" alt="ClawdFace" width={50} height={50} className="object-contain transform hover:scale-110 transition-transform duration-300" />
           </div>
           <div className="flex flex-col">
-            <span className="text-white font-bold text-[17px] leading-tight tracking-[-0.01em]">ClawdFace</span>
-            <span className="text-[#00E3AA] text-[12px] font-semibold leading-tight">Beta</span>
+            <span className="text-white font-bold text-[17px] leading-tight tracking-[-0.015em]">ClawdFace</span>
+            <span className="text-[#00E3AA] text-[11px] font-bold uppercase tracking-wider leading-none mt-0.5">Beta</span>
           </div>
         </div>
-        <button onClick={() => setIsCollapsed(true)} className="text-[#5a5a5a] hover:text-[#9ca3af] transition-colors p-1.5 rounded-md hover:bg-white/5">
+        <button 
+          onClick={() => setIsCollapsed(true)} 
+          className="text-[#7a7a7a] hover:text-white transition-all duration-300 p-1.5 rounded-lg hover:bg-white/5 border border-transparent hover:border-white/5"
+          title="Collapse Sidebar"
+        >
           <CollapseIcon />
         </button>
       </div>
@@ -343,11 +398,24 @@ export function Sidebar({
         <NavRow label="Stock Avatars" icon={<UserIcon />}     isActive={activeSession === "Avatars"}   onClick={() => handleNav("Avatars")} />
 
         <NavRow label="Conversations" icon={<HistoryIcon />} onClick={() => handleNav("Conversations")} isActive={activeSession === "Conversations"} />
-        <button onClick={() => setSettingsOpen(!settingsOpen)}
-          className="w-full flex items-center gap-3 px-3 py-[11px] rounded-lg text-left text-[#9ca3af] hover:bg-[#1c1c1c] hover:text-white transition-all duration-150">
-          <span className="shrink-0"><CardIcon /></span>
-          <span className="flex-1 text-[15px] font-medium leading-none">Billing</span>
-          <span className={`transition-transform duration-200 ${settingsOpen ? '' : '-rotate-90'}`}><ChevronDown /></span>
+        <button 
+          onClick={() => setSettingsOpen(!settingsOpen)}
+          className={`group/row w-full flex items-center gap-3.5 px-3.5 py-[11px] rounded-xl text-left transition-all duration-300 border border-transparent relative overflow-hidden
+            ${pathname?.startsWith("/dashboard/settings")
+              ? 'bg-gradient-to-r from-[#00E3AA]/10 to-[#00b589]/5 text-[#00E3AA] border-[#00E3AA]/20 shadow-[0_4px_20px_-4px_rgba(0,227,170,0.15)] font-semibold'
+              : 'text-[#9ca3af] hover:bg-white/[0.03] hover:text-white hover:border-white/5'
+            }`}
+        >
+          {pathname?.startsWith("/dashboard/settings") && (
+            <span className="absolute left-0 top-[20%] bottom-[20%] w-[3px] bg-gradient-to-b from-[#00E3AA] to-[#00b589] rounded-r-full shadow-[0_0_10px_#00E3AA]" />
+          )}
+          <span className={`shrink-0 transition-transform duration-300 group-hover/row:scale-110 ${pathname?.startsWith("/dashboard/settings") ? 'text-[#00E3AA]' : 'text-[#9ca3af] group-hover/row:text-white'}`}>
+            <CardIcon />
+          </span>
+          <span className="flex-1 text-[14.5px] font-medium leading-none tracking-wide">Billing</span>
+          <span className={`transition-transform duration-200 ${settingsOpen ? '' : '-rotate-90'} ${pathname?.startsWith("/dashboard/settings") ? 'text-[#00E3AA]' : 'text-[#5a5a5a] group-hover/row:text-white'}`}>
+            <ChevronDown />
+          </span>
         </button>
         {settingsOpen && <div className="flex flex-col gap-0.5">
           <SubRow
@@ -367,7 +435,7 @@ export function Sidebar({
 
       {/* Footer / Configuration */}
       <div className="px-3 pb-4 flex flex-col gap-0.5 shrink-0">
-        <div className="border-t border-[#232323] mb-2 mx-1" />
+        <div className="bg-gradient-to-r from-transparent via-white/[0.08] to-transparent h-[1px] w-full my-3" />
         
         <div ref={quickCallRef} className="relative">
           {quickCallOpen && (
@@ -382,7 +450,7 @@ export function Sidebar({
           />
         </div>
 
-        <div className="border-t border-[#232323] mb-2 mx-1" />
+        <div className="bg-gradient-to-r from-transparent via-white/[0.08] to-transparent h-[1px] w-full my-3" />
 
         {/* Profile + dropdown */}
         <div ref={dropdownRef} className="relative">
@@ -391,16 +459,16 @@ export function Sidebar({
           )}
           <div 
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-[#1c1c1c] cursor-pointer transition-all duration-150"
+            className="group flex items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-white/[0.03] border border-transparent hover:border-white/5 cursor-pointer transition-all duration-300"
           >
             <UserAvatar />
             <div className="flex flex-col flex-1 min-w-0">
-              <span className="text-white text-[14px] font-semibold leading-tight truncate">
-                {user ? (user.primaryEmail || user.displayName) : "Loading..."}
+              <span className="text-white text-[14.5px] font-semibold leading-tight truncate tracking-wide">
+                {user ? (user.displayName || user.primaryEmail) : "Loading..."}
               </span>
-              {planLabel !== null && <span className="text-[#5a5a5a] text-[12px] leading-tight font-medium">{planLabel}</span>}
+              {planLabel !== null && <span className="text-[#7a7a7a] text-[11px] leading-tight font-medium uppercase tracking-wider mt-0.5">{planLabel}</span>}
             </div>
-            <button className="text-[#5a5a5a] hover:text-[#9ca3af] transition-colors p-1 shrink-0">
+            <button className="text-[#5a5a5a] group-hover:text-[#9ca3af] transition-colors p-1 shrink-0">
               <DotsIcon />
             </button>
           </div>
@@ -412,16 +480,20 @@ export function Sidebar({
   // ---- Collapsed Layout ----
   const collapsed = (
     <>
-      <div className="flex flex-col items-center pt-4 pb-2 shrink-0 gap-3">
-        <div className="w-9 h-9 rounded-xl bg-[#1c2e28] flex items-center justify-center overflow-hidden">
-          <Image src="/clawdface-logo.svg" alt="ClawdFace" width={26} height={26} className="object-contain" />
+      <div className="flex flex-col items-center pt-5 pb-2 shrink-0 gap-3">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00E3AA]/20 to-[#00b589]/5 border border-[#00E3AA]/20 flex items-center justify-center overflow-hidden shadow-[0_0_15px_rgba(0,227,170,0.1)]">
+          <Image src="/clawdface-logo.svg" alt="ClawdFace" width={26} height={26} className="object-contain transform hover:scale-110 transition-transform duration-300" />
         </div>
-        <button onClick={() => setIsCollapsed(false)} className="text-[#5a5a5a] hover:text-[#9ca3af] transition-colors p-1.5 rounded-md hover:bg-white/5">
+        <button 
+          onClick={() => setIsCollapsed(false)} 
+          className="text-[#7a7a7a] hover:text-[#00E3AA] transition-all duration-300 p-1.5 rounded-xl hover:bg-[#00E3AA]/10 border border-transparent hover:border-[#00E3AA]/20"
+          title="Expand Sidebar"
+        >
           <ExpandIcon />
         </button>
       </div>
-      <div className="border-t border-[#232323] mx-2 mb-2" />
-      <nav className="flex-1 overflow-y-auto flex flex-col items-center gap-1 px-2 custom-scrollbar">
+      <div className="bg-gradient-to-r from-transparent via-white/[0.08] to-transparent h-[1px] w-full my-3" />
+      <nav className="flex-1 overflow-y-auto flex flex-col items-center gap-2.5 px-2 custom-scrollbar">
         <ColIconBtn label="Agent Library" icon={<LibraryIcon />} isActive={activeSession === "Library" || activeSession === "DirectCall"} onClick={() => handleNav("Library")} />
         <ColIconBtn label="Add Agent" icon={<BotIcon />} isActive={activeSession === "AddBot"} onClick={() => handleNav("AddBot")} />
         <ColIconBtn label="Doctor" icon={<ActivityIcon />} isActive={activeSession === "Doctor"} onClick={() => handleNav("Doctor")} />
@@ -429,8 +501,8 @@ export function Sidebar({
         <ColIconBtn label="Conversations" icon={<HistoryIcon />} isActive={activeSession === "Conversations"} onClick={() => handleNav("Conversations")} />
         <ColIconBtn label="Billing" icon={<CardIcon />} isActive={!!pathname?.startsWith("/dashboard/settings")} onClick={() => handleRoute("/dashboard/settings/billing-and-subscription")} />
       </nav>
-      <div className="flex flex-col items-center px-2 pb-4 shrink-0 gap-2">
-        <div className="border-t border-[#232323] w-full mb-1" />
+      <div className="flex flex-col items-center px-2 pb-4 shrink-0 gap-3">
+        <div className="bg-gradient-to-r from-transparent via-white/[0.08] to-transparent h-[1px] w-full my-3" />
         
         <div ref={quickCallRef} className="relative w-full flex justify-center group">
           {quickCallOpen && (
@@ -442,13 +514,20 @@ export function Sidebar({
               className="bottom-0 left-full ml-4 w-[260px]"
             />
           )}
-          <button onClick={() => setQuickCallOpen(!quickCallOpen)} className={`group relative w-full flex items-center justify-center p-2.5 rounded-lg transition-all duration-150 ${activeSession === 'My Bot' ? 'bg-[#252525] text-white' : 'text-[#9ca3af] hover:bg-[#1c1c1c] hover:text-white'}`}>
+          <button 
+            onClick={() => setQuickCallOpen(!quickCallOpen)} 
+            className={`group relative w-11 h-11 flex items-center justify-center rounded-xl transition-all duration-300 border
+              ${activeSession === 'My Bot' 
+                ? 'bg-gradient-to-br from-[#00E3AA]/15 to-[#00b589]/5 text-[#00E3AA] border-[#00E3AA]/30 shadow-[0_0_15px_rgba(0,227,170,0.15)]' 
+                : 'text-[#9ca3af] hover:bg-white/[0.04] hover:text-white border-transparent hover:border-white/5'
+              }`}
+          >
              <MonitorIcon />
              <Tooltip label="Quick Call" />
           </button>
         </div>
 
-        <div className="border-t border-[#232323] w-full mb-1" />
+        <div className="bg-gradient-to-r from-transparent via-white/[0.08] to-transparent h-[1px] w-full my-3" />
         <div ref={dropdownRef} className="relative group w-full flex justify-center">
           {dropdownOpen && user && (
             <ProfileDropdown
@@ -460,7 +539,7 @@ export function Sidebar({
               className="bottom-0 left-full ml-4 w-[260px]"
             />
           )}
-          <button onClick={() => setDropdownOpen(!dropdownOpen)} className="relative p-1">
+          <button onClick={() => setDropdownOpen(!dropdownOpen)} className="relative p-1 shrink-0">
             <UserAvatar />
             <Tooltip label={user ? (user.primaryEmail || user.displayName || "Profile") : "Profile"} />
           </button>
@@ -477,7 +556,7 @@ export function Sidebar({
         onClick={() => setIsMobileMenuOpen(false)}
       />
       <div className={`
-        h-screen bg-[#111111] border-r border-[#1f1f1f] flex flex-col shrink-0 z-50 overflow-hidden
+        h-screen bg-[#09090b] bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-[#00E3AA]/[0.02] via-transparent to-transparent border-r border-white/[0.04] flex flex-col shrink-0 z-50 overflow-hidden
         fixed md:relative inset-y-0 left-0
         transition-[width,transform] duration-300 ease-in-out
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}

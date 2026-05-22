@@ -3180,32 +3180,38 @@ function BotLibraryView({
                       {/* Identity Section */}
                       <div className="space-y-4 px-1 pt-4">
                         {/* URL Source */}
-                        <div className="flex items-center gap-3 px-1 text-[12px] text-neutral-500">
-                          <span className="text-neutral-700"><LinkIcon size={14} /></span>
-                          <span className="truncate italic font-medium">{bot.config?.openclaw_url ?? "—"}</span>
+                        <div className="flex items-center gap-3 px-2">
+                          <div className="w-8 h-8 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-center text-neutral-400 shrink-0">
+                            <LinkIcon size={14} />
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-[9px] text-neutral-500 font-bold uppercase tracking-wider font-outfit">Gateway URL</span>
+                            <span className="text-[12px] text-neutral-300 font-medium truncate font-jetbrains-mono">{bot.config?.openclaw_url ?? "—"}</span>
+                          </div>
                         </div>
 
                         {/* Avatar Info */}
-                        <div className="flex items-center gap-3">
-                          <div className="w-6 h-6 rounded-lg bg-neutral-800 flex items-center justify-center text-neutral-400">
+                        <div className="flex items-center gap-3 px-2">
+                          <div className="w-8 h-8 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-center text-neutral-400 shrink-0">
                             <UserIcon size={14} />
                           </div>
-                          <div className="flex flex-col">
-                            <span className="text-[9px] text-neutral-600 font-bold uppercase tracking-tighter leading-none font-outfit">Avatar Id</span>
-                            <span className="text-[12px] text-neutral-300 font-jetbrains-mono font-medium truncate">{botAvatarId || "—"}</span>
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-[9px] text-neutral-500 font-bold uppercase tracking-wider font-outfit">Avatar ID</span>
+                            <span className="text-[12px] text-neutral-300 font-medium truncate font-jetbrains-mono">{botAvatarId || "—"}</span>
                           </div>
                         </div>
 
                         {/* Email Info */}
                         {bot.email && (
-                          <div className="flex items-center justify-between group/email py-2 px-3 rounded-xl bg-brand/5 border border-brand/10 hover:border-brand/30 transition-all shadow-inner relative">
+                          <div className="flex items-center justify-between group/email p-2 rounded-2xl bg-brand/5 border border-brand/10 hover:border-brand/30 transition-all shadow-inner relative">
                             <div className="flex items-center gap-3 min-w-0">
-                              <div className="w-6 h-6 rounded-lg bg-brand/10 flex items-center justify-center text-brand shrink-0">
-                                <MailIcon size={12} />
+                              <div className="w-8 h-8 rounded-xl bg-brand/10 flex items-center justify-center text-brand shrink-0">
+                                <MailIcon size={14} />
                               </div>
-                              <span className="text-[12px] text-brand font-bold font-jetbrains-mono truncate lowercase tracking-tight">
-                                {bot.email}
-                              </span>
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-[9px] text-brand/70 font-bold uppercase tracking-wider font-outfit">Agent Email</span>
+                                <span className="text-[12px] text-brand font-bold truncate lowercase font-jetbrains-mono leading-none">{bot.email}</span>
+                              </div>
                             </div>
                             <button
                               onClick={(e) => {
@@ -3214,47 +3220,33 @@ function BotLibraryView({
                                 setCopiedEmail(bot.email);
                                 setTimeout(() => setCopiedEmail(null), 2000);
                               }}
-                              className={`p-1.5 rounded-lg transition-all ${
+                              className={`p-1.5 rounded-lg transition-all mr-1 ${
                                 copiedEmail === bot.email
                                   ? "text-brand bg-brand/20 opacity-100"
                                   : "text-neutral-500 hover:text-white transition-all opacity-0 group-hover/email:opacity-100"
                               }`}
                             >
-                              {copiedEmail === bot.email ? <CheckIcon size={14} /> : <span className="rotate-45 block"><LinkIcon size={14} /></span>}
+                              {copiedEmail === bot.email ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
                             </button>
                           </div>
                         )}
                       </div>
                     </div>
 
-                    <div className="mt-8 flex flex-wrap items-end justify-between gap-y-4 gap-x-2 px-1">
-                      <div className="flex flex-col">
-                        <span className="text-[9px] text-neutral-600 font-bold uppercase tracking-tighter font-outfit">Creation Date</span>
-                        <div className="flex items-center gap-1.5 text-[11px] text-neutral-400 font-bold font-jetbrains-mono whitespace-nowrap">
-                          <span className="text-neutral-700"><ClockIcon size={12} /></span>
-                          <span>{bot.created_at ? new Date(bot.created_at).toLocaleDateString() : "—"}</span>
+                    <div className="mt-4 flex items-center justify-between gap-4 pl-3 pr-1">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-center text-neutral-400 shrink-0">
+                          <ClockIcon size={14} />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-[9px] text-neutral-500 font-bold uppercase tracking-wider font-outfit">Created On</span>
+                          <span className="text-[12px] text-neutral-300 font-medium truncate font-jetbrains-mono">
+                            {bot.created_at ? new Date(bot.created_at).toLocaleDateString() : "—"}
+                          </span>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const newConfig = {
-                              openclawUrl: bot.config.openclaw_url,
-                              gatewayToken: bot.config.gateway_token,
-                              sessionKey: "",
-                              avatarId: botAvatarId,
-                              botName: bot.agent_name,
-                            };
-                            (window as any).openRecallWithConfig?.(newConfig);
-                          }}
-                          className="p-3 rounded-2xl bg-white/5 hover:bg-white/10 text-neutral-500 hover:text-white border border-white/5 shadow-lg transition-all group/recall"
-                          title="Generate Automated URL"
-                        >
-                          <span className="group-hover/recall:scale-110 transition-transform block"><LinkIcon size={16} /></span>
-                        </button>
-                        
                         <button
                           disabled={isConnecting || isOffline}
                           onClick={(e) => {
