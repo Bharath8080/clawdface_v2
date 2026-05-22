@@ -46,7 +46,7 @@ export function Nav() {
 
         {/* Auth */}
         <div className="flex items-center gap-4">
-          {user ? (
+          {user && user.primaryEmailVerified ? (
             <>
               <Link href="/dashboard">
                 <motion.button
@@ -73,7 +73,10 @@ export function Nav() {
             </>
           ) : (
             <>
-              <Link href="/log-in" className="text-[14px] font-medium text-zinc-400 hover:text-white transition-colors">
+              <Link
+                href={user && !user.primaryEmailVerified ? "/email-not-verified" : "/log-in"}
+                className="text-[14px] font-medium text-zinc-400 hover:text-white transition-colors"
+              >
                 Log In
               </Link>
               <Link href="/sign-up">
