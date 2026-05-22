@@ -16,7 +16,7 @@ import TranscriptionView from "@/components/TranscriptionView";
 import useCombinedTranscriptions from "@/hooks/useCombinedTranscriptions";
 import { createBotAction as createBot, syncUserAction, updateLastConfigAction as updateLastConfig } from "@/lib/database-actions";
 import { formatDuration, generateAgentEmail } from "@/lib/utils";
-import { BarVisualizer, DisconnectButton, RoomAudioRenderer, VideoTrack } from "@livekit/components-react";
+import { BarVisualizer, DisconnectButton, RoomAudioRenderer, VideoTrack, useMediaDeviceSelect } from "@livekit/components-react";
 // @ts-ignore - Internal context may not be exported in TS declaration
 import { RoomContext, useRoomContext, useVoiceAssistant } from "@livekit/components-react";
 import { useUser } from "@stackframe/stack";
@@ -2854,20 +2854,122 @@ function ControlBar(props: {
   const { state: agentState } = useVoiceAssistant();
   const room = useRoomContext();
   const [isMicEnabled, setIsMicEnabled] = useState(true);
+  const [showDevices, setShowDevices] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // LiveKit hook to get microphone devices and selection function
+  const { devices, activeDeviceId, setActiveMediaDevice } = useMediaDeviceSelect({
+    kind: "audioinput",
+    room,
+  });
+
   const toggleMic = async () => {
     const enabled = !isMicEnabled;
     setIsMicEnabled(enabled);
     await room.localParticipant.setMicrophoneEnabled(enabled);
   };
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDevices(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   if (agentState === "disconnected" || agentState === "connecting") return null;
+
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} transition={{ duration: 0.4, ease: [0.09, 1.04, 0.245, 1.055] }} className="flex items-center gap-4">
-      <div className="control-pill">
-        <button onClick={toggleMic} className="control-button-white">{isMicEnabled ? <MicIcon /> : <MicOffIcon />}</button>
-        <div className="control-dropdown-part"><ChevronDownIcon /></div>
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }} 
+      animate={{ opacity: 1, y: 0 }} 
+      exit={{ opacity: 0, y: 20 }} 
+      transition={{ duration: 0.4, ease: [0.09, 1.04, 0.245, 1.055] }} 
+      className="flex items-center gap-4 relative"
+    >
+      {/* Microphone Toggle + Dropdown Pill */}
+      <div className="control-pill relative" ref={dropdownRef}>
+        <button 
+          onClick={toggleMic} 
+          className={`control-button-white transition-all duration-200 ${
+            !isMicEnabled 
+              ? "bg-[#EA4335]/20 text-[#EA4335] border border-[#EA4335]/30 hover:bg-[#EA4335]/30" 
+              : "hover:bg-neutral-100"
+          }`}
+          title={isMicEnabled ? "Mute Microphone" : "Unmute Microphone"}
+        >
+          {isMicEnabled ? <MicIcon /> : <MicOffIcon />}
+        </button>
+        <button 
+          onClick={() => setShowDevices(!showDevices)} 
+          className="control-dropdown-part"
+          title="Select Input Device"
+        >
+          <ChevronDownIcon className={`transition-transform duration-200 ${showDevices ? "rotate-180" : ""}`} />
+        </button>
+
+        {/* Floating Microphone Selector Dropdown */}
+        <AnimatePresence>
+          {showDevices && (
+            <motion.div
+              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.95 }}
+              transition={{ duration: 0.15 }}
+              className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 bg-[#0c0c0c]/95 border border-white/10 backdrop-blur-2xl p-2 rounded-2xl w-64 shadow-[0_12px_40px_rgba(0,0,0,0.6)] flex flex-col gap-1 max-h-60 overflow-y-auto custom-scrollbar z-50"
+            >
+              <div className="text-[10px] font-bold uppercase tracking-wider text-white/40 px-3 py-1.5 border-b border-white/5 mb-1">
+                Select Microphone
+              </div>
+              {devices.length === 0 ? (
+                <div className="text-xs text-white/50 px-3 py-2">No microphones found</div>
+              ) : (
+                devices.map((device) => {
+                  const isActive = device.deviceId === activeDeviceId;
+                  return (
+                    <button
+                      key={device.deviceId}
+                      onClick={async () => {
+                        await setActiveMediaDevice(device.deviceId);
+                        setShowDevices(false);
+                      }}
+                      className={`flex items-center justify-between text-left text-xs px-3 py-2 rounded-xl transition-all duration-150 ${
+                        isActive 
+                          ? "bg-white text-black font-semibold shadow-md" 
+                          : "text-white/80 hover:bg-white/10 hover:text-white"
+                      }`}
+                    >
+                      <span className="truncate mr-2">
+                        {device.label || `Microphone ${device.deviceId.slice(0, 5)}`}
+                      </span>
+                      {isActive && (
+                        <CheckIcon size={14} className={isActive ? "text-black" : "text-white"} />
+                      )}
+                    </button>
+                  );
+                })
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-      <button onClick={() => props.setIsChatVisible(!props.isChatVisible)} className={`control-circle ${props.isChatVisible ? "active" : ""}`}><MessageIcon /></button>
-      <DisconnectButton className="disconnect-circle"><CrossIcon /></DisconnectButton>
+
+      {/* Chat Sidebar Toggle */}
+      <button 
+        onClick={() => props.setIsChatVisible(!props.isChatVisible)} 
+        className={`control-circle ${props.isChatVisible ? "active" : ""}`}
+        title={props.isChatVisible ? "Hide Transcript" : "Show Transcript"}
+      >
+        <MessageIcon />
+      </button>
+
+      {/* Leave Session Button */}
+      <DisconnectButton className="disconnect-circle" title="End Session">
+        <CrossIcon />
+      </DisconnectButton>
     </motion.div>
   );
 }
