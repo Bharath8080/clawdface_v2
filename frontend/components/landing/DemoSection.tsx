@@ -1,8 +1,18 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 export function DemoSection() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [ready, setReady] = useState(false);
+
+  const handlePlay = () => {
+    videoRef.current?.play();
+    setPlaying(true);
+  };
+
   return (
     <section id="demo" className="py-14 md:py-24 px-6 md:px-8 bg-canvas relative overflow-hidden">
       {/* Background dots */}
@@ -58,40 +68,45 @@ export function DemoSection() {
           </div>
 
           {/* Video area */}
-          <div className="relative bg-black" style={{ aspectRatio: "16/8" }}>
-            {/* Main video (dark/agent area) */}
-            <div className="absolute inset-0 bg-surface-secondary" />
+          <div className="relative bg-black" style={{ aspectRatio: "16/9" }}>
+            {/* Actual video — preload=none so it doesn't block page load */}
+            <video
+              ref={videoRef}
+              src="/clawdface-demo.mp4"
+              poster="/thumbnail-clawdface.png"
+              preload="none"
+              playsInline
+              controls={playing}
+              onCanPlay={() => setReady(true)}
+              onEnded={() => setPlaying(false)}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
 
-            {/* Bottom-left agent label */}
-            <div className="absolute bottom-5 left-5 flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-brand animate-pulse" />
-              <span className="text-white text-sm font-medium">Clawd - Your Agent</span>
-            </div>
-
-            {/* You — PiP bottom-right */}
-            <div
-              className="absolute bottom-5 right-5 rounded-2xl overflow-hidden w-[120px] md:w-[180px]"
-              style={{ background: "#1e1e3a" }}
-            >
-              <div className="px-3 pt-2.5 pb-1">
-                <span className="text-white text-xs font-semibold">You</span>
-              </div>
-              {/* Avatar placeholder */}
-              <div className="flex items-center justify-center pb-4 pt-2 relative">
-                <div className="w-16 h-16 rounded-full bg-[#2e2e5e] flex items-center justify-center">
-                  <svg width="36" height="36" viewBox="0 0 24 24" fill="#5a5a9a">
-                    <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
-                  </svg>
-                </div>
-                {/* Orange notification badge */}
-                <div className="absolute bottom-3 right-5 w-7 h-7 rounded-full bg-orange-500 flex items-center justify-center shadow-lg">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
-                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round"/>
-                  </svg>
-                </div>
-              </div>
-            </div>
+            {/* Play button overlay — fades out once playing */}
+            <AnimatePresence>
+              {!playing && (
+                <motion.button
+                  key="play-overlay"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.25 }}
+                  onClick={handlePlay}
+                  className="absolute inset-0 flex flex-col items-center justify-center gap-4 group"
+                  aria-label="Play demo"
+                >
+                  {/* Dark scrim so thumbnail doesn't wash out the button */}
+                  <div className="absolute inset-0 bg-black/30" />
+                  <div className="relative w-16 h-16 md:w-20 md:h-20 rounded-full bg-brand/90 flex items-center justify-center shadow-[0_0_40px_rgba(0,227,170,0.4)] group-hover:scale-110 group-hover:bg-brand transition-all duration-200">
+                    {/* Triangle shifted slightly right for optical centering */}
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="black" className="translate-x-0.5">
+                      <polygon points="5,3 19,12 5,21" />
+                    </svg>
+                  </div>
+                  <span className="relative text-white/80 text-sm font-medium tracking-wide">Watch Demo</span>
+                </motion.button>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Control bar */}
