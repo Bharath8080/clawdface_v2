@@ -573,7 +573,10 @@ class MyAgent(Agent):
              logger.error(f"[STREAM] LLM provider not supported or not found: {type(llm_provider)}")
              return
              
-        llm_stream = llm_provider.chat(chat_ctx=chat_ctx)
+        llm_stream = llm_provider.chat(
+            chat_ctx=chat_ctx,
+            conn_options=APIConnectOptions(timeout=300.0, max_retry=0)
+        )
         stream_start_time = asyncio.get_event_loop().time()
         
         # Start thinking timer
